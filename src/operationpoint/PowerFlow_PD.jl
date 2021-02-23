@@ -4,78 +4,12 @@ using LightGraphs #incidence_matrix
 using Roots #for iwamoto_multiplier
 using LinearAlgebra
 
+#Pi models for nodal admittance matrice
 PiModel(L::PiModelLine) = PiModel(L.y,L.y_shunt_km,L.y_shunt_mk,1,1)
 PiModel(T::Transformer) = PiModel(T.y,0,0,T.t_ratio,1)
 PiModel(S::StaticLine)  = PiModel(S.Y,0,0,1,1)
 PiModel(R::RLLine)      = PiModel(1/(R.R+R.ω0*R.L),0,0,1,1)
-function PiModel(T::StaticPowerTransformer)
-    u_LV = T.U_LV
-    u_HV = T.U_HV
-    if T.tap_side == "LV"
-        u_LV = (1+T.tap_pos*T.tap_inc/100.)*T.U_LV
-    elseif T.tap_side == "HV"
-        u_HV = (1+T.tap_pos*T.tap_inc/100.)*T.U_HV
-    else
-        error("Can not interprete tap_side (HV/LV): $tap_side")
-    end
-    ü     = u_HV/u_LV
-    I_r   = T.S_r/(u_HV*sqrt(3)) #rated current
 
-    #Calculatiing leakage reactance Xa and winding resistance Ra
-    Ra = 0.
-    Xa = 0.
-    if T.XR_ratio == 0
-        Ra = T.uk*u_HV/(sqrt(3)*I_r);
-        Xa = 0.
-    elseif T.XR_ratio == Inf
-        Ra = 0.
-        Xa = T.uk*u_HV/(sqrt(3)*I_r);
-    else
-        Ra = sqrt(((T.uk*u_HV/(I_r*sqrt(3)))^2)/(1+T.XR_ratio^2));
-        Xa = T.XR_ratio*Ra;
-    end
-    Ya = 1/(0.5*(Ra+1im*Xa)) #it is assumed that losses are equally (0.5) distributed over both sides
-    Ybs = Ya; #Ybs should be changed, if losses are not equally distributed
-
-    #Calculating magnetising reactance Xm and core resistance Rfe from iron losess
-    Zm  = u_HV/(sqrt(3)*T.i0/100.0*I_r) #no-load currents depends on complete magnetising impedance
-    Rfe = u_HV*u_HV/(T.Pv0);
-    Xm = Inf
-    if T.i0 != 0
-        Xm  = 1/(sqrt(1/Zm^2 - 1/Rfe^2))
-    end
-    Ym  = 1/Rfe + 1/(1im*Xm)
-
-    Ybase = 1/(T.Ubase^2/T.Sbase) #this could be changed, if global base values are available
-    Y     = 1/(Ya+Ybs+Ym)./Ybase
-    Y = Y.*PiModel(Ya*Ybs, Ya*Ym, Ybs*Ym,1,ü)
-    return Y
-end
-
-function NodalAdmittanceMatrice(pg::PowerGrid,U_r_nodes,Ubase)
-    Fourpoles = PiModel.(values(pg.lines));
-    #changing sign convention
-    for i in 1:length(Fourpoles)
-        Fourpoles[i][1,:] *= -1
-    end
-    B = Array{Complex{Float64},2}(undef,0,0);
-    for i in Fourpoles
-        B = vcat(hcat(B,zeros(size(B)[1],2)),hcat(zeros(2,size(B)[1]),i))
-    end
-    inci = incidence_matrix(powergrid.graph, oriented = false);
-    inci_new = zeros(size(inci)[1],2*size(inci)[2]);
-    for i in 1:size(inci)[2]
-        ind = findall(x->x==1,inci[:,i])
-        inci_new[ind[1],2*i-1] = 1
-        inci_new[ind[2],2*i] = 1
-    end
-    #Create matrice that transforms the different voltage levels
-    Yü = zeros(length(U_r_nodes),length(U_r_nodes))
-    for i in 1:length(U_r_nodes)
-        Yü[:,i] = U_r_nodes[i].*U_r_nodes./(Ubase^2)
-    end
-    Ykk = Yü.*(inci_new*B*inci_new')
-end
 # NodeTypes: 0 = Slack, 1 = PV, 2 = PQ
 NodeType(S::SlackAlgebraic) = 0
 NodeType(F::FourthOrderEq)  = 1
@@ -91,8 +25,7 @@ NodeType(L::VoltageDependentLoad) = 2
 NodeType(L::ExponentialRecoveryLoad)  = 2
 NodeType(L::CSIMinimal)  = 2
 
-
-PowerNodeLoad(S::SlackAlgebraic,U) = 0.
+PowerNodeLoad(S::SlackAlgebraic,U) = 0.  #treated as generation
 PowerNodeLoad(F::FourthOrderEq,U) = 0.
 PowerNodeLoad(F::FourthOrderEqExciterIEEEDC1A,U)  = 0.
 PowerNodeLoad(F::FourthOrderEqGovernorExciterAVR,U)  = 0.
@@ -201,9 +134,7 @@ function PowerFlowClassic(pg::PowerGrid, U_r_nodes::Vector{Float64}; Ubase=380e3
         #Funktion raus machen
         #Check if reactiv limit is achieved; change PV to PQ node
         Qmax =  ones(number_nodes,1)*Inf #dummy
-        #Qmax[3] = 0.1 #Test-case
         Qmin = -ones(number_nodes,1)*Inf #dummy
-        #Qmin[3] = -0.1
         if mod(iter,2) == 0 && !isempty(ind_PV_or) #dont change every iter and check if PV nodes exist
             for i in ind_PV_or # Knotenleistungen berechnen, anhand der aktuellen Spannung
                 Qn[i] = sum(U[i].*U.*Ykk_abs[:,i].*sin.(δ[i].-δ.-θ[:,i]))
@@ -226,6 +157,31 @@ function PowerFlowClassic(pg::PowerGrid, U_r_nodes::Vector{Float64}; Ubase=380e3
             end
         end
     end
+end
+
+function NodalAdmittanceMatrice(pg::PowerGrid,U_r_nodes,Ubase)
+    Fourpoles = PiModel.(values(pg.lines)); # get all fourpoles
+    #changing sign convention
+    for i in 1:length(Fourpoles)
+        Fourpoles[i][1,:] *= -1
+    end
+    B = Array{Complex{Float64},2}(undef,0,0);
+    for i in Fourpoles  #create diagonal matrice of fourpoles
+        B = vcat(hcat(B,zeros(size(B)[1],2)),hcat(zeros(2,size(B)[1]),i))
+    end
+    inci = incidence_matrix(powergrid.graph, oriented = false);
+    inci_new = zeros(size(inci)[1],2*size(inci)[2]);
+    for i in 1:size(inci)[2]  #change incidence matrice so that the sum of each column is one
+        ind = findall(x->x==1,inci[:,i])
+        inci_new[ind[1],2*i-1] = 1
+        inci_new[ind[2],2*i] = 1
+    end
+    #Create matrice that transforms the different voltage levels
+    Yü = zeros(length(U_r_nodes),length(U_r_nodes))
+    for i in 1:length(U_r_nodes)
+        Yü[:,i] = U_r_nodes[i].*U_r_nodes./(Ubase^2)
+    end
+    Ykk = Yü.*(inci_new*B*inci_new')
 end
 
 function CalculatePolarLoadFlowJacobian(U,δ,Ykk)

@@ -51,9 +51,13 @@ Transformer based on typical equipment parameters
     Ybs = Ya; #Ybs should be changed, if losses are not equally distributed
 
     #Calculating magnetising reactance Xm and core resistance Rfe from iron losess
-    Xm  = U_HV/(sqrt(3)*i0/100.*I_r)
-    Rfe = U_HV*U_HV/(Pv0);
-    Ym  = 1/Rfe + 1/(1i*Xm)
+    Zm  = U_HV/(sqrt(3)*i0/100.0*I_r) #no-load currents depends on complete magnetising impedance
+    Rfe = U_HV*U_HV/(Pv0)
+    Xm  = Inf
+    if i0 != 0
+        Xm = 1/(sqrt(1/Zm^2 - 1/Rfe^2))
+    end
+    Ym  = 1/Rfe + 1/(1im*Xm)
 
     Ybase = 1/(Ubase^2/Sbase) #this could be changed, if global base values are available
     Y     = 1/(Ya+Ybs+Ym)./Ybase
