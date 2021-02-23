@@ -8,49 +8,7 @@ PiModel(L::PiModelLine) = PiModel(L.y,L.y_shunt_km,L.y_shunt_mk,1,1)
 PiModel(T::Transformer) = PiModel(T.y,0,0,T.t_ratio,1)
 PiModel(S::StaticLine)  = PiModel(S.Y,0,0,1,1)
 PiModel(R::RLLine)      = PiModel(1/(R.R+R.ω0*R.L),0,0,1,1)
-function PiModel(T::StaticPowerTransformer)
-    u_LV = T.U_LV
-    u_HV = T.U_HV
-    if T.tap_side == "LV"
-        u_LV = (1+T.tap_pos*T.tap_inc/100.)*T.U_LV
-    elseif T.tap_side == "HV"
-        u_HV = (1+T.tap_pos*T.tap_inc/100.)*T.U_HV
-    else
-        error("Can not interprete tap_side (HV/LV): $tap_side")
-    end
-    ü     = u_HV/u_LV
-    I_r   = T.S_r/(u_HV*sqrt(3)) #rated current
 
-    #Calculatiing leakage reactance Xa and winding resistance Ra
-    Ra = 0.
-    Xa = 0.
-    if T.XR_ratio == 0
-        Ra = T.uk*u_HV/(sqrt(3)*I_r);
-        Xa = 0.
-    elseif T.XR_ratio == Inf
-        Ra = 0.
-        Xa = T.uk*u_HV/(sqrt(3)*I_r);
-    else
-        Ra = sqrt(((T.uk*u_HV/(I_r*sqrt(3)))^2)/(1+T.XR_ratio^2));
-        Xa = T.XR_ratio*Ra;
-    end
-    Ya = 1/(0.5*(Ra+1im*Xa)) #it is assumed that losses are equally (0.5) distributed over both sides
-    Ybs = Ya; #Ybs should be changed, if losses are not equally distributed
-
-    #Calculating magnetising reactance Xm and core resistance Rfe from iron losess
-    Zm  = u_HV/(sqrt(3)*T.i0/100.0*I_r) #no-load currents depends on complete magnetising impedance
-    Rfe = u_HV*u_HV/(T.Pv0);
-    Xm = Inf
-    if T.i0 != 0
-        Xm  = 1/(sqrt(1/Zm^2 - 1/Rfe^2))
-    end
-    Ym  = 1/Rfe + 1/(1im*Xm)
-
-    Ybase = 1/(T.Ubase^2/T.Sbase) #this could be changed, if global base values are available
-    Y     = 1/(Ya+Ybs+Ym)./Ybase
-    Y = Y.*PiModel(Ya*Ybs, Ya*Ym, Ybs*Ym,1,ü)
-    return Y
-end
 
 function NodalAdmittanceMatrice(pg::PowerGrid,U_r_nodes,Ubase)
     Fourpoles = PiModel.(values(pg.lines));
