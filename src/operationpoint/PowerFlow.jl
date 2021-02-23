@@ -4,7 +4,6 @@ using LightGraphs #incidence_matrix
 using Roots #for Iwamoto multiplier
 using LinearAlgebra
 
-
 #Pi models for nodal admittance matrice
 PiModel(L::PiModelLine) = PiModel(L.y,L.y_shunt_km,L.y_shunt_mk,1,1)
 PiModel(T::Transformer) = PiModel(T.y,0,0,T.t_ratio,1)
