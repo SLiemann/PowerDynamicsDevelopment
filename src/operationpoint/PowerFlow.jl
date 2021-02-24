@@ -8,8 +8,10 @@ using LinearAlgebra
 PiModel(L::PiModelLine) = PiModel(L.y,L.y_shunt_km,L.y_shunt_mk,1,1)
 PiModel(T::Transformer) = PiModel(T.y,0,0,T.t_ratio,1)
 PiModel(S::StaticLine)  = PiModel(S.Y,0,0,1,1)
-PiModel(R::RLLine)      = PiModel(1/(R.R+R.ω0*R.L),0,0,1,1)
-function PiModel(T::StaticPowerTransformer)
+PiModel(R::RLLine)      = PiModel(1/(R.R+1im*R.ω0*R.L),0,0,1,1)
+PiModel(T::DynamicPowerTransformer) = PiModelTransformer(T)
+PiModel(T::StaticPowerTransformer) = PiModelTransformer(T)
+function PiModelTransformer(T)
     u_LV = T.U_LV
     u_HV = T.U_HV
     if T.tap_side == "LV"
@@ -99,7 +101,7 @@ PowerNodeGeneration(L::ExponentialRecoveryLoad)  = 0. #treated as load
 PowerNodeGeneration(L::CSIMinimal)  = 0. #treated as load
 
 
-function PowerFlowClassic(pg::PowerGrid, U_r_nodes::Vector{Float64}; Ubase::Float64=380e3, ind_sl::Int64 = 0,max_tol::Float64 = 1e-5,iter_max::Int64  = 30,iwamoto::Bool =false, Qmax = -1, Qmin = -1)
+function PowerFlowClassic(pg::PowerGrid, U_r_nodes::Vector{Float64}; Ubase::Float64=380e3, ind_sl::Int64 = 0,max_tol::Float64 = 1e-6,iter_max::Int64  = 30,iwamoto::Bool =false, Qmax = -1, Qmin = -1)
     number_nodes = length(pg.nodes); #convenience
     nodetypes = NodeType.(values(pg.nodes))
     if !isempty(findall(x-> x==0, nodetypes)) #if there is no SlackAlgebraic
@@ -184,7 +186,7 @@ function PowerFlowClassic(pg::PowerGrid, U_r_nodes::Vector{Float64}; Ubase::Floa
         if Qmax != -1 && Qmin != -1 #Qmax and Qmin are normally vectors with the limits
             #In future, a routine is needed which will get the information about
             #the reactive power limits from each node directly
-            if mod(iter,1) == 0 && !isempty(ind_PV_or) #dont change every iteration and check if PV nodes exist
+            if mod(iter,3) == 0 && !isempty(ind_PV_or) #dont change every iteration and check if PV nodes exist
                 for i in ind_PV_or # Calc current reactive power at each node
                     Qn[i] = sum(U[i].*U.*Ykk_abs[:,i].*sin.(δ[i].-δ.-θ[:,i]))
                     if Qn[i] >= Qmax[i]
