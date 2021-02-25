@@ -57,6 +57,7 @@ end
 
 # NodeTypes: 0 = Slack, 1 = PV, 2 = PQ
 NodeType(S::SlackAlgebraic) = 0
+NodeType(F::SixOrderMarcanatoMachine)  = 1
 NodeType(F::FourthOrderEq)  = 1
 NodeType(F::FourthOrderEqExciterIEEEDC1A)  = 1
 NodeType(F::FourthOrderEqGovernorExciterAVR)  = 1
@@ -72,6 +73,7 @@ NodeType(L::CSIMinimal)  = 2
 
 #note: only loads are treated with voltage depency and are called every iteration
 PowerNodeLoad(S::SlackAlgebraic,U) = 0. #treated as generation
+PowerNodeLoad(F::SixOrderMarcanatoMachine,U) = 0. #treated as generation
 PowerNodeLoad(F::FourthOrderEq,U) = 0. #treated as generation
 PowerNodeLoad(F::FourthOrderEqExciterIEEEDC1A,U)  = 0. #treated as generation
 PowerNodeLoad(F::FourthOrderEqGovernorExciterAVR,U)  = 0. #treated as generation
@@ -87,6 +89,7 @@ PowerNodeLoad(L::CSIMinimal,U)  = -U*conj(L.I_r)
 
 #generation is voltage independent, otherwise it has to be called every iteration
 PowerNodeGeneration(S::SlackAlgebraic) = 0.
+PowerNodeGeneration(F::SixOrderMarcanatoMachine) = F.P
 PowerNodeGeneration(F::FourthOrderEq) = F.P
 PowerNodeGeneration(F::FourthOrderEqExciterIEEEDC1A)  = F.P
 PowerNodeGeneration(F::FourthOrderEqGovernorExciterAVR)  = F.P
