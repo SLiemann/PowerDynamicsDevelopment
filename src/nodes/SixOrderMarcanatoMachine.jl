@@ -1,7 +1,7 @@
 # Sebastian Liemann, ie3 TU Dortmund, based on F. Milano, Power System Modelling and Scripting, Springer Verlag, 2010
 @doc doc"""
 ```Julia
-SixOrderMarcanatoMachine(H, P, D, Ω, E_f, R_a,X_l,T_ds,T_qs,T_dss,T_qss,X_d,X_q,X_ds,X_qs,X_dss,X_qss,T_AA)
+SixOrderMarcanatoMachine(H, P, D, Ω, E_f, R_a,T_ds,T_qs,T_dss,T_qss,X_d,X_q,X_ds,X_qs,X_dss,X_qss,T_AA)
 ```
 
 A node type that applies the 4th-order synchronous machine model with frequency/angle and voltage dynamics,
@@ -19,7 +19,6 @@ Additionally to ``u``, it has the internal dynamic variables
 - `Ω`: rated frequency of the power grid, often ``2π⋅50Hz``
 - `E_f`: field voltage in [pu.]
 - `R_a` : armature resistance, given in [pu]
-- `X_l` : leakage reactance, given in [s]
 - `T_ds` : short-circuit transient time constant of d-axis, given in [s]
 - `T_qs` : short-circuit transient time constant of q-axis, given in [s]
 - `T_dss`: short-circuit subtransient transient time constant of d-axis, given in [s]
@@ -33,12 +32,11 @@ Additionally to ``u``, it has the internal dynamic variables
 - `T_AA` : additional leakage time constant in d-axis, given in [s]
 
 """
-@DynamicNode SixOrderMarcanatoMachine(H, P, D, Ω, E_f, R_a,X_l,T_ds,T_qs,T_dss,T_qss,X_d,X_q,X_ds,X_qs,X_dss,X_qss,T_AA) begin
+@DynamicNode SixOrderMarcanatoMachine(H, P, D, Ω, E_f, R_a,T_ds,T_qs,T_dss,T_qss,X_d,X_q,X_ds,X_qs,X_dss,X_qss,T_AA) begin
     @assert H > 0 "inertia (H) should be >0"
     @assert D >= 0 "damping (D) should be >=0"
     @assert E_f >= 0 "Field Voltage (E_f) should be >=0"
     @assert R_a >= 0 "armature resistance (R_a) should be >=0"
-    @assert X_l >= 0 "leakage reactance (X_l) should be >=0"
     @assert T_ds > 0 "time constant of d-axis (T_ds) should be >0"
     @assert T_qs > 0 "time constant of q-axis (T_qs) should be >0"
     @assert T_dss > 0 "time constant of d-axis (T_dss) should be >0"
@@ -49,7 +47,7 @@ Additionally to ``u``, it has the internal dynamic variables
     @assert X_qs > 0 "transient reactance of q-axis (X_qs) should be >0"
     @assert X_dss > 0 "subtransient reactance of d-axis (X_dss) should be >0"
     @assert X_qss > 0 "subtransient reactance of q-axis (X_qss) should be >0"
-    @assert T_AA >= 0 "additional leakage time constant of d-axis (T_AA) should be >0"
+    @assert T_AA >= 0 "additional leakage time constant of d-axis (T_AA) should be >=0"
 
     #Converstion of short-circuit time constants to open-loop time constants
     T_d0s = T_ds*(X_d/X_ds)
@@ -73,13 +71,13 @@ end [[θ,dθ],[ω, dω],[e_ds, de_ds],[e_qs, de_qs],[e_dss, de_dss],[e_qss, de_q
     i_q = imag(i_c)
 
     dθ = ω
-    de_qs = (1 / T_d0s)* (- e_qs - (X_d - X_ds - γ_d) * i_d + (1-T_AA/T_d0s) * E_f)
+    de_qs = (1 / T_d0s)* (- e_qs - (X_d - X_ds - γ_d) * i_d + (1 - T_AA/T_d0s) * E_f)
     de_ds = (1 / T_q0s)* (- e_ds + (X_q - X_qs - γ_q) * i_q)
 
     de_qss = (1 / T_d0ss)* (- e_qss + e_qs - (X_ds - X_dss + γ_d) * i_d + (T_AA/T_d0s) * E_f)
     de_dss = (1 / T_q0ss)* (- e_dss + e_ds + (X_qs - X_qss + γ_q) * i_q)
 
-    v_d = -R_a * i_d - e_qss + X_dss * i_d
+    v_d = -R_a * i_d + e_qss - X_dss * i_d
     v_q = -R_a * i_q + e_dss + X_qss * i_q
 
     v  = v_d + 1im*v_q
