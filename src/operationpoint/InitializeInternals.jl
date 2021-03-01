@@ -1,12 +1,12 @@
 using PowerDynamics
-using PowerDynamics: rhs, SixOrderMarcanatoMachine
+using PowerDynamics: rhs, SixOrderMarcanatoMachine, symbolsof
 include("PowerFlow.jl") # for NodalAdmittanceMatrice
 
 function InitializeInternalDynamics(pg::PowerGrid,I_c,ic_lf)
    ind_offset = 1
    pg_new = deepcopy(pg)
    for (ind,val) in enumerate(pg.nodes)
-      len_node_dynamics = length(symbolsof(val))
+      len_node_dynamics = length(symbolsof(val[2]))
        if len_node_dynamics != 2
           ic_lf[ind_offset:ind_offset+len_node_dynamics-1],node = InitNode(val[2],ind,I_c,ic_lf,ind_offset)
           pg_new.nodes[val[1]] = node #Update powergrid
@@ -20,7 +20,8 @@ function InitNode(SM::SixOrderMarcanatoMachine,ind,I_c,ic_lf,ind_offset)
    v_d_temp = ic_lf[ind_offset]
    v_q_temp = ic_lf[ind_offset+1]
    #Rotor angle
-   δ = angle(v_d_temp+1im*v_q_temp+(SM.R_a+1im*SM.X_q)*I_c[ind])
+   δ = angle(v_d_temp+1im*v_q_temp+(SM.R_a+1im*SM.X_q)*I_c[ind]) #- angle(v_d_temp + 1im*v_q_temp)
+   display(δ/pi*180)
 
    v = v_d_temp +1im*v_q_temp
    v = 1im*v*exp(-1im*δ)
@@ -52,13 +53,13 @@ function InitNode(SM::SixOrderMarcanatoMachine,ind,I_c,ic_lf,ind_offset)
       e_qs = (SM.T_AA/T_d0s) * (-(SM.X_d - SM.X_ds - γ_d) *i_d + (T_d0s/SM.T_AA - 1)*(e_qss + (SM.X_ds - SM.X_dss + γ_d) *i_d ))
       v_f  = (T_d0s / SM.T_AA) * (e_qss - e_qs + (SM.X_ds - SM.X_dss + γ_d) *i_d)
    else
-      e_qs = e_qss + (SM.X_ds - SM.X_dss + γ_d) *i_d
-      v_f  = e_qs  + (SM.X_d  - SM.X_ds - γ_d) *i_d
+      e_qs = e_qss + (SM.X_ds - SM.X_dss + γ_d) * i_d
+      v_f  = e_qs  + (SM.X_d  - SM.X_ds  - γ_d) * i_d
    end
    #Pm also needs to be initialized
    Pm = (v_q + SM.R_a * i_q) * i_q + (v_d + SM.R_a * i_d) * i_d
    #Create new bus
-   node_temp = SixOrderMarcanatoMachine(H=SM.H, P=Pm, D=SM.D, Ω=SM.Ω, E_f=v_f, R_a=SM.R_a, T_ds=SM.T_ds, T_qs=SM.T_qs, T_dss=SM.T_dss, T_qss=SM.T_qss, X_d=SM.X_d, X_q=SM.X_q, X_ds=SM.X_ds, X_qs=SM.X_qs, X_dss=SM.X_dss,X_qss=SM.X_qss, T_AA=SM.T_AA);
+   node_temp = SixOrderMarcanatoMachine(H=SM.H, P=Pm, D=SM.D, Ω=SM.Ω, E_f=v_f, R_a=SM.R_a, T_ds=SM.T_ds, T_qs=SM.T_qs, T_dss=SM.T_dss, T_qss=SM.T_qss, X_d=SM.X_d, X_q=SM.X_q, X_ds=SM.X_ds, X_qs=SM.X_qs, X_dss=SM.X_dss, X_qss=SM.X_qss, T_AA=SM.T_AA);
    # Structure from node: u_r, u_i, θ, ω, e_ds, e_qs, e_dss,e_qss
    return [v_d_temp, v_q_temp, δ, 0., e_ds, e_qs, e_dss, e_qss], node_temp
 end

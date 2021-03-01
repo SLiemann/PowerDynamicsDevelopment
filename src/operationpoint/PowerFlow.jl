@@ -158,7 +158,7 @@ function PowerFlowClassic(pg::PowerGrid, U_r_nodes::Vector{Float64}; Ubase::Floa
         elseif iter == iter_max
              @warn "Power flow reached max. iteration ($iter) and has not converged."
              ic_guess = guess.(values(pg.nodes),U.*exp.(1im*δ))
-             return vcat(ic_guess...) #max iteration reached
+             return U,δ*180/pi,cat(ic_guess...) #max iteration reached
         end
 
         #get load flow Jacobian
@@ -223,7 +223,7 @@ function NodalAdmittanceMatrice(pg::PowerGrid,U_r_nodes,Ubase)
     for i in Fourpoles
         B = vcat(hcat(B,zeros(size(B)[1],2)),hcat(zeros(2,size(B)[1]),i))
     end
-    inci = incidence_matrix(powergrid.graph, oriented = false);
+    inci = incidence_matrix(pg.graph, oriented = false);
     inci_new = zeros(size(inci)[1],2*size(inci)[2]);
     for i in 1:size(inci)[2]
         ind = findall(x->x==1,inci[:,i])

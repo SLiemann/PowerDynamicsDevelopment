@@ -9,14 +9,14 @@ import PowerDynamics: PiModel
 using DifferentialEquations
 
 include("operationpoint/PowerFlow.jl")
-include("operationpoint/InitializeInternals.jl")
+
 begin
 
     buses=OrderedDict(
         "bus1"=> SlackAlgebraic(U=1),
         "bus2"=> VoltageDependentLoad(P=0.3, Q=-0.3, U=1.0, A=0., B=0.),
         #"bus3"=> FourthOrderEq(T_d_dash=6.1, D=2, X_d=1.05, X_q=0.98, Ω=50, X_d_dash=0.185, T_q_dash=0.4, X_q_dash=0.36, P=0.5, H=6.54, E_f= 1.625))
-        "bus3"=> SixOrderMarcanatoMachine(H = 3, P=0.5, D=2, Ω=50, E_f=1.4, R_a = 0.,T_ds=1.136,T_qs=0.8571,T_dss=0.04,T_qss=0.06666,X_d=1.1,X_q=0.7,X_ds=0.25,X_qs=0.3,X_dss=0.2,X_qss=0.2,T_AA=0.1))
+        "bus3"=> SixOrderMarcanatoMachine(H = 5, P=0.5, D=5, Ω=50, E_f=1.4, R_a = 0.1,T_ds=1.136,T_qs=0.8571,T_dss=0.04,T_qss=0.06666,X_d=1.1,X_q=0.7,X_ds=0.25,X_qs=0.3,X_dss=0.2,X_qss=0.2,T_AA=0.))
         #"bus4"=> VoltageDependentLoad(P=0.5, Q=0.5, U=1.0, A=0.5, B=0.2))
 
     #branches=OrderedDict(
@@ -34,23 +34,34 @@ begin
     #    "branch2"=> RLLine(from= "bus2", to = "bus3",R= 0.05, L = 0.15, ω0 = 1.),
     #    "branch3"=> DynamicPowerTransformer(from="bus3",to="bus4",S_r=100e6,U_HV=380e3,U_LV=110e3,uk=0.1581138,XR_ratio=5,i0=6.35,Pv0=100e3,Sbase=100e6,Ubase=380e3,tap_side = "LV",tap_pos = 5,tap_inc = 1,tap_max=10,v_ref=1.,v_dead=0.05,tap_time=5.))
 
-    powergrid = PowerGrid(buses, branches)
+    pg = PowerGrid(buses, branches)
     Unodes = [380e3,380e3,380e3]
     Qmax   = [Inf, Inf, Inf]
     Qmin   = -Qmax
-    U,δ1,ic = PowerFlowClassic(powergrid,Unodes,iwamoto = true, Qmax = Qmax, Qmin = Qmin)
-    pg = powergrid
+    U,δ1,ic = PowerFlowClassic(pg,Unodes,iwamoto = true, Qmax = Qmax, Qmin = Qmin)
+    #pg = powergrid
 end
 #ic[7] =0.5
 #ic2 = find_valid_initial_condition(powergrid,ic)
 #x0_rand = zeros(25,1)
 #x0_rand[1:10] .= ic
-#ODEProb = ODEProblem{true}(rhs(powergrid),ic,[0,2.])
-#test = solve(ODEProb,Rodas4())
-#plot(test)
-#Δic = ic .- pg_st.vec
+begin
+    ic2 = find_valid_initial_condition(pg,ic)
+    ODEProb = ODEProblem{true}(rhs(pg),ic2,[0,10.])
+    test = solve(ODEProb,Rodas4())
+    plot(test)
+end
 
-Uc = U.*exp.(1im*δ1/180*pi)
-Ykk = NodalAdmittanceMatrice(powergrid,Unodes,380e3)
-I_c = Ykk*Uc
+
+begin
+    include("operationpoint/InitializeInternals.jl")
+    Uc = U.*exp.(1im*δ1/180*pi)
+    Ykk = NodalAdmittanceMatrice(pg,Unodes,380e3)
+    I_c = Ykk*Uc
+    PG, ic0 = InitializeInternalDynamics(pg,I_c,ic)
+    ODEProb = ODEProblem{true}(rhs(PG),ic0,[0,10.])
+    test = solve(ODEProb,Rodas4())
+    plot(test)
+end
+#Δic = ic .- pg_st.vec
 #S  = Uc.*(conj.(Ykk)*conj.(Uc))

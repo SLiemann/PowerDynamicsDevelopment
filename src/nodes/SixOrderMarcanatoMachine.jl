@@ -71,14 +71,14 @@ end [[θ,dθ],[ω, dω],[e_ds, de_ds],[e_qs, de_qs],[e_dss, de_dss],[e_qss, de_q
     i_q = imag(i_c)
 
     dθ = ω
-    de_qs = (1 / T_d0s)* (- e_qs - (X_d - X_ds - γ_d) * i_d + (1 - T_AA/T_d0s) * E_f)
-    de_ds = (1 / T_q0s)* (- e_ds + (X_q - X_qs - γ_q) * i_q)
+    de_qs = (1 / T_d0s) * (- e_qs - (X_d - X_ds - γ_d) * i_d + (1 - T_AA/T_d0s) * E_f)
+    de_ds = (1 / T_q0s) * (- e_ds + (X_q - X_qs - γ_q) * i_q)
 
-    de_qss = (1 / T_d0ss)* (- e_qss + e_qs - (X_ds - X_dss + γ_d) * i_d + (T_AA/T_d0s) * E_f)
-    de_dss = (1 / T_q0ss)* (- e_dss + e_ds + (X_qs - X_qss + γ_q) * i_q)
+    de_qss = (1 / T_d0ss) * (- e_qss + e_qs - (X_ds - X_dss + γ_d) * i_d + (T_AA/T_d0s) * E_f)
+    de_dss = (1 / T_q0ss) * (- e_dss + e_ds + (X_qs - X_qss + γ_q) * i_q)
 
-    v_d = -R_a * i_d + e_qss - X_dss * i_d
-    v_q = -R_a * i_q + e_dss + X_qss * i_q
+    v_d = -R_a * i_d + e_dss + X_qss * i_q
+    v_q = -R_a * i_q + e_qss - X_dss * i_d
 
     v  = v_d + 1im*v_q
     du = -1im*v*exp(1im*θ) + u*1im*ω
