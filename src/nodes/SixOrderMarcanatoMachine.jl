@@ -33,6 +33,8 @@ Additionally to ``u``, it has the internal dynamic variables
 
 """
 @DynamicNode SixOrderMarcanatoMachine(H, P, D, Ω, E_f, R_a,T_ds,T_qs,T_dss,T_qss,X_d,X_q,X_ds,X_qs,X_dss,X_qss,T_AA) begin
+    MassMatrix(m_int =[true,true,true,true,true,true])
+end begin
     @assert H > 0 "inertia (H) should be >0"
     @assert D >= 0 "damping (D) should be >=0"
     @assert E_f >= 0 "Field Voltage (E_f) should be >=0"
@@ -81,8 +83,9 @@ end [[θ,dθ],[ω, dω],[e_ds, de_ds],[e_qs, de_qs],[e_dss, de_dss],[e_qss, de_q
     v_q = -R_a * i_q + e_qss - X_dss * i_d
 
     v  = v_d + 1im*v_q
-    du = -1im*v*exp(1im*θ) + u*1im*ω
+    du = u - -1im*v*exp(1im*θ)
     p  = (v_q + R_a * i_q) * i_q + (v_d + R_a * i_d) * i_d
+    #p  = (e_qss-X_dss*i_d)*i_q + (-e_dss-X_qss*i_q)*i_d
     dω = (P - D*ω - p)*Ω_H
 end
 

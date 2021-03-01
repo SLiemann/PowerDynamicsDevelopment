@@ -21,7 +21,6 @@ function InitNode(SM::SixOrderMarcanatoMachine,ind,I_c,ic_lf,ind_offset)
    v_q_temp = ic_lf[ind_offset+1]
    #Rotor angle
    δ = angle(v_d_temp+1im*v_q_temp+(SM.R_a+1im*SM.X_q)*I_c[ind]) #- angle(v_d_temp + 1im*v_q_temp)
-   display(δ/pi*180)
 
    v = v_d_temp +1im*v_q_temp
    v = 1im*v*exp(-1im*δ)
@@ -58,6 +57,8 @@ function InitNode(SM::SixOrderMarcanatoMachine,ind,I_c,ic_lf,ind_offset)
    end
    #Pm also needs to be initialized
    Pm = (v_q + SM.R_a * i_q) * i_q + (v_d + SM.R_a * i_d) * i_d
+   #Pm = (e_qss-SM.X_dss*i_d)*i_q + (-e_dss-SM.X_qss*i_q)*i_d
+
    #Create new bus
    node_temp = SixOrderMarcanatoMachine(H=SM.H, P=Pm, D=SM.D, Ω=SM.Ω, E_f=v_f, R_a=SM.R_a, T_ds=SM.T_ds, T_qs=SM.T_qs, T_dss=SM.T_dss, T_qss=SM.T_qss, X_d=SM.X_d, X_q=SM.X_q, X_ds=SM.X_ds, X_qs=SM.X_qs, X_dss=SM.X_dss, X_qss=SM.X_qss, T_AA=SM.T_AA);
    # Structure from node: u_r, u_i, θ, ω, e_ds, e_qs, e_dss,e_qss
