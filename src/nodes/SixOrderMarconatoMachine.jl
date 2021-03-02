@@ -1,21 +1,27 @@
 # Sebastian Liemann, ie3 TU Dortmund, based on F. Milano, Power System Modelling and Scripting, Springer Verlag, 2010
 @doc doc"""
 ```Julia
-SixOrderMarcanatoMachine(H, P, D, Ω, E_f, R_a,T_ds,T_qs,T_dss,T_qss,X_d,X_q,X_ds,X_qs,X_dss,X_qss,T_AA)
+SixOrderMarconatoMachine(H, P, D, Ω, E_f, R_a,T_ds,T_qs,T_dss,T_qss,X_d,X_q,X_ds,X_qs,X_dss,X_qss,T_AA)
 ```
 
-A node type that applies the 4th-order synchronous machine model with frequency/angle and voltage dynamics,
-which is implemented according to P. Sauer, "Power System Dynamics and Stability".
-For an illustration of a synchronous machine schematic see P. Sauer, Fig. 3.1 on p. 25.
+A node type that applies the 6th-order (sometimes also called 4th-order if ω and δ are not counted)
+synchronous machine model which is implemented according to
+F. Milano, "Power System Modelling and Scripting", Springer Verlag, 2010
+The main equations are on page 331, cf. Table 15.2 Model 6.b
 
-Additionally to ``u``, it has the internal dynamic variables
-* ``ω`` representing the frequency of the rotator relative to the grid frequency ``Ω``, i.e. the real frequency ``ω_r`` of the rotator is given as ``\omega_r = \Omega + \omega`` and
-* ``θ`` representing the relative angle of the rotor with respect to the voltage angle ``ϕ``.
+The model has the following internal dynamic variables:
+* ``u`` is here an algebraic constraint
+* ``e_ds`` transient magnetic state in d-axis
+* ``e_qs`` transient magnetic state in q-axis
+* ``e_dss`` subtransient magnetic state in d-axis
+* ``e_qss`` subtransient magnetic state in q-axis
+* ``ω`` representing the frequency of the rotator (not relative)
+* ``θ`` representing the angle of the rotor with respect to the voltage angle ``ϕ``.
 
 # Keyword Arguments
-- `H`: shaft inertia constant (given in [s]), defined according to P. Sauer, p. 33, eq. (3.60)
+- `H`: shaft inertia constant, given in [s],
 - `P`: active (real) power output, also called the mechanical torque applied to the shaft, given in [pu]
-- `D`: damping coefficient (given in [s], see P. Sauer, eq. (5.156) where the damping torque is equal `Dω`)
+- `D`: damping coefficient, given in [s] (here D(ω-1.) is used)
 - `Ω`: rated frequency of the power grid, often ``2π⋅50Hz``
 - `E_f`: field voltage in [pu.]
 - `R_a` : armature resistance, given in [pu]
@@ -32,10 +38,11 @@ Additionally to ``u``, it has the internal dynamic variables
 - `T_AA` : additional leakage time constant in d-axis, given in [s]
 
 """
-@DynamicNode SixOrderMarcanatoMachine(H, P, D, Ω, E_f, R_a,T_ds,T_qs,T_dss,T_qss,X_d,X_q,X_ds,X_qs,X_dss,X_qss,T_AA) begin
+@DynamicNode SixOrderMarconatoMachine(H, P, D, Ω, E_f, R_a,T_ds,T_qs,T_dss,T_qss,X_d,X_q,X_ds,X_qs,X_dss,X_qss,T_AA) begin
     MassMatrix(m_int =[true,true,true,true,true,true])
 end begin
     @assert H > 0 "inertia (H) should be >0"
+    @assert P >= 0 "Active power (P) should be >=0"
     @assert D >= 0 "damping (D) should be >=0"
     @assert E_f >= 0 "Field Voltage (E_f) should be >=0"
     @assert R_a >= 0 "armature resistance (R_a) should be >=0"
@@ -61,18 +68,11 @@ end begin
     γ_d = T_d0ss * X_dss * (X_d - X_ds) / (T_d0s * X_ds)
     γ_q = T_q0ss * X_qss * (X_q - X_qs) / (T_q0s * X_qs)
 
-    Ω_H = Ω / (2*H)
-
 end [[θ,dθ],[ω, dω],[e_ds, de_ds],[e_qs, de_qs],[e_dss, de_dss],[e_qss, de_qss]] begin
     i_c = 1im*i*exp(-1im*θ)
-    #e_c = 1im*u*exp(-1im*θ)
-    #p = real(u * conj(i))
-    #e_dss = real(e_c)
-    #e_qss = imag(e_c)
     i_d = real(i_c)
     i_q = imag(i_c)
 
-    dθ = ω
     de_qs = (1 / T_d0s) * (- e_qs - (X_d - X_ds - γ_d) * i_d + (1 - T_AA/T_d0s) * E_f)
     de_ds = (1 / T_q0s) * (- e_ds + (X_q - X_qs - γ_q) * i_q)
 
@@ -83,10 +83,11 @@ end [[θ,dθ],[ω, dω],[e_ds, de_ds],[e_qs, de_qs],[e_dss, de_dss],[e_qss, de_q
     v_q = -R_a * i_q + e_qss - X_dss * i_d
 
     v  = v_d + 1im*v_q
-    du = u - -1im*v*exp(1im*θ)
-    p  = (v_q + R_a * i_q) * i_q + (v_d + R_a * i_d) * i_d
-    #p  = (e_qss-X_dss*i_d)*i_q + (-e_dss-X_qss*i_q)*i_d
-    dω = (P - D*ω - p)*Ω_H
+    du = u - -1im*v*exp(1im*θ) #algebraic constraint
+
+    pe  = (v_q + R_a * i_q) * i_q + (v_d + R_a * i_d) * i_d
+    dθ = Ω*(ω-1.)
+    dω = (P - D*(ω-1.) - pe)/(2*H)
 end
 
-export SixOrderMarcanatoMachine
+export SixOrderMarconatoMachine

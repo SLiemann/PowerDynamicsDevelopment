@@ -73,7 +73,7 @@ NodeType(L::CSIMinimal)  = 2
 
 #note: only loads are treated with voltage depency and are called every iteration
 PowerNodeLoad(S::SlackAlgebraic,U) = 0. #treated as generation
-PowerNodeLoad(F::SixOrderMarcanatoMachine,U) = 0. #treated as generation
+PowerNodeLoad(F::SixOrderMarconatoMachine,U) = 0. #treated as generation
 PowerNodeLoad(F::FourthOrderEq,U) = 0. #treated as generation
 PowerNodeLoad(F::FourthOrderEqExciterIEEEDC1A,U)  = 0. #treated as generation
 PowerNodeLoad(F::FourthOrderEqGovernorExciterAVR,U)  = 0. #treated as generation
@@ -81,15 +81,15 @@ PowerNodeLoad(F::FourthOrderEqGovernorIEEEG1,U)  = 0. #treated as generation
 PowerNodeLoad(S::SwingEq,U)  = 0. #treated as generation
 PowerNodeLoad(V::VSIMinimal,U) = complex(V.P,(abs(U)-V.V_r)/V.K_Q+V.Q)   #treated as load with changed sign to include voltage dependency
 PowerNodeLoad(V::VSIVoltagePT1,U) = complex(V.P,(abs(U)-V.V_r)/V.K_Q+V.Q)   #treated as load with changed sign to include voltage dependency
-PowerNodeLoad(L::PVAlgebraic,U) = -L.P  #treated as load
-PowerNodeLoad(L::PQAlgebraic,U) = -complex(L.P,L.Q) #treated as load
-PowerNodeLoad(L::VoltageDependentLoad,U) = -complex(L.P, L.Q) * (L.A * abs(U)^2 + L.B * abs(U) + 1 - L.A - L.B)
-PowerNodeLoad(L::ExponentialRecoveryLoad,U)  = -(L.P0*((abs(U)/L.V0)^L.Nps) + 1im*L.Q0*((abs(U)/L.V0)^L.Nqs))
+PowerNodeLoad(L::PVAlgebraic,U) = L.P  #treated as load
+PowerNodeLoad(L::PQAlgebraic,U) = complex(L.P,L.Q) #treated as load
+PowerNodeLoad(L::VoltageDependentLoad,U) = complex(L.P, L.Q) * (L.A * abs(U)^2 + L.B * abs(U) + 1 - L.A - L.B)
+PowerNodeLoad(L::ExponentialRecoveryLoad,U)  = (L.P0*((abs(U)/L.V0)^L.Nps) + 1im*L.Q0*((abs(U)/L.V0)^L.Nqs))
 PowerNodeLoad(L::CSIMinimal,U)  = -U*conj(L.I_r)
 
 #generation is voltage independent, otherwise it has to be called every iteration
 PowerNodeGeneration(S::SlackAlgebraic) = 0.
-PowerNodeGeneration(F::SixOrderMarcanatoMachine) = F.P
+PowerNodeGeneration(F::SixOrderMarconatoMachine) = F.P
 PowerNodeGeneration(F::FourthOrderEq) = F.P
 PowerNodeGeneration(F::FourthOrderEqExciterIEEEDC1A)  = F.P
 PowerNodeGeneration(F::FourthOrderEqGovernorExciterAVR)  = F.P
