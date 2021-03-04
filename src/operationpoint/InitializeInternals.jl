@@ -1,5 +1,5 @@
 using PowerDynamics
-using PowerDynamics: rhs, SixOrderMarcanatoMachine, symbolsof
+using PowerDynamics: rhs, SixOrderMarconatoMachine, symbolsof
 include("PowerFlow.jl") # for NodalAdmittanceMatrice
 
 function InitializeInternalDynamics(pg::PowerGrid,I_c,ic_lf)
@@ -23,12 +23,17 @@ function InitNode(SM::SixOrderMarconatoMachine,ind,I_c,ic_lf,ind_offset)
    δ = angle(v_d_temp+1im*v_q_temp+(SM.R_a+1im*SM.X_q)*I_c[ind]) #+angle(v_d_temp + 1im*v_q_temp)
 
    v = v_d_temp +1im*v_q_temp
-   v = 1im*v*exp(-1im*δ)
+   v = v*exp(-1im*δ)
+   display("----")
    v_d = real(v)
    v_q = imag(v)
+   display(v_d)
+   display(v_q)
    i   = 1im*I_c[ind]*exp(-1im*δ)
    i_d = real(i)
    i_q = imag(i)
+   display(i_d)
+   display(i_q)
 
    #Converstion of short-circuit time constants to open-loop time constants
    T_d0s = SM.T_ds*(SM.X_d/SM.X_ds)
@@ -59,7 +64,8 @@ function InitNode(SM::SixOrderMarconatoMachine,ind,I_c,ic_lf,ind_offset)
    Pm = (v_q + SM.R_a * i_q) * i_q + (v_d + SM.R_a * i_d) * i_d
 
    #Create new bus
-   node_temp = SixOrderMarcanatoMachine(H=SM.H, P=Pm, D=SM.D, Ω=SM.Ω, E_f=v_f, R_a=SM.R_a, T_ds=SM.T_ds, T_qs=SM.T_qs, T_dss=SM.T_dss, T_qss=SM.T_qss, X_d=SM.X_d, X_q=SM.X_q, X_ds=SM.X_ds, X_qs=SM.X_qs, X_dss=SM.X_dss, X_qss=SM.X_qss, T_AA=SM.T_AA);
+   node_temp = SixOrderMarconatoMachine(H=SM.H, P=Pm, D=SM.D, Ω=SM.Ω, E_f=v_f, R_a=SM.R_a, T_ds=SM.T_ds, T_qs=SM.T_qs, T_dss=SM.T_dss, T_qss=SM.T_qss, X_d=SM.X_d, X_q=SM.X_q, X_ds=SM.X_ds, X_qs=SM.X_qs, X_dss=SM.X_dss, X_qss=SM.X_qss, T_AA=SM.T_AA);
    # Structure from node: u_r, u_i, θ, ω, e_ds, e_qs, e_dss,e_qss
-   return [v_d_temp, v_q_temp, δ, 1., e_ds, e_qs, e_dss, e_qss], node_temp
+   display((e_dss+1im*e_qss).*exp(1im*δ))
+   return [v_d_temp, v_q_temp, δ, 0., e_ds, e_qs, e_dss, e_qss], node_temp
 end

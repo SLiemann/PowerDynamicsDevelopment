@@ -7,6 +7,8 @@ using OrderedCollections: OrderedDict
 using Plots
 import PowerDynamics: PiModel
 using DifferentialEquations
+using CSV #read PF DataFrames
+using DataFrames #for CSV
 
 include("operationpoint/PowerFlow.jl")
 
@@ -14,9 +16,9 @@ begin
 
     buses=OrderedDict(
         "bus1"=> SlackAlgebraic(U=1),
-        "bus2"=> VoltageDependentLoad(P=-0.3, Q=0.3, U=1.0, A=0., B=0.),
+        "bus2"=> VoltageDependentLoad(P=-0.3, Q=0.3, U=1.0, A=0., B=0.,Y_n = complex(0.0)),
         #"bus3"=> FourthOrderEq(T_d_dash=6.1, D=2, X_d=1.05, X_q=0.98, Ω=50, X_d_dash=0.185, T_q_dash=0.4, X_q_dash=0.36, P=0.5, H=6.54, E_f= 1.625))
-        "bus3"=> SixOrderMarconatoMachine(H = 5, P=0.75, D=3., Ω=50, E_f=1.4, R_a = 0.1,T_ds=1.136,T_qs=0.8571,T_dss=0.04,T_qss=0.06666,X_d=1.1,X_q=0.7,X_ds=0.25,X_qs=0.25,X_dss=0.2,X_qss=0.2,T_AA=0.))
+        "bus3"=> SixOrderMarconatoMachine(H = 5, P=0.5, D=0., Ω=50*2*pi, E_f=1.4, R_a = 0.1,T_ds=1.136,T_qs=0.8571,T_dss=0.04,T_qss=0.06666,X_d=1.1,X_q=0.7,X_ds=0.25,X_qs=0.25,X_dss=0.2,X_qss=0.2,T_AA=0.))
         #"bus4"=> VoltageDependentLoad(P=0.5, Q=0.5, U=1.0, A=0.5, B=0.2))
 
     #branches=OrderedDict(
@@ -54,9 +56,39 @@ begin
     I_c = Ykk*Uc
     PG, ic0 = InitializeInternalDynamics(pg,I_c,ic)
     ODEProb = ODEProblem{true}(rhs(PG),ic0,[0,15.])
-    test = solve(ODEProb,Rodas4())
-    plot(test)
+    Zbase = (380e3^2)/(100e6)
+    SS = NodeShortCircuit(node="bus2",Y = 1/(1im*1000/Zbase),tspan_fault=(1.0, 1.15))
+    PGsol = simulate(SS,PG,ic0,(0.,20.))
+    sol = solve(ODEProb,Rodas4())
 end
+begin
+    #PGsol = PowerGridSolution(sol,PG)
+    plot(PGsol,collect(keys(PG.nodes)), :v,size = (1000, 500),legend = (0.3, 0.3))
+    test = DataFrame(CSV.File("C:\\Users\\liemann\\Desktop\\PF_test.csv"; header=false, delim=';', type=Float64))
+    plot!(test.Column1,test.Column2,label = "PF-bus1")
+    plot!(test.Column1,test.Column3,label = "PF-bus2")
+    plot!(test.Column1,test.Column4,label = "PF-bus3")
+
+    plot(PGsol,["bus3"], :θ)
+    test2 = DataFrame(CSV.File("C:\\Users\\liemann\\Desktop\\PF_pol.csv"; header=false, delim=';', type=Float64))
+    plot!(test2.Column1,(test2.Column2))
+    xlims!((0.9,10.))
+
+    plot(PGsol,["bus3"], :ω)
+    test3 = DataFrame(CSV.File("C:\\Users\\liemann\\Desktop\\PF_dreh.csv"; header=false, delim=';', type=Float64))
+    plot!(test3.Column1,(test3.Column2.-1))
+
+    #ylims!((1.01,1.015))
+    #ylims!((0.75,1.015))
+    xlims!((0.9,1.5))
+
+end
+plot(PGsol,["bus3"], :p)
+plot(PGsol,["bus3"], :q)
+plot(PGsol,["bus3"], :e_dss)
+plot(PGsol,["bus3"], :e_qss)
+
+
 #=
 begin
     ic2 = find_valid_initial_condition(pg,ic)
@@ -67,3 +99,7 @@ end
 =#
 #Δic = ic .- pg_st.vec
 #S  = Uc.*(conj.(Ykk)*conj.(Uc))
+
+function plot_sol(sol,pg)
+    1
+end

@@ -57,7 +57,7 @@ end
 
 # NodeTypes: 0 = Slack, 1 = PV, 2 = PQ
 NodeType(S::SlackAlgebraic) = 0
-NodeType(F::SixOrderMarcanatoMachine)  = 1
+NodeType(F::SixOrderMarconatoMachine)  = 1
 NodeType(F::FourthOrderEq)  = 1
 NodeType(F::FourthOrderEqExciterIEEEDC1A)  = 1
 NodeType(F::FourthOrderEqGovernorExciterAVR)  = 1

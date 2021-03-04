@@ -79,15 +79,15 @@ end [[θ,dθ],[ω, dω],[e_ds, de_ds],[e_qs, de_qs],[e_dss, de_dss],[e_qss, de_q
     de_qss = (1 / T_d0ss) * (- e_qss + e_qs - (X_ds - X_dss + γ_d) * i_d + (T_AA/T_d0s) * E_f)
     de_dss = (1 / T_q0ss) * (- e_dss + e_ds + (X_qs - X_qss + γ_q) * i_q)
 
-    v_d = -R_a * i_d + e_dss + X_qss * i_q
-    v_q = -R_a * i_q + e_qss - X_dss * i_d
+    v_d = e_dss + (ω + 1.) * (-R_a * i_d  + X_qss * i_q)
+    v_q = e_qss + (ω + 1.) * (-R_a * i_q  - X_dss * i_d)
 
     v  = v_d + 1im*v_q
     du = u - -1im*v*exp(1im*θ) #algebraic constraint
 
-    pe  = (v_q + R_a * i_q) * i_q + (v_d + R_a * i_d) * i_d
-    dθ = Ω*(ω-1.)
-    dω = (P - D*(ω-1.) - pe)/(2*H)
+    pe = (v_q + R_a * i_q) * i_q + (v_d + R_a * i_d) * i_d
+    dθ = Ω*(ω)
+    dω = (P - D*(ω) - pe)/(2*H)
 end
 
 export SixOrderMarconatoMachine
