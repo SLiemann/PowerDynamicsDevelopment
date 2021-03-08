@@ -132,7 +132,7 @@ function my_simulate(np::AbstractPerturbation, powergrid::PowerGrid, x1::Array, 
 
     function errorState(integrator)
         sol1 = integrator.sol
-       #x2 = find_valid_initial_condition(np_powergrid, sol1[end]) # Jump the state to be valid for the new system.
+       x2 = find_valid_initial_condition(np_powergrid, sol1[end]) # Jump the state to be valid for the new system.
         ode = rhs(np_powergrid)
         op_prob = ODEProblem(ode, sol1[end], (0.0, 1e-6), nothing, initializealg = BrownFullBasicInit())
         x2 = solve(op_prob,Rodas5())
