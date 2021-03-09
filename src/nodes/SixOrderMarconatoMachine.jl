@@ -86,9 +86,10 @@ end [[θ,dθ],[ω, dω],[e_ds, de_ds],[e_qs, de_qs],[e_dss, de_dss],[e_qss, de_q
     v  = v_d + 1im*v_q
     du = u - -1im*v*exp(1im*θ) #algebraic constraint
 
-    #pe = (ω + 1.) * ((v_q + R_a * i_q) * i_q + (v_d + R_a * i_d) * i_d)
-    dθ = Ω * ω
-    dω = (P - D*ω - pe - R_a * i_q * i_q -R_a * i_d * i_d) / (2*H)
+    pe = (ω + 1.0) * ((v_q + R_a * i_q) * i_q + (v_d + R_a * i_d) * i_d)
+
+    dθ = Ω * 2*pi * ω
+    dω = (P - D * ω - pe) / (2*H)
 end
 
 export SixOrderMarconatoMachine

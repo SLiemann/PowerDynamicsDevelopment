@@ -17,7 +17,7 @@ begin
     buses=OrderedDict(
         "bus1"=> SlackAlgebraic(U=1),
         "bus2"=> VoltageDependentLoad(P=-0.3, Q=0.3, U=1.0, A=0., B=0.,Y_n = complex(0.0)),
-        "bus3"=> SixOrderMarconatoMachine(H = 5, P=0.5, D=0., Ω=50*2*pi, E_f=1.4, R_a = 0.1,T_ds=1.136,T_qs=0.8571,T_dss=0.04,T_qss=0.06666,X_d=1.1,X_q=0.7,X_ds=0.25,X_qs=0.25,X_dss=0.2,X_qss=0.2,T_AA=0.))
+        "bus3"=> SixOrderMarconatoMachine(H = 5, P=0.5, D=0., Ω=50, E_f=1.4, R_a = 0.1,T_ds=1.136,T_qs=0.8571,T_dss=0.04,T_qss=0.06666,X_d=1.1,X_q=0.7,X_ds=0.25,X_qs=0.25,X_dss=0.2,X_qss=0.2,T_AA=0.))
         #"bus3"=> FourthOrderEq(H=5, P=0.5, D=0., Ω=50, E_f=1.0, T_d_dash=1.136 ,T_q_dash=0.8571 ,X_q_dash =0.25 ,X_d_dash=0.25,X_d=1.1, X_q=0.7))
     branches=OrderedDict(
         "branch1"=> PiModelLine(from= "bus1", to = "bus2",y=1.0/(0.05+1im*0.15), y_shunt_km=0., y_shunt_mk=0.),

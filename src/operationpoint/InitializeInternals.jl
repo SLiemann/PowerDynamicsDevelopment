@@ -23,7 +23,7 @@ function InitNode(SM::FourthOrderEq,ind,I_c,ic_lf,ind_offset)
    v_q_temp = ic_lf[ind_offset+1]
    #Rotor angle
    δ = angle(v_d_temp+1im*v_q_temp+(+1im*SM.X_q)*I_c[ind])
-   δ = 0.35703
+
    v   = v_d_temp +1im*v_q_temp
    v   = 1im*v*exp(-1im*δ)
    v_d = real(v)
@@ -31,35 +31,12 @@ function InitNode(SM::FourthOrderEq,ind,I_c,ic_lf,ind_offset)
    i   = 1im*I_c[ind]*exp(-1im*δ)
    i_d = real(i)
    i_q = imag(i)
-   #a = plot_Delta(SM,ind,I_c,ic_lf,ind_offset)
 
-   display(v_d)
-   display((SM.X_q - SM.X_q_dash).*i_q)
    V_f = v_q + (SM.X_d - SM.X_d_dash) * i_d
    pe = SM.P + (SM.X_q_dash - SM.X_d_dash)*i_d*i_q
    node_temp = FourthOrderEq(H=SM.H, P=pe, D=SM.D, Ω=SM.Ω, E_f=V_f, T_d_dash=SM.T_d_dash ,T_q_dash=SM.T_q_dash ,X_q_dash =SM.X_q_dash ,X_d_dash=SM.X_d_dash,X_d=SM.X_d, X_q=SM.X_q)
    return [v_d_temp, v_q_temp, δ, 0.], node_temp
 end
-
-function plot_Delta(SM::FourthOrderEq,ind,I_c,ic_lf,ind_offset)
-   v_d_temp = ic_lf[ind_offset]
-   v_q_temp = ic_lf[ind_offset+1]
-   #Rotor angle
-
-   δ = range(0.357,stop=0.3573,length=100)
-
-   v   = v_d_temp +1im*v_q_temp
-   v   = 1im*v*exp.(-1im.*δ)
-   v_d = real.(v)
-   v_q = imag.(v)
-   i   = 1im*I_c[ind].*exp.(-1im.*δ)
-   i_d = real.(i)
-   i_q = imag.(i)
-
-   plot(δ,v_d)
-   plot!(δ,(SM.X_q - SM.X_q_dash).*i_q)
-end
-
 
 function InitNode(SM::SixOrderMarconatoMachine,ind,I_c,ic_lf,ind_offset)
    v_d_temp = ic_lf[ind_offset]
@@ -104,17 +81,6 @@ function InitNode(SM::SixOrderMarconatoMachine,ind,I_c,ic_lf,ind_offset)
    Pm = (v_q + SM.R_a * i_q) * i_q + (v_d + SM.R_a * i_d) * i_d
 
    #Create new bus
-   #=
-   e_s = e_ds+1im*e_qs
-   e_s = -1im*e_s
-   e_ds = real(e_s)
-   e_qs = imag(e_s)
-
-   e_ss = e_dss+1im*e_qss
-   e_ss = -1im*e_ss
-   e_dss = real(e_ss)
-   e_qss = imag(e_ss) =#
-
    node_temp = SixOrderMarconatoMachine(H=SM.H, P=Pm, D=SM.D, Ω=SM.Ω, E_f=v_f, R_a=SM.R_a, T_ds=SM.T_ds, T_qs=SM.T_qs, T_dss=SM.T_dss, T_qss=SM.T_qss, X_d=SM.X_d, X_q=SM.X_q, X_ds=SM.X_ds, X_qs=SM.X_qs, X_dss=SM.X_dss, X_qss=SM.X_qss, T_AA=SM.T_AA);
    # Structure from node: u_r, u_i, θ, ω, e_ds, e_qs, e_dss,e_qss
    return [v_d_temp, v_q_temp, δ, 0., e_ds, e_qs, e_dss, e_qss], node_temp
