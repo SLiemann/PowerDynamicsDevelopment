@@ -6,7 +6,7 @@ using LinearAlgebra
 
 #Pi models for nodal admittance matrice
 PiModel(L::PiModelLine) = PiModel(L.y,L.y_shunt_km,L.y_shunt_mk,1,1)
-PiModel(T::Transformer) = PiModel(T.y,0,0,T.t_ratio,1)
+PiModel(T::Transformer) = (1/T.y)*PiModel(T.y*T.y,0,0,1,T.t_ratio)
 PiModel(S::StaticLine)  = PiModel(S.Y,0,0,1,1)
 PiModel(R::RLLine)      = PiModel(1/(R.R+1im*R.ω0*R.L),0,0,1,1)
 PiModel(T::DynamicPowerTransformer) = PiModelTransformer(T)
@@ -195,13 +195,15 @@ function PowerFlowClassic(pg::PowerGrid, U_r_nodes::Vector{Float64}; Ubase::Floa
                     if Qn[i] >= Qmax[i]
                         index = findall(x-> x==i ,ind_PV) #find the PV node index
                         ind_PV = ind_PV[1:end .!= index, 1]; #delete it from the PV node index list
-                        append!(ind_PQ,i)  #append it to the PQ list
-                        S_node_gen[i] = real(S_node_gen[i]) + 1im*Qmax[i]
+                        if isempty(findall(x-> x==i ,ind_PQ))
+                            append!(ind_PQ,i)  #append it to the PQ list, but only once
+                        end                        S_node_gen[i] = real(S_node_gen[i]) + 1im*Qmax[i]
                     elseif Qn[i] <= Qmin[i] #same here of lower limits
                         index = findall(x-> x==i ,ind_PV)
                         ind_PV = ind_PV[1:end .!= index, 1];
-                        append!(ind_PQ,i)
-                        S_node_gen[i] = real(S_node_gen[i]) + 1im*Qmin[i]
+                        if isempty(findall(x-> x==i ,ind_PQ))
+                            append!(ind_PQ,i)  #append it to the PQ list, but only once
+                        end                        S_node_gen[i] = real(S_node_gen[i]) + 1im*Qmin[i]
                     elseif isempty(findall(x-> x==i ,ind_PV)) #if inside limits and not in list, set as PV node again
                         index = findall(x-> x==i ,ind_PQ)
                         ind_PQ = ind_PQ[1:end .!= index, 1]; #delete PQ node
