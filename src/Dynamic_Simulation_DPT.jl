@@ -13,7 +13,6 @@ using DataFrames #for CSV
 include("operationpoint/PowerFlow.jl")
 
 begin
-
     buses=OrderedDict(
         "bus1"=> SlackAlgebraic(U=1),
         "bus2"=> VoltageDependentLoad(P=-0.3, Q=0.3, U=1.0, A=0., B=0.,Y_n = complex(0.0)),
