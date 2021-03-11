@@ -3,7 +3,6 @@ using PowerDynamics: guess
 import PowerDynamics: PiModel
 using LightGraphs #incidence_matrix
 using Roots #for Iwamoto multiplier
-using LinearAlgebra
 
 #Pi models for nodal admittance matrice
 PiModel(L::PiModelLine) = PiModel(L.y,L.y_shunt_km,L.y_shunt_mk,1,1)
@@ -57,7 +56,7 @@ PowerNodeGeneration(L::ExponentialRecoveryLoad)  = 0. #treated as load
 PowerNodeGeneration(L::CSIMinimal)  = 0. #treated as load
 
 
-function PowerFlowClassic(pg::PowerGrid, U_r_nodes::Vector{Float64}, Ubase::Float64; ind_sl::Int64 = 0,max_tol::Float64 = 1e-6,iter_max::Int64  = 30,iwamoto::Bool =false, Qmax = -1, Qmin = -1)
+function PowerFlowClassic(pg::PowerGrid, U_r_nodes::Vector{Float64}, Ubase::Float64; ind_sl::Int64 = 0,max_tol::Float64 = 1e-7,iter_max::Int64  = 30,iwamoto::Bool =false, Qmax = -1, Qmin = -1, Qlimit_iter_check::Int64 = 3)
     number_nodes = length(pg.nodes); #convenience
     nodetypes = NodeType.(values(pg.nodes))
     if !isempty(findall(x-> x==0, nodetypes)) #if there is no SlackAlgebraic
@@ -74,6 +73,15 @@ function PowerFlowClassic(pg::PowerGrid, U_r_nodes::Vector{Float64}, Ubase::Floa
     Ykk = NodalAdmittanceMatrice(pg,U_r_nodes,Ubase);
 
     U = ones(number_nodes,1);
+    if SlackAlgebraic ∈ collect(values(pg.nodes)) .|> typeof
+        U[ind_sl] = collect(values(powergrid.nodes))[ind_sl].U
+    end
+    if PVAlgebraic ∈ collect(values(pg.nodes)) .|> typeof
+        pv = findall(collect(values(powergrid.nodes).|> typeof).== PVAlgebraic)
+        for i in pv
+            U[i] = collect(values(powergrid.nodes))[i].V
+        end
+    end
     δ = CalcδStartValues(pg,Ykk,ind_sl);
 
     Ykk_abs = abs.(Ykk);
@@ -107,11 +115,11 @@ function PowerFlowClassic(pg::PowerGrid, U_r_nodes::Vector{Float64}, Ubase::Floa
         error_ = norm([ΔP;ΔQ],Inf)
         if error_ < max_tol
             @info "Power flow converged in $iter iterations"
-            ic_guess = guess.(values(pg.nodes),U.*exp.(1im*δ))
+            ic_guess = guess.(values(pg.nodes),U.*exp.(1im.*δ))
             return U,δ*180/pi,vcat(ic_guess...) # power flow converged
         elseif iter == iter_max
              @warn "Power flow reached max. iteration ($iter) and has not converged."
-             ic_guess = guess.(values(pg.nodes),U.*exp.(1im*δ))
+             ic_guess = guess.(values(pg.nodes),U.*exp.(1im.*δ))
              return U,δ*180/pi,vcat(ic_guess...) #max iteration reached
         end
 
@@ -143,27 +151,33 @@ function PowerFlowClassic(pg::PowerGrid, U_r_nodes::Vector{Float64}, Ubase::Floa
         if Qmax != -1 && Qmin != -1 #Qmax and Qmin are normally vectors with the limits
             #In future, a routine is needed which will get the information about
             #the reactive power limits from each node directly
-            if mod(iter,3) == 0 && !isempty(ind_PV_or) #dont change every iteration and check if PV nodes exist
+            if mod(iter,Qlimit_iter_check) == 0 && !isempty(ind_PV_or) #dont change every iteration and check if PV nodes exist
                 for i in ind_PV_or # Calc current reactive power at each node
                     Qn[i] = sum(U[i].*U.*Ykk_abs[:,i].*sin.(δ[i].-δ.-θ[:,i]))
                     if Qn[i] >= Qmax[i]
                         index = findall(x-> x==i ,ind_PV) #find the PV node index
-                        ind_PV = ind_PV[1:end .!= index, 1]; #delete it from the PV node index list
+                        if ~isempty(index)
+                            ind_PV = ind_PV[1:end .!= index, 1]; #delete it from the PV node index list
+                        end
                         if isempty(findall(x-> x==i ,ind_PQ))
                             append!(ind_PQ,i)  #append it to the PQ list, but only once
                         end
                         S_node_gen[i] = real(S_node_gen[i]) + 1im*Qmax[i]
                     elseif Qn[i] <= Qmin[i] #same here of lower limits
                         index = findall(x-> x==i ,ind_PV)
-                        ind_PV = ind_PV[1:end .!= index, 1];
+                        if ~isempty(index)
+                            ind_PV = ind_PV[1:end .!= index, 1];
+                        end
                         if isempty(findall(x-> x==i ,ind_PQ))
                             append!(ind_PQ,i)  #append it to the PQ list, but only once
                         end
                         S_node_gen[i] = real(S_node_gen[i]) + 1im*Qmin[i]
                     elseif isempty(findall(x-> x==i ,ind_PV)) #if inside limits and not in list, set as PV node again
                         index = findall(x-> x==i ,ind_PQ)
-                        ind_PQ = ind_PQ[1:end .!= index, 1]; #delete PQ node
-                        append!(ind_PV,i)
+                        if ~isempty(index)
+                            ind_PQ = ind_PQ[1:end .!= index, 1]; #delete PQ node
+                        end
+                        append!(ind_PV,i)#append it to the PV list
                     end
                 end
             end
