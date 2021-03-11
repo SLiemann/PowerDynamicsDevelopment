@@ -3,6 +3,7 @@ using PowerDynamics: guess
 import PowerDynamics: PiModel
 using LightGraphs #incidence_matrix
 using Roots #for Iwamoto multiplier
+using LinearAlgebra #for norm
 
 #Pi models for nodal admittance matrice
 PiModel(L::PiModelLine) = PiModel(L.y,L.y_shunt_km,L.y_shunt_mk,1,1)
@@ -133,7 +134,7 @@ function PowerFlowClassic(pg::PowerGrid, U_r_nodes::Vector{Float64}, Ubase::Floa
 
         res = J \ [ΔP; ΔQ];
 
-        #With Iwamoto mulipliers the load flow is more robust and does not diverge
+        #With Iwamoto mulipliers the load flow is more robust, but slower
         if iwamoto
             iwa = CalcIwamotoMultiplier(J,res,ΔP,ΔQ,Ykk,ind_sl,ind_PV,ind_PQ,number_nodes);
             res *= iwa
@@ -195,6 +196,7 @@ function NodalAdmittanceMatrice(pg::PowerGrid,U_r_nodes,Ubase)
     for i in Fourpoles
         B = vcat(hcat(B,zeros(size(B)[1],2)),hcat(zeros(2,size(B)[1]),i))
     end
+    #create incidence matrix, but different to LightGraphs
     inci = incidence_matrix(pg.graph, oriented = false);
     inci_new = zeros(size(inci)[1],2*size(inci)[2]);
     for i in 1:size(inci)[2]
