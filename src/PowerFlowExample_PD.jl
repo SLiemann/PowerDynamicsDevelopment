@@ -6,7 +6,6 @@ using Plots
 begin
     include("operationpoint/PowerFlow_PD.jl");
     Ubase = 380e3
-    Sbase = 100e6
 
     buses=OrderedDict(
         "bus1"=> SlackAlgebraic(U=0.98),
@@ -22,7 +21,8 @@ begin
         "branch4"=> PiModelLine(from= "bus4", to = "bus5",y=1.0/((0.05+1im*0.15)*(Ubase/110e3)^2), y_shunt_km=0., y_shunt_mk=0.))
         #note that branch 4 has to be transformed to higher voltage level!
     powergrid = PowerGrid(buses, branches)
-
+    #Unodes = [380e3,380e3,380e3,110e3,110e3]
+    #Ubase  = 380e3
     Qmax   = [Inf, Inf, 0.5, Inf, Inf]
     Qmin   = -Qmax
     U,δ1,ic = PowerFlowClassic(powergrid,iwamoto = true, Qmax = Qmax, Qmin = Qmin, Qlimit_iter_check = 2)
