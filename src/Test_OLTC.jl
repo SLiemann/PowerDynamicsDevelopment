@@ -10,41 +10,46 @@ using DifferentialEquations
 using CSV #read PF DataFrames
 using DataFrames #for CSV
 
-include("operationpoint/PowerFlow.jl")
-
 begin
+    include("operationpoint/PowerFlow_Test.jl")
+    Ubase = 380e3
+    Sbase = 100e6
     buses=OrderedDict(
-        "bus1"=> SlackAlgebraic(U=1),
+        "bus1"=> SlackAlgebraic(U=0.98),
         "bus2"=> VoltageDependentLoad(P=-0.3, Q=0.3, U=1.0, A=0., B=0.,Y_n = complex(0.0)),
-        "bus3"=> SixOrderMarconatoMachine(H = 5, P=0.5, D=0., Ω=50, E_f=1.4, R_a = 0.1,T_ds=1.136,T_qs=0.8571,T_dss=0.04,T_qss=0.06666,X_d=1.1,X_q=0.7,X_ds=0.25,X_qs=0.25,X_dss=0.2,X_qss=0.2,T_AA=0.))
-        #"bus3"=> FourthOrderEq(H=5, P=0.5, D=0., Ω=50, E_f=1.0, T_d_dash=1.136 ,T_q_dash=0.8571 ,X_q_dash =0.25 ,X_d_dash=0.25,X_d=1.1, X_q=0.7))
+        "bus3"=> SixOrderMarconatoMachine(H = 5, P=0.5, D=0., Ω=50, E_f=1.4, R_a = 0.1,T_ds=1.136,T_qs=0.8571,T_dss=0.04,T_qss=0.06666,X_d=1.1,X_q=0.7,X_ds=0.25,X_qs=0.25,X_dss=0.2,X_qss=0.2,T_AA=0.),
+        "bus4"=> VoltageDependentLoad(P=-0.5, Q=-0.5, U=1.0, A=0., B=0.,Y_n = complex(0.0)),
+        "bus5"=> PVAlgebraic(P=-0.0, V = 1.01))
+
     branches=OrderedDict(
         "branch1"=> PiModelLine(from= "bus1", to = "bus2",y=1.0/(0.05+1im*0.15), y_shunt_km=0., y_shunt_mk=0.),
-        "branch2"=> PiModelLine(from= "bus2", to = "bus3",y=1.0/(0.05+1im*0.15), y_shunt_km=0., y_shunt_mk=0.))
-        #"branch3"=> DynamicPowerTransformer(from="bus3",to="bus4",S_r=100e6,U_HV=380e3,U_LV=110e3,uk=0.1581138,XR_ratio=5,i0=6.35,Pv0=100e3,Sbase=100e6,Ubase=380e3,tap_side = "LV",tap_pos = 5,tap_inc = 1,tap_max=10,v_ref=1.,v_dead=0.05,tap_time=5.))
-
+        "branch2"=> PiModelLine(from= "bus2", to = "bus3",y=1.0/(0.05+1im*0.15), y_shunt_km=0., y_shunt_mk=0.),
+        "branch3"=> StaticPowerTransformer(from="bus3",to="bus4",S_r=100e6,U_r=380e3,uk=0.1581138,XR_ratio=3,i0=6.35,Pv0=100e3,Sbase=Sbase,Ubase=Ubase,tap_side = "HV",tap_pos = -7,tap_inc = 1.0),
+        "branch4"=> PiModelLine(from= "bus4", to = "bus5",y=1.0/((0.05+1im*0.15)*(Ubase/110e3)^2), y_shunt_km=0., y_shunt_mk=0.))
     pg = PowerGrid(buses, branches)
-    Unodes = [380e3,380e3,380e3]
-    Qmax   = [Inf, Inf, Inf]
+    Qmax   = [Inf, Inf, 0.5,Inf, Inf]
     Qmin   = -Qmax
-    U,δ1,ic = PowerFlowClassic(pg,Unodes,380e3,iwamoto = true, Qmax = Qmax, Qmin = Qmin)
+    U,δ1,ic = PowerFlowClassic(pg,iwamoto = true, Qmax = Qmax, Qmin = Qmin)
 end
 #ic = initial_guess(pg)
 #ic0 = find_valid_initial_condition(pg,ic)
 begin
     include("operationpoint/InitializeInternals.jl")
     Uc = U.*exp.(1im*δ1/180*pi)
-    Ykk = NodalAdmittanceMatrice(pg,Unodes,380e3)
+    Ykk = NodalAdmittanceMatrice(pg)
     I_c = Ykk*Uc
     PG, ic0 = InitializeInternalDynamics(pg,I_c,ic)
-    ODEProb = ODEProblem{true}(rhs(PG),ic0,[0,15.])
-    Zbase = (380e3^2)/(100e6)
-    SS = NodeShortCircuit(node="bus2",Y = 1/(1im*250/Zbase),tspan_fault=(1.0, 1.15))
-    PT = PowerPerturbation(node="bus2", fault_power = -0.4 ,tspan_fault=(1.0, 5.0))
-    PGsol = my_simulate(SS,PG,ic0,(0.,5.0))
-    #PG_state = State(PG,ic0)
-    #PGsol = solve(PG,PG_state,[0.,1.])
+    #ODEProb = ODEProblem{true}(rhs(PG),ic0,(0.,5.))
+    #sol = solve(ODEProb,Rodas4(),dt=1e-4)
+    #Zbase = (380e3^2)/(100e6)
+    #SS = NodeShortCircuit(node="bus2",Y = 1/(1im*250/Zbase),tspan_fault=(1.0, 1.15))
+    #PT = PowerPerturbation(node="bus2", fault_power = -0.4 ,tspan_fault=(1.0, 5.0))
+    #PGsol = my_simulate(SS,PG,ic0,(0.,5.0))
+    PG_state = State(PG,ic0)
+    PGsol = solve(PG,PG_state,(0.,1.))
+    plot(PGsol,collect(keys(PG.nodes)), :v,size = (1000, 500),legend = (0.5, 0.5))
 end
+plot(sol)
 plot(PGsol,collect(keys(PG.nodes)), :v,size = (1000, 500),legend = (0.5, 0.5))
 begin
     plot(PGsol,collect(keys(PG.nodes)), :v,size = (1000, 500),legend = (0.5, 0.5))

@@ -7,7 +7,7 @@ using LinearAlgebra #for norm
 
 #Pi models for nodal admittance matrice
 PiModel(L::PiModelLine) = PiModel(L.y,L.y_shunt_km,L.y_shunt_mk,1,1)
-PiModel(T::Transformer) = (1/T.y)*PiModel(T.y*T.y,0,0,1,T.t_ratio)
+PiModel(T::Transformer) = PiModel(T.y,0,0,T.t_ratio,1)
 PiModel(S::StaticLine)  = PiModel(S.Y,0,0,1,1)
 PiModel(R::RLLine)      = PiModel(1/(R.R+1im*R.ω0*R.L),0,0,1,1)
 
@@ -57,7 +57,7 @@ PowerNodeGeneration(L::ExponentialRecoveryLoad)  = 0. #treated as load
 PowerNodeGeneration(L::CSIMinimal)  = 0. #treated as load
 
 
-function PowerFlowClassic(pg::PowerGrid, U_r_nodes::Vector{Float64}, Ubase::Float64; ind_sl::Int64 = 0,max_tol::Float64 = 1e-7,iter_max::Int64  = 30,iwamoto::Bool =false, Qmax = -1, Qmin = -1, Qlimit_iter_check::Int64 = 3)
+function PowerFlowClassic(pg::PowerGrid; ind_sl::Int64 = 0,max_tol::Float64 = 1e-7,iter_max::Int64  = 30,iwamoto::Bool =false, Qmax = -1, Qmin = -1, Qlimit_iter_check::Int64 = 3)
     number_nodes = length(pg.nodes); #convenience
     nodetypes = NodeType.(values(pg.nodes))
     if !isempty(findall(x-> x==0, nodetypes)) #if there is no SlackAlgebraic
@@ -70,17 +70,17 @@ function PowerFlowClassic(pg::PowerGrid, U_r_nodes::Vector{Float64}, Ubase::Floa
     ind_PQ = deepcopy(ind_PQ_or) #copy is needed for checking Qlimits
     ind_PV = deepcopy(ind_PV_or) #copy is needed for checking Qlimits
 
-    #to calculate Ykk a vector with all SI voltages of the nodes is needed (U_r_nodes)
-    Ykk = NodalAdmittanceMatrice(pg,U_r_nodes,Ubase);
+    #calculate Ykk
+    Ykk = NodalAdmittanceMatrice(pg);
 
     U = ones(number_nodes,1);
     if SlackAlgebraic ∈ collect(values(pg.nodes)) .|> typeof
-        U[ind_sl] = collect(values(powergrid.nodes))[ind_sl].U
+        U[ind_sl] = collect(values(pg.nodes))[ind_sl].U
     end
     if PVAlgebraic ∈ collect(values(pg.nodes)) .|> typeof
-        pv = findall(collect(values(powergrid.nodes).|> typeof).== PVAlgebraic)
+        pv = findall(collect(values(pg.nodes).|> typeof).== PVAlgebraic)
         for i in pv
-            U[i] = collect(values(powergrid.nodes))[i].V
+            U[i] = collect(values(pg.nodes))[i].V
         end
     end
     δ = CalcδStartValues(pg,Ykk,ind_sl);
@@ -186,7 +186,7 @@ function PowerFlowClassic(pg::PowerGrid, U_r_nodes::Vector{Float64}, Ubase::Floa
     end
 end
 
-function NodalAdmittanceMatrice(pg::PowerGrid,U_r_nodes,Ubase)
+function NodalAdmittanceMatrice(pg::PowerGrid)
     Fourpoles = PiModel.(values(pg.lines));
     #changing sign convention from PowerDynamics
     for i in 1:length(Fourpoles)
@@ -204,12 +204,7 @@ function NodalAdmittanceMatrice(pg::PowerGrid,U_r_nodes,Ubase)
         inci_new[ind[1],2*i-1] = 1
         inci_new[ind[2],2*i] = 1
     end
-    #Create voltage ratio matrice Yü that relates the impedances of the different voltage levels
-    Yü = zeros(length(U_r_nodes),length(U_r_nodes))
-    for i in 1:length(U_r_nodes)
-        Yü[:,i] = U_r_nodes[i].*U_r_nodes./(Ubase^2)
-    end
-    Ykk = Yü.*(inci_new*B*inci_new')
+    Ykk = inci_new*B*inci_new'
 end
 
 function CalcδStartValues(pg,Ykk,ind_sl)

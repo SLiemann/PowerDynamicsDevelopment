@@ -3,7 +3,7 @@ using PowerDynamics: _find_operationpoint_rootfind
 using PowerDynamics: rhs, SixOrderMarconatoMachine, symbolsof
 using NLsolve: nlsolve, converged
 
-include("PowerFlow.jl") # for NodalAdmittanceMatrice
+#include("PowerFlow.jl") # for NodalAdmittanceMatrice
 
 function InitializeInternalDynamics(pg::PowerGrid,I_c,ic_lf)
    ind_offset = 1
@@ -94,7 +94,7 @@ function my_simulate(np::AbstractPerturbation, powergrid::PowerGrid, x1::Array, 
     np_powergrid = np(powergrid)
 
     problem = ODEProblem{true}(rhs(powergrid), x1, timespan)
-    include("operationpoint/PowerFlow.jl")
+    #include("operationpoint/PowerFlow.jl")
 
     function errorState(integrator)
         sol1 = integrator.sol
