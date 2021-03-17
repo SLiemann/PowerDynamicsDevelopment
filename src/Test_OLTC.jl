@@ -24,7 +24,7 @@ begin
     branches=OrderedDict(
         "branch1"=> PiModelLine(from= "bus1", to = "bus2",y=1.0/(0.05+1im*0.15), y_shunt_km=0., y_shunt_mk=0.),
         "branch2"=> PiModelLine(from= "bus2", to = "bus3",y=1.0/(0.05+1im*0.15), y_shunt_km=0., y_shunt_mk=0.),
-        "branch3"=> StaticPowerTransformer(from="bus3",to="bus4",S_r=100e6,U_r=380e3,uk=0.1581138,XR_ratio=3,i0=6.35,Pv0=100e3,Sbase=Sbase,Ubase=Ubase,tap_side = "HV",tap_pos = -7,tap_inc = 1.0),
+        "branch3"=> StaticPowerTransformer(from="bus3",to="bus4",S_r=100e6,U_r=380e3,uk=0.1581138,XR_ratio=3,i0=6.35,Pv0=100e3,Sbase=Sbase,Ubase=Ubase,tap_side = "LV",tap_pos = 7,tap_inc = 1.0),
         "branch4"=> PiModelLine(from= "bus4", to = "bus5",y=1.0/((0.05+1im*0.15)*(Ubase/110e3)^2), y_shunt_km=0., y_shunt_mk=0.))
     pg = PowerGrid(buses, branches)
     Qmax   = [Inf, Inf, 0.5,Inf, Inf]
@@ -41,10 +41,10 @@ begin
     PG, ic0 = InitializeInternalDynamics(pg,I_c,ic)
     #ODEProb = ODEProblem{true}(rhs(PG),ic0,(0.,5.))
     #sol = solve(ODEProb,Rodas4(),dt=1e-4)
-    Zbase = (380e3^2)/(100e6)
-    SS = NodeShortCircuit(node="bus2",Y = 1/(1im*250/Zbase),tspan_fault=(1.0, 1.15))
+    #Zbase = (380e3^2)/(100e6)
+    #SS = NodeShortCircuit(node="bus2",Y = 1/(1im*250/Zbase),tspan_fault=(1.0, 1.15))
     #PT = PowerPerturbation(node="bus2", fault_power = -0.4 ,tspan_fault=(1.0, 5.0))
-    PGsol = my_simulate(SS,PG,ic0,(0.,5.0))
+    #PGsol = my_simulate(SS,PG,ic0,(0.,5.0))
     #PG_state = State(PG,ic0)
     #PGsol = solve(PG,PG_state,(0.,1.))
     #plot(PGsol,collect(keys(PG.nodes)), :v,size = (1000, 500),legend = (0.5, 0.5))
@@ -84,15 +84,17 @@ plot!(PGsol,["bus1"], :q)
 
 function OLTC_test(powergrid::PowerGrid, ic0::Array,branch_oltc)
 
-    problem = ODEProblem{true}(rhs(powergrid), ic0, (0.0,10.0))
+    problem = ODEProblem{true}(rhs(powergrid), ic0, (0.0,50.0))
     np_pg = deepcopy(powergrid)
     timer_start = -1
     timer_now   = 0.0
-    function TapState(integrator,idx)
-        timer_start = t
+    tap = PG.lines[branch_oltc].tap_pos
+    OLTC = deepcopy(PG.lines[branch_oltc])
+    function TapState(integrator)
+        timer_start = integrator.t
         sol1 = integrator.sol
         tap += 1
-        node = StaticPowerTransformer(from="bus3",to="bus4",S_r=100e6,U_r=380e3,uk=0.1581138,XR_ratio=3,i0=6.35,Pv0=100e3,Sbase=Sbase,Ubase=Ubase,tap_side = "HV",tap_pos = -7+tap,tap_inc = 1.0)
+        node = StaticPowerTransformer(from=OLTC.from,to=OLTC.to,S_r=OLTC.S_r,U_r=OLTC.U_r,uk=OLTC.uk,XR_ratio=OLTC.XR_ratio,i0=OLTC.i0,Pv0=OLTC.Pv0,Sbase=OLTC.Sbase,Ubase=OLTC.Ubase,tap_side = OLTC.tap_side,tap_pos = tap,tap_inc = OLTC.tap_inc)
         np_pg.lines[branch_oltc] = node
 
         ode = rhs(np_pg)
@@ -108,7 +110,7 @@ function OLTC_test(powergrid::PowerGrid, ic0::Array,branch_oltc)
          0.98 <= sqrt(u[13]*u[13] + u[14]*u[14]) <= 1.02
     end
 
-    function timer_off(u,t,integrator)
+    function timer_off(integrator)
         timer_start = -1
     end
 
@@ -116,14 +118,18 @@ function OLTC_test(powergrid::PowerGrid, ic0::Array,branch_oltc)
          sqrt(u[13]*u[13] + u[14]*u[14]) < 0.98
     end
 
-    function timer_on(u,t,integrator)
+    function timer_on(integrator)
         if timer_start == -1
-            timer_start = t
+            timer_start = integrator.t
         end
     end
 
     function timer_hit(u,t,integrator)
-        t-timer_start > 5
+        if timer_start == -1
+            return false
+        else
+            return t-timer_start > 5
+        end
     end
 
     cb1 = DiscreteCallback(voltage_deadband, timer_off)
@@ -133,4 +139,20 @@ function OLTC_test(powergrid::PowerGrid, ic0::Array,branch_oltc)
     sol = solve(problem, Rodas4(), callback = CallbackSet(cb1,cb2,cb3), dt = 1e-3,adaptive=false)
 
     return PowerGridSolution(sol, powergrid)
+end
+
+begin
+    PGsol2 = OLTC_test(PG,ic0,"branch3")
+    plot(PGsol2,collect(keys(PG.nodes)), :v,size = (1000, 500),legend = (0.6, 0.75))
+    test = DataFrame(CSV.File("C:\\Users\\liemann\\Desktop\\PF_test.csv"; header=false, delim=';', type=Float64))
+    plot!(test.Column1,test.Column2,label = "PF-bus1")
+    plot!(test.Column1,test.Column3,label = "PF-bus2")
+    plot!(test.Column1,test.Column4,label = "PF-bus3")
+    plot!(test.Column1,test.Column5,label = "PF-bus4")
+    plot!(test.Column1,test.Column6,label = "PF-bus5")
+end
+begin
+    plot(PGsol2,["bus3"], :θ)
+    test2 = DataFrame(CSV.File("C:\\Users\\liemann\\Desktop\\PF_pol.csv"; header=false, delim=';', type=Float64))
+    plot!(test2.Column1,(test2.Column2))
 end
