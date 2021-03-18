@@ -1,5 +1,6 @@
 using PowerDynamics
 using PowerDynamics: guess
+import PowerDynamics: PiModel
 using LightGraphs #incidence_matrix
 using Roots #for Iwamoto multiplier
 using LinearAlgebra

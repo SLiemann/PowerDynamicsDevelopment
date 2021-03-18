@@ -41,8 +41,13 @@ begin
     Ykk = NodalAdmittanceMatrice(pg)
     I_c = Ykk*Uc
     PG, ic0 = InitializeInternalDynamics(pg,I_c,ic)
-    ODEProb = ODEProblem(rhs(PG),
+    ODEProb = ODEProblem(rhs(PG),ic0,(0.0,10.0))
+    new_f = ODEFunction(ODEProb.f.f, syms = ODEProb.f.syms, mass_matrix = Int.(ODEProb.f.mass_matrix))
+    ODEProb = ODEProblem(new_f,ic,(0,1.0), 1) # 1 is a dummy parameter
     mtsys = modelingtoolkitize(ODEProb)
+    Jakob = ModelingToolkit.calculate_jacobian(mtsys)
+    Jakbo2 = calc_my_jac(mtsys)
+    Jakob == Jakob2
     #sol = solve(ODEProb,Rodas4(),dt=1e-4)
     #Zbase = (380e3^2)/(100e6)
     #SS = NodeShortCircuit(node="bus2",Y = 1/(1im*250/Zbase),tspan_fault=(1.0, 1.15))
@@ -161,19 +166,17 @@ begin
     plot!(test2.Column1,(test2.Column2))
 end
 
-begin
-    i = 1
-    lhs1 = map(mm1 * x) do v
-        display(v)
-        if iszero(v)
-            0
-        elseif v in Set(x)
-            D(v)
-        else
-            display(v)
-            display(iszero(v))
-            error("Non-permuation mass matrix is not supported.")
-        end
-        i +=1
-    end
+function calc_my_jac(sys)
+    rhs1 = [eq.rhs for eq ∈ equations(sys)]
+    dvs = states(sys)
+    Jakob = [Num(expand_derivatives(Differential(v)(lhs))) for v in dvs, lhs in rhs1]
 end
+
+function calc_my_hesse(sys)
+    rhs1 = [eq.rhs for eq ∈ equations(sys)]
+    dvs = [Differential(s)^2 for s in states(sys)]
+    hesse = [Num(expand_derivatives(v(lhs))) for v in dvs, lhs in rhs1]
+end
+
+test = calc_my_jac(mtsys)
+test2 = calc_my_hesse(mtsys)
