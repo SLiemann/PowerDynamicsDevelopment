@@ -47,7 +47,6 @@ begin
     mtsys = modelingtoolkitize(ODEProb)
     Jakob = ModelingToolkit.calculate_jacobian(mtsys)
     Jakob2 = calc_my_jac(mtsys)
-    Hesse  = calc_my_hesse(mtsys)
     Jakob .== Jakob2
     #sol = solve(ODEProb,Rodas4(),dt=1e-4)
     #Zbase = (380e3^2)/(100e6)

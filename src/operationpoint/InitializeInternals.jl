@@ -38,7 +38,9 @@ function InitNode(SM::FourthOrderEq,ind,I_c,ic_lf,ind_offset)
    return [v_d_temp, v_q_temp, δ, 0.], node_temp
 end
 
-function InitNode(SM::SixOrderMarconatoMachine,ind,I_c,ic_lf,ind_offset)
+InitNode(SM::SixOrderMarconatoMachineSin,ind,I_c,ic_lf,ind_offset) = InitNodeSM(SM,ind,I_c,ic_lf,ind_offset)
+InitNode(SM::SixOrderMarconatoMachine,ind,I_c,ic_lf,ind_offset)    = InitNodeSM(SM,ind,I_c,ic_lf,ind_offset)
+function InitNodeSM(SM,ind,I_c,ic_lf,ind_offset)
    v_d_temp = ic_lf[ind_offset]
    v_q_temp = ic_lf[ind_offset+1]
    #Rotor angle
@@ -81,7 +83,12 @@ function InitNode(SM::SixOrderMarconatoMachine,ind,I_c,ic_lf,ind_offset)
    Pm = (v_q + SM.R_a * i_q) * i_q + (v_d + SM.R_a * i_d) * i_d
 
    #Create new bus
-   node_temp = SixOrderMarconatoMachine(H=SM.H, P=Pm, D=SM.D, Ω=SM.Ω, E_f=v_f, R_a=SM.R_a, T_ds=SM.T_ds, T_qs=SM.T_qs, T_dss=SM.T_dss, T_qss=SM.T_qss, X_d=SM.X_d, X_q=SM.X_q, X_ds=SM.X_ds, X_qs=SM.X_qs, X_dss=SM.X_dss, X_qss=SM.X_qss, T_AA=SM.T_AA);
+   node_temp = []
+   if typeof(SM) == SixOrderMarconatoMachine
+      node_temp = SixOrderMarconatoMachine(H=SM.H, P=Pm, D=SM.D, Ω=SM.Ω, E_f=v_f, R_a=SM.R_a, T_ds=SM.T_ds, T_qs=SM.T_qs, T_dss=SM.T_dss, T_qss=SM.T_qss, X_d=SM.X_d, X_q=SM.X_q, X_ds=SM.X_ds, X_qs=SM.X_qs, X_dss=SM.X_dss, X_qss=SM.X_qss, T_AA=SM.T_AA);
+   elseif typeof(SM) == SixOrderMarconatoMachineSin
+      node_temp = SixOrderMarconatoMachineSin(H=SM.H, P=Pm, D=SM.D, Ω=SM.Ω, E_f=v_f, R_a=SM.R_a, T_ds=SM.T_ds, T_qs=SM.T_qs, T_dss=SM.T_dss, T_qss=SM.T_qss, X_d=SM.X_d, X_q=SM.X_q, X_ds=SM.X_ds, X_qs=SM.X_qs, X_dss=SM.X_dss, X_qss=SM.X_qss, T_AA=SM.T_AA);
+   end
    # Structure from node: u_r, u_i, θ, ω, e_ds, e_qs, e_dss,e_qss
    return [v_d_temp, v_q_temp, δ, 0., e_ds, e_qs, e_dss, e_qss], node_temp
 end
