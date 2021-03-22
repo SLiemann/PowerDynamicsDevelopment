@@ -43,7 +43,7 @@ begin
     I_c = Ykk*Uc
     PG, ic0 = InitializeInternalDynamics(pg,I_c,ic)
     prob = ODEProblem(rhs(PG),ic0,(0.0,1.0),1)
-    sol  = solve(prob,Rodas4(), dt = 1e-3, adaptive = false)
+    sol  = solve(prob,Rodas4())
 end
 test = TimeDomainSensitivies(PG,(0.0,1.0),ic0,1,[:u_r_1,:u_i_4],1,sol)
 begin
