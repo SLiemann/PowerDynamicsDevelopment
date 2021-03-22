@@ -1,3 +1,4 @@
+using PowerDynamics: rhs
 using ModelingToolkit
 
 function plot_sensi(time,sensis)
@@ -8,17 +9,42 @@ function plot_sensi(time,sensis)
    return p
 end
 
-function TimeDomainSensitivies(prob::ODEProblem,ic,p,sensis_u0,sensis_p)
-    sol = solve(prob,Rodas4())
-    TimeDomainSensitivies(prob,ic,p,sensis_u0,sensis_p,sol)
+function TimeDomainSensitivies(pg::PowerGrid,time_interval,ic,p,sensis_u0_pd,sensis_p_pd)
+    prob = ODEProblem(rhs(pg),ic,time_interval,p)
+    sol  = solve(prob,Rodas4())
+    TimeDomainSensitivies(pg,time_interval,ic,p,sensis_u0_pd,sensis_p_pd,sol)
 end
 
-function TimeDomainSensitivies(prob::ODEProblem,ic,p,sensis_u0,sensis_p,sol)
-   #sol,eqs,aeqs,D_states,A_states,symu0,symp,sensis_u0,sensis_p
-    mtsys   = modelingtoolkitize(prob)
+function TimeDomainSensitivies(pg::PowerGrid,time_interval,ic,p,sensis_u0_pd,sensis_p_pd,sol)
+    #sol,eqs,aeqs,D_states,A_states,symu0,symp,sensis_u0,sensis_p
+    #Handle arguments, mainly for size()
+    if typeof(ic) == Int64 || typeof(ic) == Float64
+       ic = [ic]
+    end
+    if typeof(p) == Int64 || typeof(p) == Float64
+       p = [p]
+    end
+    if typeof(sensis_u0_pd) == Symbol
+      sensis_u0_pd = [sensis_u0_pd]
+    end
+    if typeof(sensis_p_pd) == Int64
+      sensis_p_pd = [sensis_p_pd]
+    end
+
+    #Start workaround for modelingtoolkitize (only Int64 entries for mass matrix)
+    prob = ODEProblem(rhs(pg),ic,time_interval,p)
+    new_f = ODEFunction(prob.f.f, syms = prob.f.syms, mass_matrix = Int.(prob.f.mass_matrix))
+    ODEProb = ODEProblem(new_f,ic,time_interval,p)
+    mtsys   = modelingtoolkitize(ODEProb)
+    #End workaround for modelingtoolkitize
     fulleqs = equations(mtsys)
     state   = states(mtsys)
     params  = parameters(mtsys)
+    #it is assumed that state and rhs(powergrid).syms have the same order
+    sensis_u0 = Vector{Term{Real,Nothing}}(undef,size(sensis_u0_pd)[1])
+    for (index,value) in enumerate(sensis_u0_pd) sensis_u0[index] = state[findfirst(isequal(value),rhs(pg).syms)] end
+    #sensis_p_pd is here a list with indices of the parameters p
+    sensis_p = params[sensis_p_pd]
 
     aeqs = Vector{Equation}()
     eqs  = Vector{Equation}()
@@ -36,12 +62,13 @@ function TimeDomainSensitivies(prob::ODEProblem,ic,p,sensis_u0,sensis_p,sol)
       end
     end
 
-    symu0 = Vector{Pair{Num,Float64}}(undef, size(ic))
+    #dict from states and parameters with their starting values
+    symu0 = Vector{Pair{Num,Float64}}(undef, size(ic)[1])
     for (index,value) in enumerate(ic) symu0[index] = state[index] => ic[index]   end
-    symp  = Vector{Pair{Num,Float64}}(undef, size(p))
-    for (index,value) in enumerate(p) symu0[index] = params[index] => p[index]   end
+    symp  = Vector{Pair{Num,Float64}}(undef, size(p)[1])
+    for (index,value) in enumerate(p) symp[index] = params[index] => p[index]   end
 
-    @derivatives D'~t
+    #@derivatives D'~t
 
     len_sens = size(sensis_u0)[1]+size(sensis_p)[1];
     @parameters xx0[1:size(D_states)[1],1:len_sens]
@@ -57,44 +84,46 @@ function TimeDomainSensitivies(prob::ODEProblem,ic,p,sensis_u0,sensis_p,sol)
     for i in sensis_u0  push!(Diff_u0, Differential(i)) end
     for i in sensis_p   push!(Diff_p, Differential(i)) end
 
-    Fx = Array{Expression}(undef,size(eqs)[1],size(D_states)[1])
-    Fy = Array{Expression}(undef,size(eqs)[1],size(A_states)[1])
-    Fp = Array{Expression}(undef,size(eqs)[1],len_sens)
+    #SymbolicUtils.Add{Real,Int64,Dict{Any,Number},Nothing}
+    Fx = Array{Num}(undef,size(eqs)[1],size(D_states)[1])
+    Fy = Array{Num}(undef,size(eqs)[1],size(A_states)[1])
+    Fp = Array{Num}(undef,size(eqs)[1],len_sens)
 
     for (index_i, i) in enumerate(eqs)
             for (index_j, j) in enumerate(Diff_D_states)
-               Fx[index_i,index_j] = expand_derivatives(j(i.rhs))
+               Fx[index_i,index_j] = Num(expand_derivatives(j(i.rhs)))
             end
             for (index_j, j) in enumerate(Diff_A_states)
-               Fy[index_i,index_j] = expand_derivatives(j(i.rhs))
+               Fy[index_i,index_j] = Num(expand_derivatives(j(i.rhs)))
             end
             for (index_j, j) in enumerate(Diff_u0)
-               Fp[index_i,index_j] = ModelingToolkit.Constant(0)
+               Fp[index_i,index_j] = Num(0)
             end
             for (index_j, j) in enumerate(Diff_p)
-               Fp[index_i,index_j+size(Diff_u0)[1]] = expand_derivatives(j(i.rhs))
+               Fp[index_i,index_j+size(Diff_u0)[1]] = Num(expand_derivatives(j(i.rhs)))
             end
     end
 
-    Gx = Array{Expression}(undef,size(aeqs)[1],size(D_states)[1])
-    Gy = Array{Expression}(undef,size(aeqs)[1],size(A_states)[1])
-    Gp = Array{Expression}(undef,size(aeqs)[1],len_sens)
+    Gx = Array{Num}(undef,size(aeqs)[1],size(D_states)[1])
+    Gy = Array{Num}(undef,size(aeqs)[1],size(A_states)[1])
+    Gp = Array{Num}(undef,size(aeqs)[1],len_sens)
 
     for (index_i, i) in enumerate(aeqs)
             for (index_j, j) in enumerate(Diff_D_states)
-               Gx[index_i,index_j] = expand_derivatives(j(i.rhs))
+               Gx[index_i,index_j] = Num(expand_derivatives(j(i.rhs)))
             end
             for (index_j, j) in enumerate(Diff_A_states)
-               Gy[index_i,index_j] = expand_derivatives(j(i.rhs))
+               Gy[index_i,index_j] = Num(expand_derivatives(j(i.rhs)))
             end
             for (index_j, j) in enumerate(Diff_u0)
-               Gp[index_i,index_j] = ModelingToolkit.Constant(0)
+               Gp[index_i,index_j] = Num(0)
             end
             for (index_j, j) in enumerate(Diff_p)
-               Gp[index_i,index_j+size(Diff_u0)[1]] = expand_derivatives(j(i.rhs))
+               Gp[index_i,index_j+size(Diff_u0)[1]] = Num(expand_derivatives(j(i.rhs)))
             end
     end
 
+    @parameters Δt
     M = [Δt/2*Fx-I Δt/2*Fy;
            Gx Gy]
     N = []
@@ -108,7 +137,7 @@ function TimeDomainSensitivies(prob::ODEProblem,ic,p,sensis_u0,sensis_p,sol)
          -Gp]
 
     #Initialisierung: xx0 enthält die Sensis für x0 und p für x
-    xx0_k     = Array{Pair{Operation,Float64}}(undef,size(xx0)[1],len_sens)
+    xx0_k     = Array{Pair{Num,Float64}}(undef,size(xx0)[1],len_sens)
     xx0_f     = Array{Float64}(undef,size(xx0)[1],len_sens)
     for (index1, value1) in enumerate(sensis_u0) #die Startwertsensis wo dx1/dx1 = 1, sonst 0 z.B. dx1/dx2 =0
        for (index2, value2) in enumerate(D_states)
@@ -128,19 +157,17 @@ function TimeDomainSensitivies(prob::ODEProblem,ic,p,sensis_u0,sensis_p,sol)
        end
     end
     # Bei den Sensis für y werden zuerst die dy/x0 Sensi initialisiert
-    yx0_t0 = -inv(Gy)*(Gx*xx0_f[:,1:size(sensis_u0)[1]])
-    yp_t0 =  -inv(Gy)*(Gp*vcat(zeros(size(sensis_u0)[1],size(sensis_p)[1]),I))
+    Gy_float = substitute.(Gy,([symu0; symp],)) # for increasing calculation of inv(Gy)
+    yx0_t0 = -inv(Gy_float)*(Gx*xx0_f[:,1:size(sensis_u0)[1]])
+    yp_t0 =  -inv(Gy_float)*(Gp*vcat(zeros(size(sensis_u0)[1],size(sensis_p)[1]),I))
     sym_yx0_k = [yx0_t0 yp_t0]
-    yx0_k     = Array{Pair{Operation,Float64}}(undef,size(yx0)[1],len_sens)
-    for (index, value) in enumerate(sym_yx0_k) yx0_k[index] = yx0[index] => substitute.(sym_yx0_k[index],([
-      ; symp],))[1].value end
+    yx0_k     = Array{Pair{Num,Float64}}(undef,size(yx0)[1],len_sens)
+    for (index, value) in enumerate(sym_yx0_k)
+      yx0_k[index] = yx0[index] => Symbolics.value(substitute(sym_yx0_k[index],[symu0; symp]))
+    end
 
-    Mfloat = Array{Float64}(undef,size(M)[1],size(M)[2])
-    Nfloat = Array{Float64}(undef,size(N)[1],size(N)[2])
-    Ofloat = Array{Float64}(undef,size(O)[1],size(O)[2])
-
-    uk  = Vector{Pair{Operation,Float64}}(undef,size(symu0)[1])
-    uk1 = Vector{Pair{Operation,Float64}}(undef,size(symu0)[1])
+    uk  = Vector{Pair{Num,Float64}}(undef,size(symu0)[1])
+    uk1 = Vector{Pair{Num,Float64}}(undef,size(symu0)[1])
 
     for (index,value) in enumerate(symu0)
        uk[index] = value[1] => value[2]
@@ -160,14 +187,11 @@ function TimeDomainSensitivies(prob::ODEProblem,ic,p,sensis_u0,sensis_p,sol)
              uk1[index] = uk1[index][1] => value
           end
 
-          Mval = substitute.(M,([uk1; symp;Δt => dt],))
-          Nval = substitute.(N,([uk;  symp;vec(xx0_k);vec(yx0_k);Δt => dt],))
-          Oval = substitute.(O,([uk1; symp;Δt => dt],))
-
-          for j in eachindex(Mval) Mfloat[j] = Mval[j].value end
-          for j in eachindex(Nval) Nfloat[j] = Nval[j].value end
-          for j in eachindex(Oval) Ofloat[j] = Oval[j].value end
+          Mfloat = Symbolics.value.(substitute.(M,([uk1; symp;Δt => dt],)))
+          Nfloat = Symbolics.value.(substitute.(N,([uk;  symp;vec(xx0_k);vec(yx0_k);Δt => dt],)))
+          Ofloat = Symbolics.value.(substitute.(O,([uk1; symp;Δt => dt],)))
           res  = inv(Mfloat)*(Nfloat+Ofloat)
+
           for j in 1:length(sensi) sensi[j][:,i] = res[:,j] end
           for j in 1:size(xx0_k)[2] #für jede Spalte
              for (index, value) in enumerate(xx0_k[:,j])

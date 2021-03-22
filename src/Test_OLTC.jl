@@ -37,18 +37,27 @@ end
 #ic0 = find_valid_initial_condition(pg,ic)
 begin
     include("operationpoint/InitializeInternals.jl")
+    include("operationpoint/Local_Sensitivity.jl")
     Uc = U.*exp.(1im*δ1/180*pi)
     Ykk = NodalAdmittanceMatrice(pg)
     I_c = Ykk*Uc
     PG, ic0 = InitializeInternalDynamics(pg,I_c,ic)
+    prob = ODEProblem(rhs(PG),ic0,(0.0,1.0),1)
+    sol  = solve(prob,Rodas4(), dt = 1e-3, adaptive = false)
+end
+test = TimeDomainSensitivies(PG,(0.0,1.0),ic0,1,[:u_r_1,:u_i_4],1,sol)
+begin
     ODEProb = ODEProblem(rhs(PG),ic0,(0.0,10.0))
     new_f = ODEFunction(ODEProb.f.f, syms = ODEProb.f.syms, mass_matrix = Int.(ODEProb.f.mass_matrix))
     ODEProb = ODEProblem(new_f,ic,(0,1.0), 1) # 1 is a dummy parameter
     mtsys = modelingtoolkitize(ODEProb)
-    Jakob = ModelingToolkit.calculate_jacobian(mtsys)
-    Jakob2 = calc_my_jac(mtsys)
-    Hesse  = calc_my_hesse(mtsys)
-    Jakob .== Jakob2
+end
+
+begin
+    #Jakob = ModelingToolkit.calculate_jacobian(mtsys)
+    #Jakob2 = calc_my_jac(mtsys)
+    #Hesse  = calc_my_hesse(mtsys)
+    #Jakob .== Jakob2
     #sol = solve(ODEProb,Rodas4(),dt=1e-4)
     #Zbase = (380e3^2)/(100e6)
     #SS = NodeShortCircuit(node="bus2",Y = 1/(1im*250/Zbase),tspan_fault=(1.0, 1.15))
