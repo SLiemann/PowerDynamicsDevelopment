@@ -52,11 +52,11 @@ function TimeDomainSensitivies(pg::PowerGrid,time_interval,ic,p,sensis_u0_pd,sen
     D_states = Vector{Term{Real,Nothing}}()
     for (index, value) in enumerate(fulleqs)
       if typeof(value.lhs) == Term{Real,Nothing} #works, but nasty
-         push!(aeqs,value)
-         push!(A_states,state[index])
-      elseif value.lhs == 0
          push!(eqs,value)
          push!(D_states,state[index])
+      elseif value.lhs == 0
+         push!(aeqs,value)
+         push!(A_states,state[index])
       else
          error("Can not interprete LHS of equation; $value")
       end
@@ -84,7 +84,6 @@ function TimeDomainSensitivies(pg::PowerGrid,time_interval,ic,p,sensis_u0_pd,sen
     for i in sensis_u0  push!(Diff_u0, Differential(i)) end
     for i in sensis_p   push!(Diff_p, Differential(i)) end
 
-    #SymbolicUtils.Add{Real,Int64,Dict{Any,Number},Nothing}
     Fx = Array{Num}(undef,size(eqs)[1],size(D_states)[1])
     Fy = Array{Num}(undef,size(eqs)[1],size(A_states)[1])
     Fp = Array{Num}(undef,size(eqs)[1],len_sens)
@@ -157,7 +156,8 @@ function TimeDomainSensitivies(pg::PowerGrid,time_interval,ic,p,sensis_u0_pd,sen
        end
     end
     # Bei den Sensis für y werden zuerst die dy/x0 Sensi initialisiert
-    Gy_float = substitute.(Gy,([symu0; symp],)) # for increasing calculation of inv(Gy)
+    Gy_float = substitute.(Gy,([symu0; symp],))
+    testi = inv(Gy_float)*substitute.(Gx,([symu0; symp],)) # for increasing calculation of inv(Gy)
     yx0_t0 = -inv(Gy_float)*(Gx*xx0_f[:,1:size(sensis_u0)[1]])
     yp_t0 =  -inv(Gy_float)*(Gp*vcat(zeros(size(sensis_u0)[1],size(sensis_p)[1]),I))
     sym_yx0_k = [yx0_t0 yp_t0]

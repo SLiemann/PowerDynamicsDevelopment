@@ -42,15 +42,19 @@ begin
     Ykk = NodalAdmittanceMatrice(pg)
     I_c = Ykk*Uc
     PG, ic0 = InitializeInternalDynamics(pg,I_c,ic)
-    prob = ODEProblem(rhs(PG),ic0,(0.0,1.0),1)
+    ic0[7] = 0.25
+    prob = ODEProblem(rhs(PG),ic0,(0.0,10.0),1)
     sol  = solve(prob,Rodas4())
 end
-test = TimeDomainSensitivies(PG,(0.0,1.0),ic0,1,[:u_r_1,:u_i_4],1,sol)
+test = TimeDomainSensitivies(PG,(0.0,1.0),ic0,1,[:u_r_1,:u_i_4],1,sol) #θ_3
 begin
     ODEProb = ODEProblem(rhs(PG),ic0,(0.0,10.0))
     new_f = ODEFunction(ODEProb.f.f, syms = ODEProb.f.syms, mass_matrix = Int.(ODEProb.f.mass_matrix))
     ODEProb = ODEProblem(new_f,ic,(0,1.0), 1) # 1 is a dummy parameter
     mtsys = modelingtoolkitize(ODEProb)
+end
+begin
+
 end
 
 begin
