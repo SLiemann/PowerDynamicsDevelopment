@@ -42,11 +42,12 @@ begin
     Ykk = NodalAdmittanceMatrice(pg)
     I_c = Ykk*Uc
     PG, ic0 = InitializeInternalDynamics(pg,I_c,ic)
-    ic0[7] = 0.25
+    ic0[7] += 0.1
     prob = ODEProblem(rhs(PG),ic0,(0.0,10.0),1)
-    sol  = solve(prob,Rodas4())
+    sol_or  = solve(prob,Rodas4(),dt=1e-2,adaptive = false)
 end
-test = TimeDomainSensitivies(PG,(0.0,1.0),ic0,1,[:u_r_1,:u_i_4],1,sol) #θ_3
+test = TimeDomainSensitivies(PG,(0.0,10.0),ic0,1,[:θ_3],1,sol_or)
+plot(sol_or.t[1:end-1],test[1]')
 begin
     ODEProb = ODEProblem(rhs(PG),ic0,(0.0,10.0))
     new_f = ODEFunction(ODEProb.f.f, syms = ODEProb.f.syms, mass_matrix = Int.(ODEProb.f.mass_matrix))
@@ -56,6 +57,7 @@ end
 begin
 
 end
+a = 5>4 ?
 
 begin
     #Jakob = ModelingToolkit.calculate_jacobian(mtsys)

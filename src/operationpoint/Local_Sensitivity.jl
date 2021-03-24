@@ -192,7 +192,12 @@ function TimeDomainSensitivies(pg::PowerGrid,time_interval,ic,p,sensis_u0_pd,sen
           Ofloat = Symbolics.value.(substitute.(O,([uk1; symp;Δt => dt],)))
           res  = inv(Mfloat)*(Nfloat+Ofloat)
 
-          for j in 1:length(sensi) sensi[j][:,i] = res[:,j] end
+          for j in 1:length(sensi)
+             ind_y = setdiff(indexin(A_states,state), [nothing])
+             ind_x = setdiff(indexin(D_states,state), [nothing])
+             sensi[j][ind_x,i] = res[1:size(D_states)[1],j]
+             sensi[j][ind_y,i] = res[size(D_states)[1]+1:end,j]
+          end
           for j in 1:size(xx0_k)[2] #für jede Spalte
              for (index, value) in enumerate(xx0_k[:,j])
                 xx0_k[index,j] = value[1] => res[index,j]
