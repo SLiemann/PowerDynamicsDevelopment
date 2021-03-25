@@ -9,13 +9,8 @@ function plot_sensi(time,sensis)
    return p
 end
 
-function TimeDomainSensitivies(pg::PowerGrid,time_interval,ic,p,sensis_u0_pd,sensis_p_pd)
-    prob = ODEProblem(rhs(pg),ic,time_interval,p)
-    sol  = solve(prob,Rodas4())
-    TimeDomainSensitivies(pg,time_interval,ic,p,sensis_u0_pd,sensis_p_pd,sol)
-end
 
-function TimeDomainSensitivies(pg::PowerGrid,time_interval,ic,p,sensis_u0_pd,sensis_p_pd,sol)
+function TimeDomainSensitivies(prob::ODEProblem,time_interval,ic,p,sensis_u0_pd,sensis_p_pd,sol)
     #sol,eqs,aeqs,D_states,A_states,symu0,symp,sensis_u0,sensis_p
     #Handle arguments, mainly for size()
     if typeof(ic) == Int64 || typeof(ic) == Float64
@@ -32,17 +27,15 @@ function TimeDomainSensitivies(pg::PowerGrid,time_interval,ic,p,sensis_u0_pd,sen
     end
 
     #Start workaround for modelingtoolkitize (only Int64 entries for mass matrix)
-    prob = ODEProblem(rhs(pg),ic,time_interval,p)
-    new_f = ODEFunction(prob.f.f, syms = prob.f.syms, mass_matrix = Int.(prob.f.mass_matrix))
-    ODEProb = ODEProblem(new_f,ic,time_interval,p)
-    mtsys   = modelingtoolkitize(ODEProb)
+    #new_f = ODEFunction(prob.f.f, syms = prob.f.syms, mass_matrix = Int.(prob.f.mass_matrix))
+    #ODEProb = ODEProblem(new_f,ic,time_interval,p)
+    mtsys   = modelingtoolkitize(prob)
     #End workaround for modelingtoolkitize
     fulleqs = equations(mtsys)
     state   = states(mtsys)
     params  = parameters(mtsys)
     #it is assumed that state and rhs(powergrid).syms have the same order
-    sensis_u0 = Vector{Term{Real,Nothing}}(undef,size(sensis_u0_pd)[1])
-    for (index,value) in enumerate(sensis_u0_pd) sensis_u0[index] = state[findfirst(isequal(value),rhs(pg).syms)] end
+    sensis_u0 = state[sensis_u0_pd]
     #sensis_p_pd is here a list with indices of the parameters p
     sensis_p = params[sensis_p_pd]
 

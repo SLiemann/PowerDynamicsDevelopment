@@ -35,29 +35,40 @@ begin
 end
 #ic = initial_guess(pg)
 #ic0 = find_valid_initial_condition(pg,ic)
-begin
+@time begin
     include("operationpoint/InitializeInternals.jl")
     include("operationpoint/Local_Sensitivity.jl")
+    dt = 1e-3
+    tspan = (0.0,10.0)
     Uc = U.*exp.(1im*δ1/180*pi)
     Ykk = NodalAdmittanceMatrice(pg)
     I_c = Ykk*Uc
     PG, ic0 = InitializeInternalDynamics(pg,I_c,ic)
-    ic0[7] += 0.1
     prob = ODEProblem(rhs(PG),ic0,(0.0,10.0),1)
-    sol_or  = solve(prob,Rodas4(),dt=1e-2,adaptive = false)
+    sol_or  = solve(prob,Rodas4(),dt=dt,adaptive = false)
 end
-test = TimeDomainSensitivies(PG,(0.0,10.0),ic0,1,[:θ_3],1,sol_or)
-plot(sol_or.t[1:end-1],test[1]')
-begin
-    ODEProb = ODEProblem(rhs(PG),ic0,(0.0,10.0))
-    new_f = ODEFunction(ODEProb.f.f, syms = ODEProb.f.syms, mass_matrix = Int.(ODEProb.f.mass_matrix))
-    ODEProb = ODEProblem(new_f,ic,(0,1.0), 1) # 1 is a dummy parameter
-    mtsys = modelingtoolkitize(ODEProb)
+@time begin
+    sensis = TimeDomainSensitivies(PG,tspan,ic0,1,[:θ_3],1,sol_or)
 end
-begin
+@time begin
+    Δic  = 1
+    var_number = 7
+    ic0_new = deepcopy(ic0)
+    ic0_new[var_number] += Δic
+    prob = ODEProblem(rhs(PG),ic0_new,tspan,1)
+    sol_pert  = solve(prob,Rodas4(),dt=dt,adaptive = false)
 
+    sol_pert_u1 = Vector{Float64}(undef,length(sol_or.u))
+    for (index,value) in enumerate(sol_or.u)
+      sol_pert_u1[index] = value[var_number]
+    end
 end
-a = 5>4 ?
+
+@time begin
+    plot(sol_pert,vars=(var_number))
+    plot!(sol_or.t[1:end-1],sol_pert_u1[1:end-1]+sensis[1]'[:,var_number].*Δic)
+end
+
 
 begin
     #Jakob = ModelingToolkit.calculate_jacobian(mtsys)
