@@ -44,9 +44,10 @@ end
     Uc = U.*exp.(1im*δ1/180*pi)
     Ykk = NodalAdmittanceMatrice(pg)
     I_c = Ykk*Uc
-    PG, ic0 = InitializeInternalDynamics(pg,I_c,ic)
-    prob = ODEProblem(rhs(PG),ic0,(0.0,10.0),1)
-    sol_or  = solve(prob,Rodas4(),dt=dt,adaptive = false)
+    pg, ic0 = InitializeInternalDynamics(pg,I_c,ic)
+    EW = CalcEigenValues(pg,ic0,[1.0],output = true)
+    #prob = ODEProblem(rhs(pg),ic0,tspan,1)
+    #ol_or  = solve(prob,Rodas4(),dt=dt,adaptive = false)
 end
 @time begin
     sensis = TimeDomainSensitivies(PG,tspan,ic0,[1.0],[:θ_3,:ω_3],[1],sol_or)
@@ -83,11 +84,25 @@ begin
 end
 
 begin
+    include("operationpoint/Local_Sensitivity.jl")
+    new_f = ODEFunction(prob.f.f, syms = prob.f.syms, mass_matrix = Int.(prob.f.mass_matrix))
+    ODEProb = ODEProblem(new_f,ic,tspan,1)
+    mtsys   = modelingtoolkitize(ODEProb)
+    fulleqs = equations(mtsys)
+    state   = states(mtsys)
+    rhs_fulleqs = my_rhs.(fulleqs)
+    x_eqs,y_eqs,x,y = GetSymbolicEquationsAndStates(fulleqs,state)
+    Fx,Fy,Gx,Gy = GetSymbolicFactorizedJacobian(x_eqs,y_eqs,x,y)
+    Fxf,Fyf,Gxf,Gyf = [Substitute(f,[state .=> ic0; parameters(mtsys) .=> 1]) for f in [Fx,Fy,Gx,Gy]]
+    Af = Fxf -Fyf*inv(Gyf)*Gxf
+    scatter(real.(eigvals(Af)),imag.(eigvals(Af)))
     #Jakob = ModelingToolkit.calculate_jacobian(mtsys)
     #Jakob2 = calc_my_jac(mtsys)
     #Hesse  = calc_my_hesse(mtsys)
     #Jakob .== Jakob2
     #sol = solve(ODEProb,Rodas4(),dt=1e-4)
+end
+begin
     #Zbase = (380e3^2)/(100e6)
     #SS = NodeShortCircuit(node="bus2",Y = 1/(1im*250/Zbase),tspan_fault=(1.0, 1.15))
     #PT = PowerPerturbation(node="bus2", fault_power = -0.4 ,tspan_fault=(1.0, 5.0))

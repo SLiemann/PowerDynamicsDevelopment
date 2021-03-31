@@ -1,5 +1,6 @@
 using PowerDynamics: rhs
 using ModelingToolkit
+using LinearAlgebra
 
 function plot_sensi(time,sensis)
    p = plot(layout = (size(sensis)[1],1))
@@ -137,4 +138,76 @@ function TimeDomainSensitivies(pg::PowerGrid,time_interval::Tuple{Float64,Float6
           yx0_k = yx0 .=> res[size(D_states)[1]+1:end,:]
     end
    return sensi
+end
+
+function GetSymbolicEquationsAndStates(fulleqs::Array{Equation,1},state::Vector{Term{Real,Nothing}})
+  aeqs = Vector{Equation}()
+  eqs  = Vector{Equation}()
+  A_states = Vector{Term{Real,Nothing}}()
+  D_states = Vector{Term{Real,Nothing}}()
+  for (index, value) in enumerate(fulleqs)
+    if my_lhs(value) !==0
+       push!(eqs,value)
+       push!(D_states,state[index])
+    elseif my_lhs(value) ===0
+       push!(aeqs,value)
+       push!(A_states,state[index])
+    else
+       error("Can not interprete LHS of equation; $value")
+    end
+  end
+  return eqs,aeqs,D_states,A_states
+end
+
+function GetSymbolicFactorizedJacobian(eqs::Array{Equation,1},aeqs::Array{Equation,1},D_states::Array{Term{Real,Nothing},1},A_states::Array{Term{Real,Nothing},1})
+  Fx = Array{Num}(undef,size(eqs)[1],size(D_states)[1])
+  Fy = Array{Num}(undef,size(eqs)[1],size(A_states)[1])
+
+  Gx = Array{Num}(undef,size(aeqs)[1],size(D_states)[1])
+  Gy = Array{Num}(undef,size(aeqs)[1],size(A_states)[1])
+
+  Diff_D_states = Differential.(D_states)
+  Diff_A_states = Differential.(A_states)
+
+  for (ind, val) in enumerate(Diff_D_states)
+    Fx[:,ind] = Num.(expand_derivatives.(map(val,my_rhs.(eqs))))
+    Gx[:,ind] = Num.(expand_derivatives.(map(val,my_rhs.(aeqs))))
+  end
+  for (ind, val) in enumerate(Diff_A_states)
+    Fy[:,ind] = Num.(expand_derivatives.(map(val,my_rhs.(eqs))))
+    Gy[:,ind] = Num.(expand_derivatives.(map(val,my_rhs.(aeqs))))
+  end
+  return Fx,Fy,Gx,Gy
+end
+
+function Substitute(syms::Array{Num},subs_args::Array{Pair{SymbolicUtils.Symbolic{Real},Float64},1})
+   return Symbolics.value.(substitute.(syms,(subs_args,)))
+end
+
+function CalcEigenValues(pg::PowerGrid,ic::Array{Float64,1},p::Array{Float64,1};output::Bool = false)
+    mtsys     = GetMTKSystem(pg,(0.0,1.0),ic,p)
+    fulleqs   = equations(mtsys)
+    symstates = states(mtsys)
+    x_eqs,y_eqs,x,y = GetSymbolicEquationsAndStates(fulleqs,symstates)
+    Fx,Fy,Gx,Gy = GetSymbolicFactorizedJacobian(x_eqs,y_eqs,x,y)
+    Fxf,Fyf,Gxf,Gyf = [Substitute(f,[symstates .=> ic0; parameters(mtsys) .=> 1]) for f in [Fx,Fy,Gx,Gy]]
+    Af = Fxf -Fyf*inv(Gyf)*Gxf
+    EW = eigvals(Af)
+    if output
+      println("|ID | Real-part | Imag-part | Frequency | Damping Time Constant |")
+      index = indexin(x,symstates)
+      syms  = rhs(pg).syms[index]
+      for (ind,ew) in enumerate(EW)
+        println("| $(syms[ind])) | $(round(real(ew),digits =3)) | $(round(imag(ew),digits = 3)) | $(round(abs(imag(ew))/2/pi,digits =3)) | $(round(1.0/abs(real(ew)),digits =3)) |")
+      end
+    end
+    return EW
+end
+
+function GetMTKSystem(pg::PowerGrid,time_interval::Tuple{Float64,Float64},ic::Array{Float64,1},p::Array{Float64,1})
+  #workaround for modelingtoolkitize (only Int64 entries for mass matrix)
+  prob = ODEProblem(rhs(pg),ic,time_interval,p)
+  new_f = ODEFunction(prob.f.f, syms = prob.f.syms, mass_matrix = Int.(prob.f.mass_matrix))
+  ODEProb = ODEProblem(new_f,ic,time_interval,p)
+  return modelingtoolkitize(ODEProb)
 end
