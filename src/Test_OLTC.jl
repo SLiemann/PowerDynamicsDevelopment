@@ -46,20 +46,20 @@ end
     I_c = Ykk*Uc
     pg, ic0 = InitializeInternalDynamics(pg,I_c,ic)
     EW = CalcEigenValues(pg,ic0,[1.0],output = true)
-    #prob = ODEProblem(rhs(pg),ic0,tspan,1)
-    #ol_or  = solve(prob,Rodas4(),dt=dt,adaptive = false)
+    prob = ODEProblem(rhs(pg),ic0,tspan,1)
+    sol_or  = solve(prob,Rodas4(),dt=dt,adaptive = false)
 end
 @time begin
-    sensis = TimeDomainSensitivies(PG,tspan,ic0,[1.0],[:θ_3,:ω_3],[1],sol_or)
+    sensis = TimeDomainSensitivies(pg,tspan,ic0,[1.0],[:θ_3],[1],sol_or) #,:ω_3
 end
 #PowerGrid,Tuple{Float64,Float64},Array{Float64,1},Array{Float64,1},Array{Symbol,1},Array{Int64,1},ODESolution
 @time begin
-    Δic  = 0.01
-    var_number = 8
-    sensi_nr   = 2
+    Δic  = 0.5
+    var_number = 7
+    sensi_nr   = 1
     ic0_new = copy(ic0)
     ic0_new[var_number] += Δic
-    prob = ODEProblem(rhs(PG),ic0_new,tspan,1)
+    prob = ODEProblem(rhs(pg),ic0_new,tspan,1)
     sol_pert  = solve(prob,Rodas4(),dt=dt,adaptive = false)
 
     sol_pert_u1 = Vector{Float64}(undef,length(sol_or.u))
