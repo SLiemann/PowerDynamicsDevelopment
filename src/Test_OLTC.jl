@@ -136,6 +136,12 @@ begin
     plot!(test3.Column1,(test3.Column2.-1))
     #ylims!((-0.05,0.05))
 end
+begin
+    plot(PGsol,["bus3"], :ifd)
+    test3 = DataFrame(CSV.File("C:\\Users\\liemann\\Desktop\\PF_ifd.csv"; header=false, delim=';', type=Float64))
+    plot!(test3.Column1,(test3.Column2))
+    #ylims!((-0.05,0.05))
+end
 #ylims!((1.01,1.015))
 #ylims!((0.75,1.015))
 xlims!((0.99,1.05))
