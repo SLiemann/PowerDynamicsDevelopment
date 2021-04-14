@@ -16,9 +16,7 @@ The model has the following internal dynamic variables:
 * ``e_dss`` subtransient magnetic state in d-axis
 * ``e_qss`` subtransient magnetic state in q-axis
 * ``ω`` representing the frequency of the rotator (not relative)
-* ``θ`` representing the angle of the rotor with respect to the voltage angle ``ϕ``
-* ``ifd`` field current - algebraic variable.
-
+* ``θ`` representing the angle of the rotor with respect to the voltage angle ``ϕ``.
 
 # Keyword Arguments
 - `H`: shaft inertia constant, given in [s],
@@ -41,7 +39,7 @@ The model has the following internal dynamic variables:
 
 """
 @DynamicNode SixOrderMarconatoMachineSin(H, P, D, Ω, E_f, R_a,T_ds,T_qs,T_dss,T_qss,X_d,X_q,X_ds,X_qs,X_dss,X_qss,T_AA) begin
-    MassMatrix(m_int =[true,true,true,true,true,true,false])
+    MassMatrix(m_int =[true,true,true,true,true,true])
 end begin
     @assert H > 0 "inertia (H) should be >0"
     @assert P >= 0 "Active power (P) should be >=0"
@@ -70,7 +68,7 @@ end begin
     γ_d = T_d0ss * X_dss * (X_d - X_ds) / (T_d0s * X_ds)
     γ_q = T_q0ss * X_qss * (X_q - X_qs) / (T_q0s * X_qs)
 
-end [[θ,dθ],[ω, dω],[e_ds, de_ds],[e_qs, de_qs],[e_dss, de_dss],[e_qss, de_qss],[ifd,difd]] begin
+end [[θ,dθ],[ω, dω],[e_ds, de_ds],[e_qs, de_qs],[e_dss, de_dss],[e_qss, de_qss]] begin
     #i_c = 1im*i*exp(-1im*θ)
     i_c = 1im*i*(cos(-θ)+1im*sin(-θ))
     i_d = real(i_c)
@@ -94,8 +92,6 @@ end [[θ,dθ],[ω, dω],[e_ds, de_ds],[e_qs, de_qs],[e_dss, de_dss],[e_qss, de_q
 
     dθ = Ω * 2*pi * ω
     dω = (P - D * ω - pe) / (2*H)
-
-    difd = ifd - (E_f - T_d0s * de_qs) / X_d
 end
 
 export SixOrderMarconatoMachineSin

@@ -103,20 +103,20 @@ begin
     #sol = solve(ODEProb,Rodas4(),dt=1e-4)
 end
 begin
-    #Zbase = (380e3^2)/(100e6)
-    #SS = NodeShortCircuit(node="bus2",Y = 1/(1im*250/Zbase),tspan_fault=(1.0, 1.15))
+    Zbase = (380e3^2)/(100e6)
+    SS = NodeShortCircuit(node="bus2",Y = 1/(1im*250/Zbase),tspan_fault=(1.0, 1.15))
     #PT = PowerPerturbation(node="bus2", fault_power = -0.4 ,tspan_fault=(1.0, 5.0))
-    #PGsol = my_simulate(SS,PG,ic0,(0.,5.0))
-    #PG_state = State(PG,ic0)
-    #PGsol = solve(PG,PG_state,(0.,1.))
-    #plot(PGsol,collect(keys(PG.nodes)), :v,size = (1000, 500),legend = (0.5, 0.5))
+    PGsol = my_simulate(SS,pg,ic0,(0.,10.0))
+    PG_state = State(pg,ic0)
+    PGsol = solve(pg,PG_state,(0.,1.))
+    plot(PGsol,"bus3", :ifd,size = (1000, 500),legend = (0.5, 0.5)) #collect(keys(pg.nodes))
 end
 
 begin
 plot(sol)
 plot(PGsol,collect(keys(PG.nodes)), :v,size = (1000, 500),legend = (0.5, 0.5))
 begin
-    plot(PGsol,collect(keys(PG.nodes)), :v,size = (1000, 500),legend = (0.5, 0.5))
+    plot(PGsol,collect(keys(pg.nodes)), :v,size = (1000, 500),legend = (0.5, 0.5))
     test = DataFrame(CSV.File("C:\\Users\\liemann\\Desktop\\PF_test.csv"; header=false, delim=';', type=Float64))
     plot!(test.Column1,test.Column2,label = "PF-bus1")
     plot!(test.Column1,test.Column3,label = "PF-bus2")

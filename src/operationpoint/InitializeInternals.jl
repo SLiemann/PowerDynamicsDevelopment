@@ -79,6 +79,9 @@ function InitNodeSM(SM,ind::Int64,I_c::Array{Complex{Float64},2},ic_lf::Array{Fl
       e_qs = e_qss + (SM.X_ds - SM.X_dss + γ_d) * i_d
       v_f  = e_qs  + (SM.X_d  - SM.X_ds  - γ_d) * i_d
    end
+   #NEW
+   ifd = v_f/SM.X_d  #due to: ifd = (E_f - T_d0s * de_qs) / X_d
+
    #Pm also needs to be initialized
    Pm = (v_q + SM.R_a * i_q) * i_q + (v_d + SM.R_a * i_d) * i_d
 
@@ -90,7 +93,7 @@ function InitNodeSM(SM,ind::Int64,I_c::Array{Complex{Float64},2},ic_lf::Array{Fl
       node_temp = SixOrderMarconatoMachineSin(H=SM.H, P=Pm, D=SM.D, Ω=SM.Ω, E_f=v_f, R_a=SM.R_a, T_ds=SM.T_ds, T_qs=SM.T_qs, T_dss=SM.T_dss, T_qss=SM.T_qss, X_d=SM.X_d, X_q=SM.X_q, X_ds=SM.X_ds, X_qs=SM.X_qs, X_dss=SM.X_dss, X_qss=SM.X_qss, T_AA=SM.T_AA);
    end
    # Structure from node: u_r, u_i, θ, ω, e_ds, e_qs, e_dss,e_qss
-   return [v_d_temp, v_q_temp, δ, 0., e_ds, e_qs, e_dss, e_qss], node_temp
+   return [v_d_temp, v_q_temp, δ, 0., e_ds, e_qs, e_dss, e_qss,ifd], node_temp
 end
 
 
