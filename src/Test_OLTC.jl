@@ -1,6 +1,6 @@
 using PowerDynamics: SlackAlgebraic, FourthOrderEq, VoltageDependentLoad, PiModelLine, StaticLine, Transformer, PowerGrid#, write_powergrid, Json, Inc, find_operationpoint, ChangeInitialConditions, LineFailure, PowerPerturbation, simulate
 using PowerDynamics: symbolsof, initial_guess, guess, RLLine
-using PowerDynamics: StaticPowerTransformer, DynamicPowerTransformer, SixOrderMarconatoMachine,SixOrderMarconatoMachineSin
+using PowerDynamics: StaticPowerTransformer, DynamicPowerTransformer, SixOrderMarconatoMachine,SixOrderMarconatoMachineSin,SixOrderMarconatoMachineAVROEL
 using PowerDynamics
 using PowerDynamics: rhs, State
 using OrderedCollections: OrderedDict
@@ -11,6 +11,8 @@ using CSV #read PF DataFrames
 using DataFrames #for CSV
 using ModelingToolkit
 using Traceur
+using Distributed
+@everywhere using IfElse
 
 begin
     include("operationpoint/PowerFlow.jl")
@@ -19,7 +21,12 @@ begin
     buses=OrderedDict(
         "bus1"=> SlackAlgebraic(U=0.98),
         "bus2"=> VoltageDependentLoad(P=-0.3, Q=0.3, U=1.0, A=0., B=0.,Y_n = complex(0.0)),
-        "bus3"=> SixOrderMarconatoMachineSin(H = 5, P=0.5, D=0., Ω=50, E_f=1.4, R_a = 0.1,T_ds=1.136,T_qs=0.8571,T_dss=0.04,T_qss=0.06666,X_d=1.1,X_q=0.7,X_ds=0.25,X_qs=0.25,X_dss=0.2,X_qss=0.2,T_AA=0.),
+        "bus3"=> SixOrderMarconatoMachineAVROEL(H = 5, P=0.5, D=0., Ω=50, R_a = 0.1,
+                                             T_ds=1.136,T_qs=0.8571,T_dss=0.04,T_qss=0.06666,
+                                             X_d=1.1,X_q=0.7,X_ds=0.25,X_qs=0.25,X_dss=0.2,
+                                             X_qss=0.2,T_AA=0.,V0 = 1.0, Ifdlim = 1.8991/1.8991,
+                                             L1 = -11.0, G1 = 70.0, Ta = 10.0, Tb = 20.0,
+                                             G2 = 10.0, L2 = 4.0),
         #"bus3"=> VoltageDependentLoad(P=+0.5, Q=0.0, U=1.0, A=0., B=0.,Y_n = complex(0.0)),
         "bus4"=> VoltageDependentLoad(P=-0.5, Q=-0.5, U=1.0, A=0.5, B=0.3,Y_n = complex(0.0)),
         "bus5"=> VoltageDependentLoad(P= 0.0, Q=0.1, U=1.0, A=0.5, B=0.3,Y_n = complex(0.0)))
@@ -38,13 +45,15 @@ end
 #ic0 = find_valid_initial_condition(pg,ic)
 @time begin
     include("operationpoint/InitializeInternals.jl")
-    include("operationpoint/Local_Sensitivity.jl")
+    #include("operationpoint/Local_Sensitivity.jl")
     dt = 1e-3
     tspan = (0.0,10.0)
     Uc = U.*exp.(1im*δ1/180*pi)
     Ykk = NodalAdmittanceMatrice(pg)
     I_c = Ykk*Uc
     pg, ic0 = InitializeInternalDynamics(pg,I_c,ic)
+end
+begin
     EW = CalcEigenValues(pg,ic0,[1.0],output = true)
     prob = ODEProblem(rhs(pg),ic0,tspan,1)
     sol_or  = solve(prob,Rodas4(),dt=dt,adaptive = false)
@@ -103,18 +112,19 @@ begin
     #sol = solve(ODEProb,Rodas4(),dt=1e-4)
 end
 begin
+    include("operationpoint/InitializeInternals.jl")
     Zbase = (380e3^2)/(100e6)
     SS = NodeShortCircuit(node="bus2",Y = 1/(1im*250/Zbase),tspan_fault=(1.0, 1.15))
     #PT = PowerPerturbation(node="bus2", fault_power = -0.4 ,tspan_fault=(1.0, 5.0))
-    PGsol = my_simulate(SS,pg,ic0,(0.,10.0))
+    #PGsol = my_simulate(SS,pg,ic0,(0.,10.0))
     PG_state = State(pg,ic0)
-    PGsol = solve(pg,PG_state,(0.,1.))
-    plot(PGsol,"bus3", :ifd,size = (1000, 500),legend = (0.5, 0.5)) #collect(keys(pg.nodes))
+    PGsol = solve(pg,PG_state,(0.,30.))
+    #plot(PGsol,"bus3", :E_f,size = (1000, 500),legend = (0.5, 0.5)) #collect(keys(pg.nodes))
 end
 
 begin
 plot(sol)
-plot(PGsol,collect(keys(PG.nodes)), :v,size = (1000, 500),legend = (0.5, 0.5))
+plot(PGsol,collect(keys(pg.nodes)), :v,size = (1000, 500),legend = (0.5, 0.5))
 begin
     plot(PGsol,collect(keys(pg.nodes)), :v,size = (1000, 500),legend = (0.5, 0.5))
     test = DataFrame(CSV.File("C:\\Users\\liemann\\Desktop\\PF_test.csv"; header=false, delim=';', type=Float64))
@@ -140,8 +150,20 @@ begin
     plot(PGsol,["bus3"], :ifd)
     test3 = DataFrame(CSV.File("C:\\Users\\liemann\\Desktop\\PF_ifd.csv"; header=false, delim=';', type=Float64))
     plot!(test3.Column1,(test3.Column2))
-    #ylims!((-0.05,0.05))
+    #ylims!((0.95,1))
+    #xlims!((18.5,22))
 end
+begin
+    plot(PGsol,["bus3"], :E_f)
+    test3 = DataFrame(CSV.File("C:\\Users\\liemann\\Desktop\\PF_vf.csv"; header=false, delim=';', type=Float64))
+    plot!(test3.Column1,(test3.Column2))
+end
+begin
+    plot(PGsol,["bus3"], :timer)
+    test3 = DataFrame(CSV.File("C:\\Users\\liemann\\Desktop\\PF_timer.csv"; header=false, delim=';', type=Float64))
+    plot!(test3.Column1,(test3.Column2))
+end
+plot(PGsol,["bus3"], :timer)
 #ylims!((1.01,1.015))
 #ylims!((0.75,1.015))
 xlims!((0.99,1.05))
