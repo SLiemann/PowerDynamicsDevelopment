@@ -118,7 +118,7 @@ begin
     #PT = PowerPerturbation(node="bus2", fault_power = -0.4 ,tspan_fault=(1.0, 5.0))
     #PGsol = my_simulate(SS,pg,ic0,(0.,10.0))
     PG_state = State(pg,ic0)
-    PGsol = solve(pg,PG_state,(0.,30.))
+    PGsol = solve(pg,PG_state,(0.,10.))
     #plot(PGsol,"bus3", :E_f,size = (1000, 500),legend = (0.5, 0.5)) #collect(keys(pg.nodes))
 end
 
