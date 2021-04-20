@@ -32,21 +32,26 @@ I_c = Ykk*Uc
 S = conj(Ykk*Uc).*Uc
 pg, ic0 = InitializeInternalDynamics(pg,I_c,ic)
 
-nodes_fault = deepcopy(pg.nodes)
-branches_fault = deepcopy(pg.lines)
-delete!(nodes_fault,"busv")
-delete!(branches_fault,"Line_1-v")
-delete!(branches_fault,"Line_v-2")
-pg_fault = PowerGrid(nodes_fault,branches_fault)
+function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Float64,Float64})
 
-
-function run_LTVS_simulation(pg,pg_fault,ic1,tspan,branch_oltc)
+    tfault = [10.0, 10.15]
+    Zfault = 1im*20.0
+    pg_fault = deepcopy(pg)
+    pg_fault.nodes["busv"] = VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=0., B=0.,Y_n = complex(1.0/(Zfault/Zbase)))
+    nodes_postfault = deepcopy(pg.nodes)
+    branches_postfault = deepcopy(pg.lines)
+    delete!(nodes_postfault,"busv")
+    delete!(branches_postfault,"Line_1-v")
+    delete!(branches_postfault,"Line_v-2")
+    pg_postfault = PowerGrid(nodes_postfault,branches_postfault)
 
     problem = ODEProblem{true}(rhs(pg),ic1,tspan)
     timer_start = -1.0
     timer_now   = 0.0
+    branch_oltc = "branch4"
     tap = pg.lines[branch_oltc].tap_pos
     OLTC = deepcopy(pg.lines[branch_oltc])
+    postfault_state = false
     fault_state = false
     index_U_oltc = getNodeVoltageSymbolPosition(pg,pg.lines[branch_oltc].to)
 
@@ -59,7 +64,13 @@ function run_LTVS_simulation(pg,pg_fault,ic1,tspan,branch_oltc)
                                       i0=OLTC.i0,Pv0=OLTC.Pv0,Sbase=OLTC.Sbase,
                                       Ubase=OLTC.Ubase,tap_side = OLTC.tap_side,
                                       tap_pos = tap,tap_inc = OLTC.tap_inc)
-        np_pg = fault_state ? deepcopy(pg_fault) : deepcopy(pg)
+        if postfault_state
+            np_pg = deepcopy(pg_postfault)
+        elseif fault_state
+            np_pg = deepcopy(pg_fault)
+        else
+            np_pg = deepcopy(pg)
+        end
         np_pg.lines[branch_oltc] = node
         ode = rhs(np_pg)
         op_prob = ODEProblem(ode, sol1[end], (0.0, 1e-6), nothing, initializealg = BrownFullBasicInit())
@@ -96,11 +107,43 @@ function run_LTVS_simulation(pg,pg_fault,ic1,tspan,branch_oltc)
         end
     end
 
+    function errorState(integrator)
+        sol1 = integrator.sol
+        #x2 = find_valid_initial_condition(np_powergrid, sol1[end]) # Jump the state to be valid for the new system.
+        ode = rhs(pg_fault)
+        op_prob = ODEProblem(ode, sol1[end], (0.0, 1e-6), nothing, initializealg = BrownFullBasicInit())
+        x2 = solve(op_prob,Rodas5())
+        x2 = x2.u[end]
+
+        integrator.f = ode
+        integrator.u = x2#sol1[end]
+        fault_state = true
+    end
+
+    function regularState(integrator)
+        sol2 = deepcopy(integrator.sol[end])
+        #x3 = find_valid_initial_condition(powergrid, sol2[end]) # Jump the state to be valid for the new system.
+        ode   = rhs(pg_postfault)
+        index = getNodeVoltageSymbolPosition(pg,"busv")
+        deleteat!(sol2,index:index+1) #delete voltage states from solution
+        op_prob = ODEProblem(ode, sol2, (0.0, 1e-6), nothing, initializealg = BrownFullBasicInit())
+        x3 = solve(op_prob,Rodas5())
+        x3 = x3.u[end]
+
+        integrator.f = rhs(pg_postfault)
+        integrator.u = x3#sol2[end]
+        postfault_state = true
+        fault_state = false
+        index_U_oltc = getNodeVoltageSymbolPosition(pg,pg.lines[branch_oltc].to)
+    end
+
     cb1 = DiscreteCallback(voltage_deadband, timer_off)
     cb2 = DiscreteCallback(voltage_outside, timer_on)
     cb3 = DiscreteCallback(timer_hit, TapState)
+    cb4 = DiscreteCallback(((u,t,integrator) -> t in tfault[1]), errorState)
+    cb5 = DiscreteCallback(((u,t,integrator) -> t in tfault[2]), regularState)
 
-    sol = solve(problem, Rodas4(), callback = CallbackSet(cb1,cb2,cb3), dtmax = 1e-3) #
+    sol = solve(problem, Rodas4(), callback = CallbackSet(cb1,cb2,cb3,cb4,cb5), tstops=[tfault[1],tfault[2]], dtmax = 1e-3) #
 
     return PowerGridSolution(sol, pg)
 end
@@ -115,6 +158,18 @@ function getNodeVoltageSymbolPosition(pg::PowerGrid,key::String)
         end
    end
    @error "Key not found: $key"
+end
+
+pgsol = run_LTVS_simulation(pg,ic0,(0.0,115.0));
+
+begin
+    ic2 = deepcopy(ic0)
+    deleteat!(ic2,3:4)
+    f_test = rhs(pg_postfault)
+    ode_test = ODEProblem(f_test,ic2,(0.0,10.0))
+    testsol = solve(ode_test,Rodas4(),dtmax = 1e-3)
+    pgtestsol = PowerGridSolution(testsol, pg_postfault)
+    plot(pgtestsol,collect(keys(pg_postfault.nodes)), :v,size = (1000, 500),legend = (0.6, 0.75))
 end
 
 begin
