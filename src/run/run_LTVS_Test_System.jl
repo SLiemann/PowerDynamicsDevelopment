@@ -40,9 +40,9 @@ function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Fl
     pg_fault.nodes["busv"] = VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=0., B=0.,Y_n = complex(1.0/(Zfault/Zbase)))
     nodes_postfault = deepcopy(pg.nodes)
     branches_postfault = deepcopy(pg.lines)
-    delete!(nodes_postfault,"busv")
-    delete!(branches_postfault,"Line_1-v")
-    delete!(branches_postfault,"Line_v-2")
+    #delete!(nodes_postfault,"busv")
+    #delete!(branches_postfault,"Line_1-v")
+    delete!(branches_postfault,"Line_1-2")
     pg_postfault = PowerGrid(nodes_postfault,branches_postfault)
 
     problem = ODEProblem{true}(rhs(pg),ic1,tspan)
@@ -124,20 +124,19 @@ function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Fl
         sol2 = deepcopy(integrator.sol[end])
         #x3 = find_valid_initial_condition(powergrid, sol2[end]) # Jump the state to be valid for the new system.
         ode   = rhs(pg_postfault)
-        index = getNodeVoltageSymbolPosition(pg,"busv")
-        deleteat!(sol2,index:index+1) #delete voltage states from solution
+        #index = getNodeVoltageSymbolPosition(pg,"busv")
+        #deleteat!(sol2,index:index+1) #delete voltage states from solution
         op_prob = ODEProblem(ode, sol2, (0.0, 1e-6), nothing, initializealg = BrownFullBasicInit())
         x3 = solve(op_prob,Rodas5())
         x3 = x3.u[end]
-        display(length(x3))
-        deleteat!(integrator,index:index+1)
+        #deleteat!(integrator,index:index+1)
         integrator.f = rhs(pg_postfault)
         integrator.u = x3#sol2[end]
         postfault_state = true
         fault_state = false
-        display(index_U_oltc)
-        index_U_oltc = getNodeVoltageSymbolPosition(pg_postfault,pg_postfault.lines[branch_oltc].to)
-        display(index_U_oltc)
+        #display(index_U_oltc)
+        #index_U_oltc = getNodeVoltageSymbolPosition(pg_postfault,pg_postfault.lines[branch_oltc].to)
+        #display(index_U_oltc)
     end
 
     cb1 = DiscreteCallback(voltage_deadband, timer_off)
