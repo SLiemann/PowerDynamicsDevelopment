@@ -3,13 +3,14 @@ using OrderedCollections: OrderedDict
 
 
 function LTVS_Test_System()
+    Sbase = 100e6
     #Z_SM  = (15.0/380.0)^2
     buses=OrderedDict(
         "bus1" => SlackAlgebraic(U=1.0),
         "busv" => VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=0., B=0.,Y_n = complex(0.0)),
         "bus2" => VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=0., B=0.,Y_n = complex(0.0)),
         "bus3" => VoltageDependentLoad(P=-10.0, Q = -3.286841, U=1.0, A=0.0, B=1.0,Y_n = complex(0.0)),
-        "bus4" => SixOrderMarconatoMachineAVROEL(Ur=15e3,Sr=600e6,H = 3, P=5.40, D=0., Ω=50, R_a = 0.0,
+        "bus4" => SixOrderMarconatoMachineAVROEL(Sb=Sbase,Sr=600e6,H = 3, P=5.40, D=0., Ω=50, R_a = 0.0,
                                              T_ds=0.9545455,T_qs=0.3,T_dss=0.0333333,T_qss=0.025,
                                              X_d=2.2,X_q=2.0, X_ds=0.3,X_qs=0.4, X_dss=0.2,
                                              X_qss=0.2,T_AA=0.,V0 = 1.0, Ifdlim = 3.0618,

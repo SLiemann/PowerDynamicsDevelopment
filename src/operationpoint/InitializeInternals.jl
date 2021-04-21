@@ -99,8 +99,7 @@ function InitNode(SM::SixOrderMarconatoMachineAVROEL,ind::Int64,I_c::Array{Compl
    v_d_temp = ic_lf[ind_offset]
    v_q_temp = ic_lf[ind_offset+1]#*15/380
    #Rotor angle
-   δ = angle(v_d_temp+1im*v_q_temp+(SM.R_a+1im*SM.X_q)*I_c[ind]/6.0) #+angle(v_d_temp + 1im*v_q_temp) *(15e3^2/600e6)*(15^2/380^2)*(380e3^2/100e6)/2)
-   display(δ/pi*180)
+   δ = angle(v_d_temp+1im*v_q_temp+(SM.R_a+1im*SM.X_q)*I_c[ind]/(SM.Sr/SM.Sb))
 
    v = v_d_temp +1im*v_q_temp
    v = 1im*v*exp(-1im*δ)
@@ -144,7 +143,7 @@ function InitNode(SM::SixOrderMarconatoMachineAVROEL,ind::Int64,I_c::Array{Compl
    Pm = (v_q + SM.R_a * i_q) * i_q + (v_d + SM.R_a * i_d) * i_d
 
    #Create new bus
-   node_temp = SixOrderMarconatoMachineAVROEL(Ur=SM.Ur,Sr=SM.Sr,H=SM.H, P=Pm, D=SM.D, Ω=SM.Ω, R_a=SM.R_a, T_ds=SM.T_ds, T_qs=SM.T_qs,
+   node_temp = SixOrderMarconatoMachineAVROEL(Sb=SM.Sb,Sr=SM.Sr,H=SM.H, P=Pm, D=SM.D, Ω=SM.Ω, R_a=SM.R_a, T_ds=SM.T_ds, T_qs=SM.T_qs,
                                         T_dss=SM.T_dss, T_qss=SM.T_qss, X_d=SM.X_d, X_q=SM.X_q, X_ds=SM.X_ds,
                                         X_qs=SM.X_qs, X_dss=SM.X_dss, X_qss=SM.X_qss, T_AA=SM.T_AA, V0 = Vref,
                                         Ifdlim = SM.Ifdlim, L1 = SM.L1, G1 = SM.G1, Ta = SM.Ta, Tb = SM.Tb,

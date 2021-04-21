@@ -12,9 +12,9 @@ using DataFrames #for CSV
 using Distributed
 @everywhere using IfElse
 
-include("operationpoint/PowerFlow.jl")
-include("operationpoint/InitializeInternals.jl")
-include("grids/LTVS_Test_System.jl")
+include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/operationpoint/PowerFlow.jl")
+include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/operationpoint/InitializeInternals.jl")
+include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/grids/LTVS_Test_System.jl")
 
 @everywhere Ubase = 380e3
 @everywhere Sbase = 100e6
@@ -129,12 +129,15 @@ function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Fl
         op_prob = ODEProblem(ode, sol2, (0.0, 1e-6), nothing, initializealg = BrownFullBasicInit())
         x3 = solve(op_prob,Rodas5())
         x3 = x3.u[end]
-
+        display(length(x3))
+        deleteat!(integrator,index:index+1)
         integrator.f = rhs(pg_postfault)
         integrator.u = x3#sol2[end]
         postfault_state = true
         fault_state = false
-        index_U_oltc = getNodeVoltageSymbolPosition(pg,pg.lines[branch_oltc].to)
+        display(index_U_oltc)
+        index_U_oltc = getNodeVoltageSymbolPosition(pg_postfault,pg_postfault.lines[branch_oltc].to)
+        display(index_U_oltc)
     end
 
     cb1 = DiscreteCallback(voltage_deadband, timer_off)
@@ -160,7 +163,7 @@ function getNodeVoltageSymbolPosition(pg::PowerGrid,key::String)
    @error "Key not found: $key"
 end
 
-pgsol = run_LTVS_simulation(pg,ic0,(0.0,115.0));
+pgsol = run_LTVS_simulation(pg,ic0,(0.0,15.0));
 
 begin
     ic2 = deepcopy(ic0)
