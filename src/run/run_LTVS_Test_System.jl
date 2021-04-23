@@ -13,6 +13,7 @@ using Distributed
 @everywhere using IfElse
 
 include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/operationpoint/PowerFlow.jl")
+include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/utility/utility_functions.jl")
 include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/operationpoint/InitializeInternals.jl")
 include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/grids/LTVS_Test_System.jl")
 
