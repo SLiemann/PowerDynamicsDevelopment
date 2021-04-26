@@ -22,7 +22,6 @@ include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/grids/LTVS_Test_Sy
 @everywhere Zbase = (Ubase^2)/Sbase
 
 pg = LTVS_Test_System()
-
 #Load Flow
 Qmax   = [Inf, Inf, Inf,Inf, Inf,sqrt(1-0.9^2)]
 Qmin   = -Qmax
@@ -35,15 +34,15 @@ pg, ic0 = InitializeInternalDynamics(pg,I_c,ic)
 
 function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Float64,Float64})
 
-    tfault = [10.0, 10.15]
+    tfault = [1.0, 1.15]
     Zfault = 1im*20.0
     pg_fault = deepcopy(pg)
     pg_fault.nodes["busv"] = VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=0., B=0.,Y_n = complex(1.0/(Zfault/Zbase)))
     nodes_postfault = deepcopy(pg.nodes)
     branches_postfault = deepcopy(pg.lines)
-    #delete!(nodes_postfault,"busv")
-    #delete!(branches_postfault,"Line_1-v")
-    delete!(branches_postfault,"Line_1-2")
+    delete!(nodes_postfault,"busv")
+    delete!(branches_postfault,"Line_1-v")
+    delete!(branches_postfault,"Line_v-2")
     pg_postfault = PowerGrid(nodes_postfault,branches_postfault)
 
     problem = ODEProblem{true}(rhs(pg),ic1,tspan)
@@ -54,8 +53,9 @@ function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Fl
     OLTC = deepcopy(pg.lines[branch_oltc])
     postfault_state = false
     fault_state = false
-    index_U_oltc = getNodeVoltageSymbolPosition(pg,pg.lines[branch_oltc].to)
-
+    #index_U_oltc = getNodeVoltageSymbolPosition(pg,pg.lines[branch_oltc].to)
+    index_U_oltc = PowerDynamics.variable_index(pg.nodes,pg.lines[branch_oltc].to,:u_r)
+    index_U_load = PowerDynamics.variable_index(pg.nodes,"bus3",:u_r)
     function TapState(integrator)
         timer_start = integrator.t
         sol1 = integrator.sol
@@ -79,6 +79,7 @@ function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Fl
         x2 = x2.u[end]
 
         integrator.f = ode
+        integrator.cache.tf.f = integrator.f
         integrator.u = x2#sol1[end]
     end
 
@@ -110,34 +111,49 @@ function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Fl
 
     function errorState(integrator)
         sol1 = integrator.sol
-        #x2 = find_valid_initial_condition(np_powergrid, sol1[end]) # Jump the state to be valid for the new system.
         ode = rhs(pg_fault)
         op_prob = ODEProblem(ode, sol1[end], (0.0, 1e-6), nothing, initializealg = BrownFullBasicInit())
         x2 = solve(op_prob,Rodas5())
         x2 = x2.u[end]
 
         integrator.f = ode
-        integrator.u = x2#sol1[end]
+        integrator.cache.tf.f = integrator.f
+        integrator.u = x2
         fault_state = true
     end
 
     function regularState(integrator)
-        sol2 = deepcopy(integrator.sol[end])
-        #x3 = find_valid_initial_condition(powergrid, sol2[end]) # Jump the state to be valid for the new system.
+        sol = integrator.sol
         ode   = rhs(pg_postfault)
-        #index = getNodeVoltageSymbolPosition(pg,"busv")
-        #deleteat!(sol2,index:index+1) #delete voltage states from solution
-        op_prob = ODEProblem(ode, sol2, (0.0, 1e-6), nothing, initializealg = BrownFullBasicInit())
+        index = PowerDynamics.variable_index(pg.nodes,"busv",:u_r)
+
+        ic_tmp = deepcopy(integrator.sol.u[indexin(tfault[1],integrator.sol.t)[1]])
+        ic_tmp = getPreFaultVoltages(pg,ic_tmp,deepcopy(sol[end]))
+        deleteat!(ic_tmp,index:index+1)
+        op_prob = ODEProblem(ode, ic_tmp, (0.0, 1e-6), nothing, initializealg = BrownFullBasicInit())
         x3 = solve(op_prob,Rodas5())
         x3 = x3.u[end]
-        #deleteat!(integrator,index:index+1)
+
+        resize!(integrator,18)
         integrator.f = rhs(pg_postfault)
+        integrator.cache.tf.f = integrator.f
         integrator.u = x3#sol2[end]
+
         postfault_state = true
         fault_state = false
-        #display(index_U_oltc)
-        #index_U_oltc = getNodeVoltageSymbolPosition(pg_postfault,pg_postfault.lines[branch_oltc].to)
-        #display(index_U_oltc)
+        index_U_oltc = PowerDynamics.variable_index(pg_postfault.nodes,pg_postfault.lines[branch_oltc].to,:u_r)
+        index_U_load = PowerDynamics.variable_index(pg_postfault.nodes,"bus3",:u_r)
+    end
+
+    function check_voltage(u,t,integrator)
+            sqrt(u[index_U_load]*u[index_U_load] + u[index_U_load+1]*u[index_U_load+1]) < 0.4
+    end
+
+    function stop_integration(integrator)
+        println("Terminated at $(integrator.t)")
+        terminate!(integrator)
+        #necessary, otherwise PowerGridSolution throws error
+        integrator.sol = DiffEqBase.solution_new_retcode(integrator.sol, :Success)
     end
 
     cb1 = DiscreteCallback(voltage_deadband, timer_off)
@@ -145,25 +161,16 @@ function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Fl
     cb3 = DiscreteCallback(timer_hit, TapState)
     cb4 = DiscreteCallback(((u,t,integrator) -> t in tfault[1]), errorState)
     cb5 = DiscreteCallback(((u,t,integrator) -> t in tfault[2]), regularState)
+    cb6 = DiscreteCallback(check_voltage, stop_integration)
 
-    sol = solve(problem, Rodas4(), callback = CallbackSet(cb1,cb2,cb3,cb4,cb5), tstops=[tfault[1],tfault[2]], dtmax = 1e-3) #
+    sol = solve(problem, Rodas4(), callback = CallbackSet(cb1,cb2,cb3,cb4,cb5,cb6), tstops=[tfault[1],tfault[2]], dtmax = 1e-3) #
+    sol = AddZerosIntoSolution(pg,pg_postfault,deepcopy(sol))
 
     return PowerGridSolution(sol, pg)
 end
 
-function getNodeVoltageSymbolPosition(pg::PowerGrid,key::String)
-    len_node_dynamics = 0
-    for (ind,val) in enumerate(pg.nodes) # assumption: branches dont have any states
-        if val[1] == key
-            return len_node_dynamics += 1 # first index of u_r_i resp. the node
-        else
-            len_node_dynamics += length(symbolsof(val[2]))
-        end
-   end
-   @error "Key not found: $key"
-end
-
-pgsol = run_LTVS_simulation(pg,ic0,(0.0,15.0));
+pgsol = run_LTVS_simulation(pg,ic0,(0.0,120.0));
+plot(pgsol,collect(keys(pg_postfault.nodes)),:v,legend = (0.3, 0.3))
 
 begin
     ic2 = deepcopy(ic0)
@@ -176,14 +183,23 @@ begin
 end
 
 begin
-    plot(pgsol,collect(keys(pg.nodes)), :v,size = (1000, 500),legend = (0.6, 0.75))
+    plot(pgsol,collect(keys(pg_postfault.nodes)),:v,legend = false)
     test = DataFrame(CSV.File("C:\\Users\\liemann\\Desktop\\u_pf.csv"; header=false, delim=';', type=Float64))
     plot!(test.Column1,test.Column2,label = "PF-bus1")
     plot!(test.Column1,test.Column3,label = "PF-bus2")
     plot!(test.Column1,test.Column4,label = "PF-bus3")
     plot!(test.Column1,test.Column5,label = "PF-gen")
 end
-plot(pgsol,collect(keys(pg.nodes)), :v,size = (1000, 500),legend = (0.6, 0.75))
-plot(pgsol,["bus4"], :timer,size = (1000, 500),legend = (0.6, 0.75))
-xlims!((0.0,2.0))
-ylims!((0.998,1.0001))
+begin
+    plot(pgsol,["bus4"], :ifd,size = (1000, 500),legend = false)
+    test = DataFrame(CSV.File("C:\\Users\\liemann\\Desktop\\u_ifd.csv"; header=false, delim=';', type=Float64))
+    plot!(test.Column1,test.Column2,label = "PF-ifd")
+end
+
+begin
+    plot(pgsol,["bus4"], :timer,size = (1000, 500),legend = false)
+    test = DataFrame(CSV.File("C:\\Users\\liemann\\Desktop\\u_timer.csv"; header=false, delim=';', type=Float64))
+    plot!(test.Column1,test.Column2,label = "PF-ifd")
+end
+xlims!((0.0,10.0))
+ylims!((-18.2,-17))

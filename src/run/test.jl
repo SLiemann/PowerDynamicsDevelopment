@@ -1,6 +1,9 @@
 using DifferentialEquations
 using PowerDynamics
+import PowerDynamics
+
 using OrderedCollections: OrderedDict
+using Plots
 
 Ubase = 380e3
 Sbase  = 100e6
@@ -10,13 +13,13 @@ B_half     = 1im*1498.54*1e-6 / 2.0 *Zbase
 
 buses=OrderedDict(
     "bus1" => SlackAlgebraic(U=1.0),
-    "busv" => VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=0., B=0.,Y_n = complex(0.0)),
-    "bus2" => VoltageDependentLoad(P=-1.0, Q=-0.5, U=1.0, A=0., B=0.,Y_n = complex(0.0)))
+    "bus2" => VoltageDependentLoad(P=-1.0, Q=-0.5, U=1.0, A=0., B=0.,Y_n = complex(0.0)),
+    "busv" => VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=0., B=0.,Y_n = complex(0.0)))
 
 branches=OrderedDict(
     "Line_1-2"=> PiModelLine(from= "bus1", to = "bus2",y=1.0/Z_EHV_Line, y_shunt_km=B_half, y_shunt_mk=B_half),
     "Line_1-v"=> PiModelLine(from= "bus1", to = "busv",y=1.0/(Z_EHV_Line/2.0), y_shunt_km=B_half, y_shunt_mk=0.0),
-    "Line_v-2"=> PiModelLine(from= "busv", to = "bus2",y=1.0/(Z_EHV_Line/2.0), y_shunt_km=0.0, y_shunt_mk=B_half))
+    "Line_v-2"=> PiModelLine(from= "bus2", to = "busv",y=1.0/(Z_EHV_Line/2.0), y_shunt_km=0.0, y_shunt_mk=B_half))
 
 buses_postfault =OrderedDict(
     "bus1" => SlackAlgebraic(U=1.0),
@@ -29,8 +32,8 @@ pg = PowerGrid(buses, branches)
 pg_postfault = PowerGrid(buses_postfault, branches_postfault)
 
 function switch_off(integrator)
-    resize!(integrator,4)
-
+    #resize!(integrator,4)
+    deleteat!(integrator,3:4)
     integrator.f = rhs(pg_postfault)
     ic_temp = find_operationpoint(pg_postfault)
     integrator.u = ic_temp.vec
@@ -50,3 +53,12 @@ ic = find_operationpoint(pg)
 prob = ODEProblem(rhs(pg), ic.vec, (0.0,5.0))
 
 pgsol = solve(prob, Rodas4(), callback=cb)
+#pgsol = PowerGridSolution(pgsol, pg)
+#plot(pgsol,"bus2", :v,size = (1000, 500),legend = (0.6, 0.75))
+
+
+sol2 = deepcopy(pgsol)
+
+tmp = findDifferentStatePositions(pg,pg_postfault,sol2)
+pgsol2 = PowerGridSolution(tmp,pg)
+plot(pgsol2,collect(keys(pg_postfault.nodes)),:v)
