@@ -23,7 +23,7 @@ function my_simulate(np::AbstractPerturbation, powergrid::PowerGrid, x1::Array, 
         sol2 = integrator.sol
         #x3 = find_valid_initial_condition(powergrid, sol2[end]) # Jump the state to be valid for the new system.
         ode = rhs(powergrid)
-        ic_tmp = deepcopy(integrator.sol.u[indexin(tfault[1],integrator.sol.t)[1]]) #get ic from pre-fault
+        ic_tmp = deepcopy(integrator.sol.u[indexin(np.tspan_fault[1],integrator.sol.t)[1]]) #get ic from pre-fault
         ic_tmp = getPreFaultVoltages(pg,ic_tmp,deepcopy(sol2[end])) #change only voltages
         op_prob = ODEProblem(ode, ic_tmp, (0.0, 1e-6), nothing, initializealg = BrownFullBasicInit())
         x3 = solve(op_prob,Rodas5())

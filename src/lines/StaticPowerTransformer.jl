@@ -33,7 +33,8 @@ Transformer based on typical equipment parameters
         error("Can not interprete tap_side (HV/LV): $tap_side")
     end
 
-    I_r   = S_r/(U_r*sqrt(3)) #rated current
+    #I_r   = S_r/(U_r*sqrt(3)) #rated current
+    I_r   = S_r/(Ubase*sqrt(3)) #rated current
 
     #Calculatiing leakage reactance Xa and winding resistance Ra
     Ra = 0.

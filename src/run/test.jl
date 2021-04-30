@@ -1,64 +1,70 @@
-using DifferentialEquations
+using PowerDynamics: SlackAlgebraic, FourthOrderEq, VoltageDependentLoad, PiModelLine, StaticLine, Transformer, PowerGrid#, write_powergrid, Json, Inc, find_operationpoint, ChangeInitialConditions, LineFailure, PowerPerturbation, simulate
+using PowerDynamics: symbolsof, initial_guess, guess, RLLine
+using PowerDynamics: StaticPowerTransformer, DynamicPowerTransformer, SixOrderMarconatoMachine,SixOrderMarconatoMachineSin,SixOrderMarconatoMachineAVROEL
 using PowerDynamics
-import PowerDynamics
-
+using PowerDynamics: rhs, State
 using OrderedCollections: OrderedDict
 using Plots
+import PowerDynamics: PiModel
+using DifferentialEquations
+using CSV #read PF DataFrames
+using DataFrames #for CSV
+using Traceur
+using Distributed
+@everywhere using IfElse
 
-Ubase = 380e3
-Sbase  = 100e6
-Zbase = Ubase^2/Sbase
-Z_EHV_Line = (9.6 + 1im*64)/Zbase
-B_half     = 1im*1498.54*1e-6 / 2.0 *Zbase
+include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/operationpoint/PowerFlow.jl")
+include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/utility/utility_functions.jl")
+include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/operationpoint/InitializeInternals.jl")
+include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/operationpoint/simulate_fault.jl")
 
-buses=OrderedDict(
-    "bus1" => SlackAlgebraic(U=1.0),
-    "bus2" => VoltageDependentLoad(P=-1.0, Q=-0.5, U=1.0, A=0., B=0.,Y_n = complex(0.0)),
-    "busv" => VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=0., B=0.,Y_n = complex(0.0)))
+begin
+    Ubase = 380e3
+    Sbase = 100e6
+    Zbase = (Ubase^2)/(Sbase)
+    buses=OrderedDict(
+        "bus1"=> SlackAlgebraic(U=0.98),
+        "bus2"=> VoltageDependentLoad(P=-0.3, Q=0.3, U=1.0, A=0., B=0.,Y_n = complex(0.0)),
+        "bus3"=> VoltageDependentLoad(P= 0.0, Q=0.0, U=1.0, A=0.0, B=0.0,Y_n = complex(0.0)),
+        "bus4"=> VoltageDependentLoad(P=-0.5, Q=-0.5, U=1.0, A=0.5, B=0.3,Y_n = complex(0.0)),
+        "bus5"=> SixOrderMarconatoMachineAVROEL(Sb=100e6,Sr=100e6,H = 5, P=0.5, D=0., Ω=50, R_a = 0.1,
+                                             T_ds=1.136,T_qs=0.8571,T_dss=0.04,T_qss=0.06666,
+                                             X_d=1.1,X_q=0.7,X_ds=0.25,X_qs=0.25,X_dss=0.2,
+                                             X_qss=0.2,T_AA=0.,V0 = 1.0, Ifdlim = 1.8991,
+                                             L1 = -11.0, G1 = 70.0, Ta = 10.0, Tb = 20.0,
+                                             G2 = 10.0, L2 = 4.0))
 
-branches=OrderedDict(
-    "Line_1-2"=> PiModelLine(from= "bus1", to = "bus2",y=1.0/Z_EHV_Line, y_shunt_km=B_half, y_shunt_mk=B_half),
-    "Line_1-v"=> PiModelLine(from= "bus1", to = "busv",y=1.0/(Z_EHV_Line/2.0), y_shunt_km=B_half, y_shunt_mk=0.0),
-    "Line_v-2"=> PiModelLine(from= "bus2", to = "busv",y=1.0/(Z_EHV_Line/2.0), y_shunt_km=0.0, y_shunt_mk=B_half))
-
-buses_postfault =OrderedDict(
-    "bus1" => SlackAlgebraic(U=1.0),
-    "bus2" => VoltageDependentLoad(P=-1.0, Q=-0.5, U=1.0, A=0., B=0.,Y_n = complex(0.0)))
-
-branches_postfault=OrderedDict(
-    "Line_1-2"=> PiModelLine(from= "bus1", to = "bus2",y=1.0/Z_EHV_Line, y_shunt_km=B_half, y_shunt_mk=B_half))
-
-pg = PowerGrid(buses, branches)
-pg_postfault = PowerGrid(buses_postfault, branches_postfault)
-
-function switch_off(integrator)
-    #resize!(integrator,4)
-    deleteat!(integrator,3:4)
-    integrator.f = rhs(pg_postfault)
-    ic_temp = find_operationpoint(pg_postfault)
-    integrator.u = ic_temp.vec
-
-    # descent into madness: the cache is a OrdinayDiffEq.Rodas4Cache
-    # https://github.com/SciML/OrdinaryDiffEq.jl/blob/181dcf265351ed3c02437c89a8d2af3f6967fa85/src/caches/rosenbrock_caches.jl#L326
-    # which holds an SciMLBase.TimeGradientWrapper (tf)
-    # https://github.com/SciML/SciMLBase.jl/blob/9e5ba6f10a0d347d48ba4d2bae4a3c610a589bc1/src/function_wrappers.jl#L1
-    # which holds the reference to the `ODEFunction` (f)
-    # update this reference and it works.
-    integrator.cache.tf.f = integrator.f
+    branches=OrderedDict(
+        "branch1"=> PiModelLine(from= "bus1", to = "bus2",y=1.0/(0.05+1im*0.15), y_shunt_km=0., y_shunt_mk=0.),
+        "branch2"=> PiModelLine(from= "bus2", to = "bus3",y=1.0/(0.05+1im*0.15), y_shunt_km=0., y_shunt_mk=0.),
+        "branch3"=> StaticPowerTransformer(from="bus3",to="bus4",S_r=100e6,U_r=380e3,uk=0.1581138,XR_ratio=3,i0=6.35,Pv0=100e3,Sbase=Sbase,Ubase=Ubase,tap_side = "LV",tap_pos = 3,tap_inc = 1.0),
+        "branch4"=> StaticPowerTransformer(from="bus4",to="bus5",S_r=200e6,U_r=380e3,uk=0.10,XR_ratio=7,i0=0.0,Pv0=0.0,Sbase=Sbase,Ubase=Ubase,tap_side = "LV",tap_pos = 0,tap_inc = 1.0))
+    pg = PowerGrid(buses, branches)
+    Qmax   = [Inf, Inf, Inf,Inf, Inf]
+    Qmin   = -Qmax
+    U,δ1,ic = PowerFlowClassic(pg,iwamoto = true, Qmax = Qmax, Qmin = Qmin, Qlimit_iter_check = 2)
 end
 
-tfault = 1.0
-cb = PresetTimeCallback(tfault, switch_off)
-ic = find_operationpoint(pg)
-prob = ODEProblem(rhs(pg), ic.vec, (0.0,5.0))
+begin
+    Ykk = NodalAdmittanceMatrice(pg)
+    Uc = U.*exp.(1im*δ1/180*pi)
+    I_c = Ykk*Uc
+    S = conj(Ykk*Uc).*Uc
+    dt = 1e-3
+    tspan = (0.0,10.0)
+    pg, ic0 = InitializeInternalDynamics(pg,I_c,ic)
+    SS = NodeShortCircuit(node="bus2",Y = 1/(1im*250/Zbase),tspan_fault=(1.0, 1.15))
+    PGsol = my_simulate(SS,pg,ic0,(0.,30.0))
+end
 
-pgsol = solve(prob, Rodas4(), callback=cb)
-#pgsol = PowerGridSolution(pgsol, pg)
-#plot(pgsol,"bus2", :v,size = (1000, 500),legend = (0.6, 0.75))
+begin
+    plot(PGsol,collect(keys(pg.nodes)), :v,size = (2000, 1000),legend = (0.5, 0.5))
+    test = DataFrame(CSV.File("C:\\Users\\liemann\\Desktop\\PF_test.csv"; header=false, delim=';', type=Float64))
+    plot!(test.Column1,test.Column2,label = "PF-bus1")
+    plot!(test.Column1,test.Column3,label = "PF-bus2")
+    plot!(test.Column1,test.Column4,label = "PF-bus3")
+    plot!(test.Column1,test.Column5,label = "PF-bus4")
+    plot!(test.Column1,test.Column6,label = "PF-bus5")
+end
 
-
-sol2 = deepcopy(pgsol)
-
-tmp = findDifferentStatePositions(pg,pg_postfault,sol2)
-pgsol2 = PowerGridSolution(tmp,pg)
-plot(pgsol2,collect(keys(pg_postfault.nodes)),:v)
+xlims!((0.9,1.2))

@@ -105,7 +105,7 @@ function InitNode(SM::SixOrderMarconatoMachineAVROEL,ind::Int64,I_c::Array{Compl
    v = 1im*v*exp(-1im*δ)
    v_d = real(v)
    v_q = imag(v)
-   i   = 1im*I_c[ind]*exp(-1im*δ)/6.0
+   i   = 1im*I_c[ind]*exp(-1im*δ)/(SM.Sr/SM.Sb)
    i_d = real(i)
    i_q = imag(i)
 
