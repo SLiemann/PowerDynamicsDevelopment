@@ -23,35 +23,33 @@ function PiModelTransformer(T)
         error("Can not interprete tap_side (HV/LV): $tap_side")
     end
 
-    I_r   = T.S_r/(T.U_r*sqrt(3)) #rated current
-
     #Calculatiing leakage reactance Xa and winding resistance Ra
     Ra = 0.
     Xa = 0.
     if T.XR_ratio == 0
-        Ra = T.uk*T.U_r/(sqrt(3)*I_r);
+        Ra = T.uk;
         Xa = 0.
     elseif T.XR_ratio == Inf
         Ra = 0.
-        Xa = T.uk*T.U_r/(sqrt(3)*I_r);
+        Xa = T.uk
     else
-        Ra = sqrt(((T.uk*T.U_r/(I_r*sqrt(3)))^2)/(1+T.XR_ratio^2));
+        Ra = T.uk/sqrt(1+T.XR_ratio^2);
         Xa = T.XR_ratio*Ra;
     end
     Ya = 1/(0.5*(Ra+1im*Xa)) #it is assumed that losses are equally (0.5) distributed over both sides
     Ybs = Ya; #Ybs should be changed, if losses are not equally distributed
 
     #Calculating magnetising reactance Xm and core resistance Rfe from iron losess
-    Zm  = T.U_r/(sqrt(3)*T.i0/100.0*I_r) #no-load currents depends on complete magnetising impedance
-    Rfe = T.U_r*T.U_r/(T.Pv0);
+    Zm  = 1.0/(T.i0/100.0) #no-load currents depends on complete magnetising impedance
+    Rfe = T.Srated/T.Pv0;#T.U_r*T.U_r/(T.Pv0);
     Xm = Inf
     if T.i0 != 0
-        Xm  = 1/(sqrt(1/Zm^2 - 1/Rfe^2))
+        Xm  = 1.0/(sqrt(1.0/Zm^2 - 1.0/Rfe^2))
     end
-    Ym  = 1/Rfe + 1/(1im*Xm)
+    Ym  = 1.0/Rfe + 1.0/(1im*Xm)
 
-    Ybase = 1/(T.Ubase^2/T.Sbase) #this could be changed, if global base values are available
-    Y     = 1/(Ya+Ybs+Ym)./Ybase
+    Ybase = T.Sbase/T.Srated #1.0/(T.Ubase^2/T.Sbase) this could be changed, if global base values are available
+    Y     = 1.0/(Ya+Ybs+Ym)./Ybase
     Y = Y.*PiModel(Ya*Ybs, Ya*Ym, Ybs*Ym,üHV,üLV)
     return Y
 end
@@ -60,7 +58,6 @@ end
 NodeType(S::SlackAlgebraic) = 0
 NodeType(S::SlackAlgebraicParam) = 0
 NodeType(F::SixOrderMarconatoMachine)  = 1
-NodeType(F::SixOrderMarconatoMachineSin)  = 1
 NodeType(F::SixOrderMarconatoMachineAVROEL)  = 1
 NodeType(F::FourthOrderEq)  = 1
 NodeType(F::FourthOrderEqExciterIEEEDC1A)  = 1
@@ -79,7 +76,6 @@ NodeType(L::CSIMinimal)  = 2
 PowerNodeLoad(S::SlackAlgebraic,U) = 0. #treated as generation
 PowerNodeLoad(S::SlackAlgebraicParam,U) = 0. #treated as generation
 PowerNodeLoad(F::SixOrderMarconatoMachine,U) = 0. #treated as generation
-PowerNodeLoad(F::SixOrderMarconatoMachineSin,U) = 0. #treated as generation
 PowerNodeLoad(F::SixOrderMarconatoMachineAVROEL,U) = 0. #treated as generation
 PowerNodeLoad(F::FourthOrderEq,U) = 0. #treated as generation
 PowerNodeLoad(F::FourthOrderEqExciterIEEEDC1A,U)  = 0. #treated as generation
@@ -98,7 +94,6 @@ PowerNodeLoad(L::CSIMinimal,U)  = -U*conj(L.I_r)
 PowerNodeGeneration(S::SlackAlgebraic) = 0.
 PowerNodeGeneration(S::SlackAlgebraicParam) = 0.
 PowerNodeGeneration(F::SixOrderMarconatoMachine) = F.P
-PowerNodeGeneration(F::SixOrderMarconatoMachineSin) = F.P
 PowerNodeGeneration(F::SixOrderMarconatoMachineAVROEL) = F.P
 PowerNodeGeneration(F::FourthOrderEq) = F.P
 PowerNodeGeneration(F::FourthOrderEqExciterIEEEDC1A)  = F.P

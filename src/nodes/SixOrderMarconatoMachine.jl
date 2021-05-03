@@ -1,7 +1,7 @@
 # Sebastian Liemann, ie3 TU Dortmund, based on F. Milano, Power System Modelling and Scripting, Springer Verlag, 2010
 @doc doc"""
 ```Julia
-SixOrderMarconatoMachine(H, P, D, Ω, E_f, R_a,T_ds,T_qs,T_dss,T_qss,X_d,X_q,X_ds,X_qs,X_dss,X_qss,T_AA)
+SixOrderMarconatoMachine(Sbase,Srated,H, P, D, Ω, E_f, R_a,T_ds,T_qs,T_dss,T_qss,X_d,X_q,X_ds,X_qs,X_dss,X_qss,T_AA)
 ```
 
 A node type that applies the 6th-order (sometimes also called 4th-order if ω and δ are not counted)
@@ -19,6 +19,8 @@ The model has the following internal dynamic variables:
 * ``θ`` representing the angle of the rotor with respect to the voltage angle ``ϕ``.
 
 # Keyword Arguments
+- `Sbase`: "Base apparent power of the grid in VA, should be >0"
+- `Srated`: "Rated apperent power of the machine in VA, should be >0"
 - `H`: shaft inertia constant, given in [s],
 - `P`: active (real) power output, also called the mechanical torque applied to the shaft, given in [pu]
 - `D`: damping coefficient, given in [s] (here D(ω-1.) is used)
@@ -38,9 +40,11 @@ The model has the following internal dynamic variables:
 - `T_AA` : additional leakage time constant in d-axis, given in [s]
 
 """
-@DynamicNode SixOrderMarconatoMachine(H, P, D, Ω, E_f, R_a,T_ds,T_qs,T_dss,T_qss,X_d,X_q,X_ds,X_qs,X_dss,X_qss,T_AA) begin
+@DynamicNode SixOrderMarconatoMachine(Sbase,Srated,H, P, D, Ω, E_f, R_a,T_ds,T_qs,T_dss,T_qss,X_d,X_q,X_ds,X_qs,X_dss,X_qss,T_AA) begin
     MassMatrix(m_int =[true,true,true,true,true,true])
 end begin
+    @assert Sbase > 0 "Base apparent power of the grid in VA, should be >0"
+    @assert Srated > 0 "Rated apperent power of the machine in VA, should be >0"
     @assert H > 0 "inertia (H) should be >0"
     @assert P >= 0 "Active power (P) should be >=0"
     @assert D >= 0 "damping (D) should be >=0"
@@ -69,7 +73,7 @@ end begin
     γ_q = T_q0ss * X_qss * (X_q - X_qs) / (T_q0s * X_qs)
 
 end [[θ,dθ],[ω, dω],[e_ds, de_ds],[e_qs, de_qs],[e_dss, de_dss],[e_qss, de_qss]] begin
-    i_c = 1im*i*exp(-1im*θ)
+    i_c = 1im*i*(cos(-θ)+1im*sin(-θ))/(Srated/Sbase)
     i_d = real(i_c)
     i_q = imag(i_c)
     pe = real(u * conj(i))
@@ -84,7 +88,7 @@ end [[θ,dθ],[ω, dω],[e_ds, de_ds],[e_qs, de_qs],[e_dss, de_dss],[e_qss, de_q
     v_q = -R_a * i_q + (ω + 1.) * (e_qss - X_dss * i_d)
 
     v  = v_d + 1im*v_q
-    du = u - -1im*v*exp(1im*θ) #algebraic constraint
+    du = u - -1im*v*(cos(θ)+1im*sin(θ)) #algebraic constraint
 
     pe = (ω + 1.0) * ((v_q + R_a * i_q) * i_q + (v_d + R_a * i_d) * i_d)
 

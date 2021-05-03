@@ -1,8 +1,4 @@
-using PowerDynamics: SlackAlgebraic, FourthOrderEq, VoltageDependentLoad, PiModelLine, StaticLine, Transformer, PowerGrid#, write_powergrid, Json, Inc, find_operationpoint, ChangeInitialConditions, LineFailure, PowerPerturbation, simulate
-using PowerDynamics: symbolsof, initial_guess, guess, RLLine
-using PowerDynamics: StaticPowerTransformer, DynamicPowerTransformer, SixOrderMarconatoMachine,SixOrderMarconatoMachineSin,SixOrderMarconatoMachineAVROEL
 using PowerDynamics
-using PowerDynamics: rhs, State
 using OrderedCollections: OrderedDict
 using Plots
 import PowerDynamics: PiModel
@@ -60,11 +56,10 @@ function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Fl
         timer_start = integrator.t
         sol1 = integrator.sol
         tap += 1
-        node = StaticPowerTransformer(from=OLTC.from,to=OLTC.to,S_r=OLTC.S_r,
-                                      U_r=OLTC.U_r,uk=OLTC.uk,XR_ratio=OLTC.XR_ratio,
-                                      i0=OLTC.i0,Pv0=OLTC.Pv0,Sbase=OLTC.Sbase,
-                                      Ubase=OLTC.Ubase,tap_side = OLTC.tap_side,
-                                      tap_pos = tap,tap_inc = OLTC.tap_inc)
+        node = StaticPowerTransformer(from=OLTC.from,to=OLTC.to,Srated=OLTC.Srated,
+                                      uk=OLTC.uk,XR_ratio=OLTC.XR_ratio,i0=OLTC.i0,
+                                      Pv0=OLTC.Pv0,Sbase=OLTC.Sbase,
+                                      tap_side = OLTC.tap_side, tap_pos = tap,tap_inc = OLTC.tap_inc)
         if postfault_state
             np_pg = deepcopy(pg_postfault)
         elseif fault_state
@@ -170,7 +165,7 @@ function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Fl
 end
 
 pgsol = run_LTVS_simulation(pg,ic0,(0.0,120.0));
-plot(pgsol,collect(keys(pg_postfault.nodes)),:v,legend = (0.3, 0.3))
+plot(pgsol,collect(keys(pg.nodes))[1:end-1],:v,legend = (0.3, 0.3))
 
 begin
     ic2 = deepcopy(ic0)

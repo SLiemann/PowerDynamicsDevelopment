@@ -1,7 +1,7 @@
 # Sebastian Liemann, ie3 TU Dortmund, based on F. Milano, Power System Modelling and Scripting, Springer Verlag, 2010
 @doc doc"""
 ```Julia
-SixOrderMarconatoMachineAVROEL(Sb,Sr,H, P, D, Ω, R_a,T_ds,T_qs,T_dss,T_qss,X_d,X_q,X_ds,X_qs,X_dss,X_qss,T_AA,V0,Ifdlim,L1,G1,Ta,Tb,G2,L2)
+SixOrderMarconatoMachineAVROEL(Sbase,Srated,H, P, D, Ω, R_a,T_ds,T_qs,T_dss,T_qss,X_d,X_q,X_ds,X_qs,X_dss,X_qss,T_AA,V0,Ifdlim,L1,G1,Ta,Tb,G2,L2)
 ```
 
 A node type that applies the 6th-order (sometimes also called 4th-order if ω and δ are not counted)
@@ -26,8 +26,8 @@ The model has the following internal dynamic variables:
 * ``E_f`` Field voltage, output of Exciter.
 
 # Keyword Arguments
-- `Sb`: "Base apparent power of the grid in VA, should be >0"
-- `Sr`: "Rated apperent power of the machine in VA, should be >0"
+- `Sbase`: "Base apparent power of the grid in VA, should be >0"
+- `Srated`: "Rated apperent power of the machine in VA, should be >0"
 - `H`: shaft inertia constant, given in [s],
 - `P`: active (real) power output, also called the mechanical torque applied to the shaft, given in [pu]
 - `D`: damping coefficient, given in [s] (here D(ω-1.) is used)
@@ -54,11 +54,11 @@ The model has the following internal dynamic variables:
 - `L2` : Upper Limit of Anti-Windup Integrator inside of the PT1
 
 """
-@DynamicNode SixOrderMarconatoMachineAVROEL(Sb,Sr,H, P, D, Ω, R_a,T_ds,T_qs,T_dss,T_qss,X_d,X_q,X_ds,X_qs,X_dss,X_qss,T_AA,V0,Ifdlim,L1,G1,Ta,Tb,G2,L2) begin
+@DynamicNode SixOrderMarconatoMachineAVROEL(Sbase,Srated,H, P, D, Ω, R_a,T_ds,T_qs,T_dss,T_qss,X_d,X_q,X_ds,X_qs,X_dss,X_qss,T_AA,V0,Ifdlim,L1,G1,Ta,Tb,G2,L2) begin
     MassMatrix(m_int =[true,true,true,true,true,true,false,true,true,true])
 end begin
-    @assert Sb > 0 "Base apparent power of the grid in VA, should be >0"
-    @assert Sr > 0 "Rated apperent power of the machine in VA, should be >0"
+    @assert Sbase > 0 "Base apparent power of the grid in VA, should be >0"
+    @assert Srated > 0 "Rated apperent power of the machine in VA, should be >0"
     @assert H > 0 "inertia (H) should be >0"
     @assert P >= 0 "Active power (P) should be >=0"
     @assert D >= 0 "damping (D) should be >=0"
@@ -98,7 +98,7 @@ end begin
 
 end [[θ,dθ],[ω, dω],[e_ds, de_ds],[e_qs, de_qs],[e_dss, de_dss],[e_qss, de_qss],[ifd,difd],[timer,dtimer],[x1,dx1],[E_f,dE_f]] begin
     #i_c = 1im*i*exp(-1im*θ)
-    i_c = 1im*i*(cos(-θ)+1im*sin(-θ))/(Sr/Sb)
+    i_c = 1im*i*(cos(-θ)+1im*sin(-θ))/(Srated/Sbase)
     i_d = real(i_c)
     i_q = imag(i_c)
     pe = real(u * conj(i))

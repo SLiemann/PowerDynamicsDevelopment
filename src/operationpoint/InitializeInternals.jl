@@ -39,19 +39,18 @@ function InitNode(SM::FourthOrderEq,ind::Int64,I_c::Array{Complex{Float64},2},ic
    return [v_d_temp, v_q_temp, δ, 0.], node_temp
 end
 
-InitNode(SM::SixOrderMarconatoMachineSin,ind::Int64,I_c::Array{Complex{Float64},2},ic_lf::Array{Float64,1},ind_offset::Int64) = InitNodeSM(SM,ind,I_c,ic_lf,ind_offset)
 InitNode(SM::SixOrderMarconatoMachine,ind::Int64,I_c::Array{Complex{Float64},2},ic_lf::Array{Float64,1},ind_offset::Int64)    = InitNodeSM(SM,ind,I_c,ic_lf,ind_offset)
 function InitNodeSM(SM,ind::Int64,I_c::Array{Complex{Float64},2},ic_lf::Array{Float64,1},ind_offset::Int64)
    v_d_temp = ic_lf[ind_offset]
    v_q_temp = ic_lf[ind_offset+1]
    #Rotor angle
-   δ = angle(v_d_temp+1im*v_q_temp+(SM.R_a+1im*SM.X_q)*I_c[ind]) #+angle(v_d_temp + 1im*v_q_temp)
+   δ = angle(v_d_temp+1im*v_q_temp+(SM.R_a+1im*SM.X_q)*I_c[ind]/(SM.Srated/SM.Sbase)) #+angle(v_d_temp + 1im*v_q_temp)
 
    v = v_d_temp +1im*v_q_temp
    v = 1im*v*exp(-1im*δ)
    v_d = real(v)
    v_q = imag(v)
-   i   = 1im*I_c[ind]*exp(-1im*δ)
+   i   = 1im*I_c[ind]*exp(-1im*δ)/(SM.Srated/SM.Sbase)
    i_d = real(i)
    i_q = imag(i)
 
@@ -85,12 +84,11 @@ function InitNodeSM(SM,ind::Int64,I_c::Array{Complex{Float64},2},ic_lf::Array{Fl
    Pm = (v_q + SM.R_a * i_q) * i_q + (v_d + SM.R_a * i_d) * i_d
 
    #Create new bus
-   node_temp = typeof(SM)== SixOrderMarconatoMachine ? SixOrderMarconatoMachine : SixOrderMarconatoMachineSin
-   if typeof(SM) == SixOrderMarconatoMachine
-      node_temp = SixOrderMarconatoMachine(H=SM.H, P=Pm, D=SM.D, Ω=SM.Ω, E_f=v_f, R_a=SM.R_a, T_ds=SM.T_ds, T_qs=SM.T_qs, T_dss=SM.T_dss, T_qss=SM.T_qss, X_d=SM.X_d, X_q=SM.X_q, X_ds=SM.X_ds, X_qs=SM.X_qs, X_dss=SM.X_dss, X_qss=SM.X_qss, T_AA=SM.T_AA);
-   elseif typeof(SM) == SixOrderMarconatoMachineSin
-      node_temp = SixOrderMarconatoMachineSin(H=SM.H, P=Pm, D=SM.D, Ω=SM.Ω, E_f=v_f, R_a=SM.R_a, T_ds=SM.T_ds, T_qs=SM.T_qs, T_dss=SM.T_dss, T_qss=SM.T_qss, X_d=SM.X_d, X_q=SM.X_q, X_ds=SM.X_ds, X_qs=SM.X_qs, X_dss=SM.X_dss, X_qss=SM.X_qss, T_AA=SM.T_AA);
-   end
+   node_temp = SixOrderMarconatoMachine(Sbase=SM.Sbase,Srated=SM.Srated,H=SM.H, P=Pm, D=SM.D, Ω=SM.Ω,
+                                           E_f=v_f, R_a=SM.R_a, T_ds=SM.T_ds, T_qs=SM.T_qs, T_dss=SM.T_dss,
+                                           T_qss=SM.T_qss, X_d=SM.X_d, X_q=SM.X_q, X_ds=SM.X_ds, X_qs=SM.X_qs,
+                                           X_dss=SM.X_dss, X_qss=SM.X_qss, T_AA=SM.T_AA);
+
    # Structure from node: u_r, u_i, θ, ω, e_ds, e_qs, e_dss,e_qss
    return [v_d_temp, v_q_temp, δ, 0., e_ds, e_qs, e_dss, e_qss], node_temp
 end
@@ -99,13 +97,13 @@ function InitNode(SM::SixOrderMarconatoMachineAVROEL,ind::Int64,I_c::Array{Compl
    v_d_temp = ic_lf[ind_offset]
    v_q_temp = ic_lf[ind_offset+1]#*15/380
    #Rotor angle
-   δ = angle(v_d_temp+1im*v_q_temp+(SM.R_a+1im*SM.X_q)*I_c[ind]/(SM.Sr/SM.Sb))
+   δ = angle(v_d_temp+1im*v_q_temp+(SM.R_a+1im*SM.X_q)*I_c[ind]/(SM.Srated/SM.Sbase))
 
    v = v_d_temp +1im*v_q_temp
    v = 1im*v*exp(-1im*δ)
    v_d = real(v)
    v_q = imag(v)
-   i   = 1im*I_c[ind]*exp(-1im*δ)/(SM.Sr/SM.Sb)
+   i   = 1im*I_c[ind]*exp(-1im*δ)/(SM.Srated/SM.Sbase)
    i_d = real(i)
    i_q = imag(i)
 
@@ -143,7 +141,7 @@ function InitNode(SM::SixOrderMarconatoMachineAVROEL,ind::Int64,I_c::Array{Compl
    Pm = (v_q + SM.R_a * i_q) * i_q + (v_d + SM.R_a * i_d) * i_d
 
    #Create new bus
-   node_temp = SixOrderMarconatoMachineAVROEL(Sb=SM.Sb,Sr=SM.Sr,H=SM.H, P=Pm, D=SM.D, Ω=SM.Ω, R_a=SM.R_a, T_ds=SM.T_ds, T_qs=SM.T_qs,
+   node_temp = SixOrderMarconatoMachineAVROEL(Sbase=SM.Sbase,Srated=SM.Srated,H=SM.H, P=Pm, D=SM.D, Ω=SM.Ω, R_a=SM.R_a, T_ds=SM.T_ds, T_qs=SM.T_qs,
                                         T_dss=SM.T_dss, T_qss=SM.T_qss, X_d=SM.X_d, X_q=SM.X_q, X_ds=SM.X_ds,
                                         X_qs=SM.X_qs, X_dss=SM.X_dss, X_qss=SM.X_qss, T_AA=SM.T_AA, V0 = Vref,
                                         Ifdlim = SM.Ifdlim, L1 = SM.L1, G1 = SM.G1, Ta = SM.Ta, Tb = SM.Tb,

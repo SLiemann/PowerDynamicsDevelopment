@@ -1,24 +1,22 @@
-using PowerDynamics: SlackAlgebraic, FourthOrderEq, VoltageDependentLoad, PiModelLine, StaticLine, Transformer, PowerGrid#, write_powergrid, Json, Inc, find_operationpoint, ChangeInitialConditions, LineFailure, PowerPerturbation, simulate
-using PowerDynamics: symbolsof, initial_guess, guess, RLLine
-using PowerDynamics: StaticPowerTransformer, DynamicPowerTransformer, SixOrderMarconatoMachine,SixOrderMarconatoMachineSin,SixOrderMarconatoMachineAVROEL
 using PowerDynamics
-using PowerDynamics: rhs, State
 using OrderedCollections: OrderedDict
-using Plots
+#using Plots
 import PowerDynamics: PiModel
 using DifferentialEquations
 using CSV #read PF DataFrames
 using DataFrames #for CSV
 using Traceur
 using Distributed
+using Makie
 @everywhere using IfElse
 
-include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/operationpoint/PowerFlow.jl")
+
 include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/utility/utility_functions.jl")
 include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/operationpoint/InitializeInternals.jl")
 include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/operationpoint/simulate_fault.jl")
 
 begin
+    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/operationpoint/PowerFlow.jl")
     Ubase = 380e3
     Sbase = 100e6
     Zbase = (Ubase^2)/(Sbase)
@@ -27,7 +25,7 @@ begin
         "bus2"=> VoltageDependentLoad(P=-0.3, Q=0.3, U=1.0, A=0., B=0.,Y_n = complex(0.0)),
         "bus3"=> VoltageDependentLoad(P= 0.0, Q=0.0, U=1.0, A=0.0, B=0.0,Y_n = complex(0.0)),
         "bus4"=> VoltageDependentLoad(P=-0.5, Q=-0.5, U=1.0, A=0.5, B=0.3,Y_n = complex(0.0)),
-        "bus5"=> SixOrderMarconatoMachineAVROEL(Sb=100e6,Sr=100e6,H = 5, P=0.5, D=0., Ω=50, R_a = 0.1,
+        "bus5"=> SixOrderMarconatoMachineAVROEL(Sbase=100e6,Srated=100e6,H = 5, P=0.5, D=0., Ω=50, R_a = 0.1,
                                              T_ds=1.136,T_qs=0.8571,T_dss=0.04,T_qss=0.06666,
                                              X_d=1.1,X_q=0.7,X_ds=0.25,X_qs=0.25,X_dss=0.2,
                                              X_qss=0.2,T_AA=0.,V0 = 1.0, Ifdlim = 1.8991,
@@ -37,8 +35,10 @@ begin
     branches=OrderedDict(
         "branch1"=> PiModelLine(from= "bus1", to = "bus2",y=1.0/(0.05+1im*0.15), y_shunt_km=0., y_shunt_mk=0.),
         "branch2"=> PiModelLine(from= "bus2", to = "bus3",y=1.0/(0.05+1im*0.15), y_shunt_km=0., y_shunt_mk=0.),
-        "branch3"=> StaticPowerTransformer(from="bus3",to="bus4",S_r=100e6,U_r=380e3,uk=0.1581138,XR_ratio=3,i0=6.35,Pv0=100e3,Sbase=Sbase,Ubase=Ubase,tap_side = "LV",tap_pos = 3,tap_inc = 1.0),
-        "branch4"=> StaticPowerTransformer(from="bus4",to="bus5",S_r=200e6,U_r=380e3,uk=0.10,XR_ratio=7,i0=0.0,Pv0=0.0,Sbase=Sbase,Ubase=Ubase,tap_side = "LV",tap_pos = 0,tap_inc = 1.0))
+        "branch3"=> StaticPowerTransformer(from="bus3",to="bus4",Sbase=Sbase,Srated=100e6,uk=0.1581138,XR_ratio=3,
+                                           i0=6.35,Pv0=300e3,tap_side = "LV",tap_pos = 3,tap_inc = 1.0),
+        "branch4"=> StaticPowerTransformer(from="bus4",to="bus5",Sbase=Sbase,Srated=200e6,uk=0.10,XR_ratio=7,
+                                           i0=0.0,Pv0=100e3,tap_side = "LV",tap_pos = 0,tap_inc = 1.0))
     pg = PowerGrid(buses, branches)
     Qmax   = [Inf, Inf, Inf,Inf, Inf]
     Qmin   = -Qmax
