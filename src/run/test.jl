@@ -68,3 +68,6 @@ begin
 end
 
 xlims!((0.9,1.2))
+
+scene, layout = layoutscene()
+lines!([1,2,3],[4,8,6])
