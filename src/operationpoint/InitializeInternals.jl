@@ -19,6 +19,7 @@ function InitializeInternalDynamics(pg::PowerGrid,I_c::Array{Complex{Float64},2}
    end
    return pg_new,ic0
 end
+
 function InitNode(SM::FourthOrderEq,ind::Int64,I_c::Array{Complex{Float64},2},ic_lf::Array{Float64,1},ind_offset::Int64)
    v_d_temp = ic_lf[ind_offset]
    v_q_temp = ic_lf[ind_offset+1]

@@ -1,7 +1,6 @@
 using PowerDynamics
 using OrderedCollections: OrderedDict
 
-
 function LTVS_Test_System()
     Sbase = 100e6
     #Z_SM  = (15.0/380.0)^2

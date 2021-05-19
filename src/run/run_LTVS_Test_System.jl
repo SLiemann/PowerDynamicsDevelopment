@@ -167,6 +167,13 @@ end
 pgsol = run_LTVS_simulation(pg,ic0,(0.0,120.0));
 plot(pgsol,collect(keys(pg.nodes))[1:end-1],:v,legend = (0.3, 0.3))
 
+nodes_postfault = deepcopy(pg.nodes)
+branches_postfault = deepcopy(pg.lines)
+delete!(nodes_postfault,"busv")
+delete!(branches_postfault,"Line_1-v")
+delete!(branches_postfault,"Line_v-2")
+pg_postfault = PowerGrid(nodes_postfault,branches_postfault)
+
 begin
     ic2 = deepcopy(ic0)
     deleteat!(ic2,3:4)

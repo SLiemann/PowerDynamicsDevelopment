@@ -12,6 +12,7 @@ PiModel(S::StaticLine)  = PiModel(S.Y,0,0,1,1)
 PiModel(R::RLLine)      = PiModel(1/(R.R+1im*R.ω0*R.L),0,0,1,1)
 PiModel(T::DynamicPowerTransformer) = PiModelTransformer(T)
 PiModel(T::StaticPowerTransformer) = PiModelTransformer(T)
+PiModel(T::StaticPowerTransformerTapParam) = PiModelTransformer(T)
 function PiModelTransformer(T)
     üLV = 1.0
     üHV = 1.0
