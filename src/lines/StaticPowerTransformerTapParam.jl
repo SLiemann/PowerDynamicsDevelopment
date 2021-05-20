@@ -1,10 +1,10 @@
 """
 ```Julia
-    DynamicPowerTransformer(from,to,Sbase,Srated,uk,XR_ratio,i0,Pv0,tap_side,tap_pos,tap_inc,tap_delay,tap_max,tap_min,deadband_low,deadband_high,timer_start,Δtap,low_high)
+    StaticPowerTransformerTapParam(from,to,Sbase,Srated,uk,XR_ratio,i0,Pv0,tap_side,tap_pos,tap_inc,tap_max,tap_min)
 ```
 
 Transformer based on typical equipment parameters where tap position is a
-parameter.
+parameter for DifferentialEquations.jl.
 
 # Arguments
 
@@ -17,59 +17,18 @@ parameter.
 - `i0`: no load current (core losses) in [%], e.g 6 % => 0.06
 - `Pv0`: iron core losses in [W]
 - `tap_side`: Side at which side the Transformer should be stepped, either LV or HV
-- `tap_pos`: inital tap position (integer), zero is neutral position
+- `tap_pos`: current tap position (integer), zero is neutral position
 - `tap_inc`: voltag increase per tap in [%], e.g. 1 %
-- `tap_delay`: tap time delay after leaving voltage deadband in [s]
 - `tap_max`: upper limit of taps
 - `tap_min`: lower limit of taps
-- `deadband_low`: lower voltage deadband in [p.u.], e.g. 0.98 p.u.
-- `deadband_high`: upper voltage deadband in [p.u.], e.g. 1.02 p.u.
-
-- `timer_start`: internal timer for time delay, has to be -1 at the beginning
-- `Δtap`: internal additional tap, has to be 0 at the beginning
-- `low_high`: internal variable indicitan if tap is in- or decreased, has to be 0 at the beginning
 
 """
-@Line DynamicPowerTransformer(from,to,Sbase,Srated,uk,XR_ratio,i0,Pv0,tap_side,tap_pos,tap_inc,tap_delay,tap_max,tap_min,deadband_low,deadband_high,timer_start,Δtap,low_high) begin
-    uHV = abs(v_s[1]+1im*v_s[2])
-    uLV = abs(v_d[1]+1im*v_d[2])
-
-    if tap_side == "LV" && deadband_low <= uLV <= deadband_high
-        timer_start = -1
-        low_high = 0.0
-    elseif tap_side == "HV" && deadband_low <= uHV <= deadband_high
-        timer_start = -1
-        low_high = 0.0
-    elseif tap_side == "LV" &&  uLV < deadband_low
-        if timer_start == -1
-            timer_start = t
-        end
-        low_high = +1.0
-    elseif tap_side == "LV" &&  uLV > deadband_high
-        if timer_start == -1
-            timer_start = t
-        end
-        low_high = -1.0
-    elseif tap_side == "HV" &&  uHV < deadband_low
-        if timer_start == -1
-            timer_start = t
-        end
-        low_high = +1.0
-    elseif tap_side == "HV" &&  uHV > deadband_high
-        if timer_start == -1
-            timer_start = t
-        end
-        low_high = -1.0
-    end
-
-    if t-timer_start > tap_delay && timer_start != -1
-        if tap_pos + Δtap >= tap_max || tap_pos + Δtap <= tap_min
-            Δtap += 0
-        else
-            Δtap += low_high
-        end
-        timer_start = -1
-        low_high = 0.0
+@Line StaticPowerTransformerTapParam(from,to,Sbase,Srated,uk,XR_ratio,i0,Pv0,tap_side,tap_pos,tap_inc,tap_max,tap_min) begin
+    Δtap = copy(p[1])
+    if tap_pos + Δtap >= tap_max
+        Δtap = tap_max - tap_pos
+    elseif tap_pos + Δtap <= tap_min
+        Δtap = tap_min - tap_pos
     end
 
     üLV    = 1.0
@@ -115,4 +74,4 @@ parameter.
     current_vector = Y * voltage_vector
 end
 
-export DynamicPowerTransformer
+export StaticPowerTransformerTapParam
