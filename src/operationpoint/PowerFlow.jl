@@ -72,6 +72,7 @@ NodeType(L::PQAlgebraic) = 2
 NodeType(L::VoltageDependentLoad) = 2
 NodeType(L::ExponentialRecoveryLoad)  = 2
 NodeType(L::CSIMinimal)  = 2
+NodeType(L::SimpleRecoveryLoad)  = 2
 
 #note: only loads are treated with voltage depency and are called every iteration
 PowerNodeLoad(S::SlackAlgebraic,U) = 0. #treated as generation
@@ -90,6 +91,7 @@ PowerNodeLoad(L::PQAlgebraic,U) = complex(L.P,L.Q) #treated as load
 PowerNodeLoad(L::VoltageDependentLoad,U) = complex(L.P, L.Q) * (L.A * abs(U)^2 + L.B * abs(U) + 1 - L.A - L.B)
 PowerNodeLoad(L::ExponentialRecoveryLoad,U)  = (L.P0*((abs(U)/L.V0)^L.Nps) + 1im*L.Q0*((abs(U)/L.V0)^L.Nqs))
 PowerNodeLoad(L::CSIMinimal,U)  = -U*conj(L.I_r)
+PowerNodeLoad(L::SimpleRecoveryLoad,U)  = L.P0 + L.Pt*abs(U)^2.0 + 1im*(L.Q0 + L.Qt*abs(U)^2.0)
 
 #generation is voltage independent, otherwise it has to be called every iteration
 PowerNodeGeneration(S::SlackAlgebraic) = 0.
@@ -108,6 +110,7 @@ PowerNodeGeneration(L::PQAlgebraic) = 0. #treated as load
 PowerNodeGeneration(L::VoltageDependentLoad) = 0. #treated as load
 PowerNodeGeneration(L::ExponentialRecoveryLoad)  = 0. #treated as load
 PowerNodeGeneration(L::CSIMinimal)  = 0. #treated as load
+PowerNodeGeneration(L::SimpleRecoveryLoad)  = 0. #treated as load
 
 function PowerFlowClassic(pg::PowerGrid; ind_sl::Int64 = 0,max_tol::Float64 = 1e-7,iter_max::Int64  = 30,iwamoto::Bool =false, Qmax = -1, Qmin = -1, Qlimit_iter_check::Int64 = 3)
     number_nodes = length(pg.nodes); #convenience
