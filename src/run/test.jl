@@ -5,7 +5,6 @@ using DifferentialEquations
 using CSV #read PF DataFrames
 using DataFrames #for CSV
 
-
 include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/utility/utility_functions.jl")
 include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/operationpoint/InitializeInternals.jl")
 include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/operationpoint/simulate_fault.jl")
@@ -38,7 +37,7 @@ begin
             to = "bus2",
             Sbase = Sbase,
             Srated = 100e6,
-            uk = 0.1581138,
+            uk = 0.01,
             XR_ratio = 3,
             i0 = 6.35,
             Pv0 = 300e3,
@@ -67,7 +66,7 @@ function calcOLTC(pg, ic)
     end
 
     function voltage_deadband(u, t, integrator)
-        0.99 <= sqrt(u[3] * u[3] + u[4] * u[4]) <= 1.01
+        0.999 <= sqrt(u[3] * u[3] + u[4] * u[4]) <= 1.001
     end
 
     function timer_off(integrator)
@@ -75,7 +74,7 @@ function calcOLTC(pg, ic)
     end
 
     function voltage_outside(u, t, integrator)
-        sqrt(u[3] * u[3] + u[4] * u[4]) < 0.99
+        sqrt(u[3] * u[3] + u[4] * u[4]) < 0.999
     end
 
     function timer_on(integrator)

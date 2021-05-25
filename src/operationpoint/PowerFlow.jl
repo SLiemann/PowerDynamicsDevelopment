@@ -91,7 +91,7 @@ PowerNodeLoad(L::PQAlgebraic,U) = complex(L.P,L.Q) #treated as load
 PowerNodeLoad(L::VoltageDependentLoad,U) = complex(L.P, L.Q) * (L.A * abs(U)^2 + L.B * abs(U) + 1 - L.A - L.B)
 PowerNodeLoad(L::ExponentialRecoveryLoad,U)  = (L.P0*((abs(U)/L.V0)^L.Nps) + 1im*L.Q0*((abs(U)/L.V0)^L.Nqs))
 PowerNodeLoad(L::CSIMinimal,U)  = -U*conj(L.I_r)
-PowerNodeLoad(L::SimpleRecoveryLoad,U)  = L.P0 + L.Pt*abs(U)^2.0 + 1im*(L.Q0 + L.Qt*abs(U)^2.0)
+PowerNodeLoad(L::SimpleRecoveryLoad,U)  = L.P0 + 1im*(L.Q0)
 
 #generation is voltage independent, otherwise it has to be called every iteration
 PowerNodeGeneration(S::SlackAlgebraic) = 0.

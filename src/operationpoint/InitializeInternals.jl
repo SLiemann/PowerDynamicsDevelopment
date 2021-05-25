@@ -151,3 +151,12 @@ function InitNode(SM::SixOrderMarconatoMachineAVROEL,ind::Int64,I_c::Array{Compl
    # Structure from node: u_r, u_i, θ, ω, e_ds, e_qs, e_dss,e_qss,ifd,timer,x1,E_f
    return [v_d_temp, v_q_temp, δ, 0., e_ds, e_qs, e_dss, e_qss,ifd,SM.L1,v_f,v_f], node_temp
 end
+
+function InitNode(load::SimpleRecoveryLoad,ind::Int64,I_c::Array{Complex{Float64},2},ic_lf::Array{Float64,1},ind_offset::Int64)
+   v_d_temp = ic_lf[ind_offset]
+   v_q_temp = ic_lf[ind_offset+1]#
+   v = sqrt(v_d_temp^2 + v_q_temp^2)
+   xd = load.P0 - load.Pt * (v^2)
+   xq = load.Q0 - load.Qt * (v^2)
+   return [v_d_temp,v_q_temp,xd, xq], load
+end

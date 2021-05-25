@@ -3,7 +3,10 @@ using OrderedCollections: OrderedDict
 
 function LTVS_Test_System()
     Sbase = 100e6
-    #Z_SM  = (15.0/380.0)^2
+    Ubase = 380e3
+    Ibase = Sbase/Ubase/sqrt(3)
+    Zbase = Ubase^2/Sbase
+
     buses=OrderedDict(
         "bus1" => SlackAlgebraic(U=1.0),
         "bus2" => VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=0., B=0.,Y_n = complex(0.0)),

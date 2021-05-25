@@ -22,13 +22,14 @@ end  begin
     @assert Tq > 0 "Load recovery constant should be >0"
 
 end [[x_p, dx_p],[x_q, dx_q]] begin
-    Pd = real(u*conj(i))
-    Qd = imag(u*conj(i))
+    s = u*conj(i)
+    Pd = real(s)
+    Qd = imag(s)
 
     dx_p = (1/Tp)*(P0 -Pd)
     dx_q = (1/Tq)*(Q0 -Qd)
 
-    du = -Pd + x_p + Pt*abs(u)^2.0 + im*(-Qd + x_q + Qt*abs(u)^2.0)
+    du = x_p + Pt*abs(u)^2.0 + im*(x_q + Qt*abs(u)^2.0) - s
 end
 
 export SimpleRecoveryLoad
