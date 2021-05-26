@@ -1,5 +1,6 @@
 using PowerDynamics
 using OrderedCollections: OrderedDict
+using ModelingToolkit
 
 function OLTC_Hybrid_Sensi(;x_grid = 0.25)
     Ubase = 380e3
@@ -20,7 +21,7 @@ function OLTC_Hybrid_Sensi(;x_grid = 0.25)
     )
 
     branches = OrderedDict(
-        "branch1" => PiModelLine(from="bus1",to="bus2",y=1.0/(1im*x_grid),y_shunt_km=0.0,y_shunt_mk=0.0),
+        "branch1" => PiModelLineParam(from="bus1",to="bus2",y=1.0/(1im*x_grid),y_shunt_km=0.0,y_shunt_mk=0.0,p_ind=1),
         "branch2" => StaticPowerTransformerTapParam(
             from = "bus2",
             to = "bus3",
@@ -35,6 +36,7 @@ function OLTC_Hybrid_Sensi(;x_grid = 0.25)
             tap_inc = 1.25,
             tap_max = 8,
             tap_min = -8,
+            p_ind=2
         ),
         "branch3" => PiModelLine(from="bus3",to="bus4",y=1.0/(1im*0.8),y_shunt_km=0.0,y_shunt_mk=0.0),
     )
@@ -52,4 +54,12 @@ function GetInitializedOLTCHisken()
     I_c = Ykk*Uc
     S = conj(Ykk*Uc).*Uc
     return InitializeInternalDynamics(pg,I_c,ic0)
+end
+
+function GetMTKOLTCSystem(tspan,p)
+    pg, ic = GetInitializedOLTCHisken()
+    prob   = ODEProblem(rhs(pg),ic,tspan,p)
+    new_f = ODEFunction(prob.f.f, syms = prob.f.syms, mass_matrix = Int.(prob.f.mass_matrix))
+    ODEProb = ODEProblem(new_f,ic,tspan,p)
+    return modelingtoolkitize(ODEProb)
 end

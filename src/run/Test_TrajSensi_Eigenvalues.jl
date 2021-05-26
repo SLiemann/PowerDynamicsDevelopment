@@ -15,13 +15,16 @@ using Distributed
 @everywhere using IfElse
 
 begin
-    include("operationpoint/PowerFlow.jl")
+    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/operationpoint/PowerFlow.jl")
+    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/utility/utility_functions.jl")
+    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/operationpoint/InitializeInternals.jl")
+    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/grids/LTVS_Test_System.jl")
     Ubase = 380e3
     Sbase = 100e6
     buses=OrderedDict(
         "bus1"=> SlackAlgebraic(U=0.98),
         "bus2"=> VoltageDependentLoad(P=-0.3, Q=0.3, U=1.0, A=0., B=0.,Y_n = complex(0.0)),
-        "bus3"=> SixOrderMarconatoMachineAVROEL(H = 5, P=0.5, D=0., Ω=50, R_a = 0.1,
+        "bus3"=> SixOrderMarconatoMachineAVROEL(Sbase=Sbase,Srated=100e6,H = 5, P=0.5, D=0., Ω=50, R_a = 0.1,
                                              T_ds=1.136,T_qs=0.8571,T_dss=0.04,T_qss=0.06666,
                                              X_d=1.1,X_q=0.7,X_ds=0.25,X_qs=0.25,X_dss=0.2,
                                              X_qss=0.2,T_AA=0.,V0 = 1.0, Ifdlim = 1.8991/1.8991,
@@ -34,7 +37,7 @@ begin
     branches=OrderedDict(
         "branch1"=> PiModelLine(from= "bus1", to = "bus2",y=1.0/(0.05+1im*0.15), y_shunt_km=0., y_shunt_mk=0.),
         "branch2"=> PiModelLine(from= "bus2", to = "bus3",y=1.0/(0.05+1im*0.15), y_shunt_km=0., y_shunt_mk=0.),
-        "branch3"=> StaticPowerTransformer(from="bus3",to="bus4",S_r=100e6,U_r=380e3,uk=0.1581138,XR_ratio=3,i0=6.35,Pv0=100e3,Sbase=Sbase,Ubase=Ubase,tap_side = "LV",tap_pos = 3,tap_inc = 1.0),
+        "branch3"=> StaticPowerTransformer(from="bus3",to="bus4",Srated=100e6,uk=0.1581138,XR_ratio=3,i0=6.35,Pv0=100e3,Sbase=Sbase,tap_side = "LV",tap_pos = 3,tap_inc = 1.0),
         "branch4"=> PiModelLine(from= "bus4", to = "bus5",y=1.0/((0.05+1im*0.15)*(Ubase/110e3)^2), y_shunt_km=0., y_shunt_mk=0.))
     pg = PowerGrid(buses, branches)
     Qmax   = [Inf, Inf, 0.5,Inf, Inf]
@@ -44,7 +47,7 @@ end
 #ic = initial_guess(pg)
 #ic0 = find_valid_initial_condition(pg,ic)
 @time begin
-    include("operationpoint/InitializeInternals.jl")
+    #include("operationpoint/InitializeInternals.jl")
     #include("operationpoint/Local_Sensitivity.jl")
     dt = 1e-3
     tspan = (0.0,10.0)
@@ -91,6 +94,9 @@ begin
     sensis_p_pd = [1]
     sol = sol_or
 end
+
+ODEProb.f(rhs, vars, params, t)
+
 
 begin
     include("operationpoint/Local_Sensitivity.jl")

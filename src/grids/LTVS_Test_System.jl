@@ -1,5 +1,8 @@
 using PowerDynamics
 using OrderedCollections: OrderedDict
+using Distributed
+@everywhere using IfElse
+using ModelingToolkit
 
 function LTVS_Test_System()
     Sbase = 100e6
@@ -30,4 +33,27 @@ function LTVS_Test_System()
         "branch4"=> StaticPowerTransformer(from="bus2",to="bus3",Sbase=Sbase,Srated=1200e6,uk=0.15,XR_ratio=Inf,
                                            i0=0.0,Pv0=0.0,tap_side = "LV",tap_pos = 7,tap_inc = 1.0))
         return PowerGrid(buses, branches)
+end
+
+function GetInitializedLTVSSystem()
+    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/operationpoint/PowerFlow.jl")
+    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/utility/utility_functions.jl")
+    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/operationpoint/InitializeInternals.jl")
+    pg = LTVS_Test_System()
+    Qmax   = [Inf, Inf, Inf,Inf, Inf,sqrt(1-0.9^2)]
+    Qmin   = -Qmax
+    U,δ,ic0 = PowerFlowClassic(pg,iwamoto = true, Qmax = Qmax, Qmin = Qmin, Qlimit_iter_check = 2,max_tol = 1e-8)
+    Ykk = NodalAdmittanceMatrice(pg)
+    Uc = U.*exp.(1im*δ/180*pi)
+    I_c = Ykk*Uc
+    S = conj(Ykk*Uc).*Uc
+    return InitializeInternalDynamics(pg,I_c,ic0)
+end
+
+function GetMTKLTVSSystem(tspan,p)
+    pg, ic = GetInitializedLTVSSystem()
+    prob   = ODEProblem(rhs(pg),ic,tspan,p)
+    new_f = ODEFunction(prob.f.f, syms = prob.f.syms, mass_matrix = Int.(prob.f.mass_matrix))
+    ODEProb = ODEProblem(new_f,ic,tspan,p)
+    return modelingtoolkitize(ODEProb)
 end

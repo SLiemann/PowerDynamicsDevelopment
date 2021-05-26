@@ -7,6 +7,7 @@ using LinearAlgebra
 
 #Pi models for nodal admittance matrice
 PiModel(L::PiModelLine) = PiModel(L.y,L.y_shunt_km,L.y_shunt_mk,1,1)
+PiModel(L::PiModelLineParam) = PiModel(L.y,L.y_shunt_km,L.y_shunt_mk,1,1)
 PiModel(T::Transformer) = PiModel(T.y,0,0,T.t_ratio,1)
 PiModel(S::StaticLine)  = PiModel(S.Y,0,0,1,1)
 PiModel(R::RLLine)      = PiModel(1/(R.R+1im*R.ω0*R.L),0,0,1,1)

@@ -127,9 +127,10 @@ end [[θ,dθ],[ω, dω],[e_ds, de_ds],[e_qs, de_qs],[e_dss, de_dss],[e_qss, de_q
     #AVR error
     V_error = V0 - abs(u)
     #OEL
+
     ifd_error = ifd - Ifdlim
     array_out  = ifelse(ifd_error > 0.0,ifd_error,ifelse(ifd_error >= -0.1,0.0,-1.0))
-    dtimer = ifelse(timer<=L1,ifelse(array_out<0.0,0.0,array_out),array_out)
+    dtimer =ifelse(timer<=L1,ifelse(array_out<0.0,0.0,array_out),array_out)
     switch_output = ifelse(timer<0.0,V_error,-ifd_error)
 
     #AVR - Transient Gain Reducution & Exciter
@@ -140,7 +141,7 @@ end [[θ,dθ],[ω, dω],[e_ds, de_ds],[e_qs, de_qs],[e_dss, de_dss],[e_qss, de_q
 
     lowlimit  = ifelse(E_f<=0.0,ifelse(e<0.0,true,false),false)
     highlimit = ifelse(E_f>= L2,ifelse(e>0.0,true,false),false)
-    dE_f = ifelse(lowlimit==true,0.0,ifelse(highlimit==true,0.0,e))
+    dE_f = ifelse(lowlimit==true,0.0,IfElse.ifelse(highlimit==true,0.0,e))
 end
 
 export SixOrderMarconatoMachineAVROEL
