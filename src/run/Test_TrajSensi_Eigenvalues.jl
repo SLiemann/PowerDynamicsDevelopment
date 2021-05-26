@@ -55,6 +55,10 @@ end
     Ykk = NodalAdmittanceMatrice(pg)
     I_c = Ykk*Uc
     pg, ic0 = InitializeInternalDynamics(pg,I_c,ic)
+    prob = ODEProblem(rhs(pg),ic0,tspan,1)
+    new_f = ODEFunction(prob.f.f, syms = prob.f.syms, mass_matrix = Int.(prob.f.mass_matrix))
+    ODEProb = ODEProblem(new_f,ic,tspan,1)
+    mtsys   = modelingtoolkitize(ODEProb)
 end
 begin
     EW = CalcEigenValues(pg,ic0,[1.0],output = true)
@@ -94,9 +98,6 @@ begin
     sensis_p_pd = [1]
     sol = sol_or
 end
-
-ODEProb.f(rhs, vars, params, t)
-
 
 begin
     include("operationpoint/Local_Sensitivity.jl")

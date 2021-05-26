@@ -24,53 +24,47 @@ parameter for DifferentialEquations.jl.
 
 """
 @Line StaticPowerTransformerTapParam(from,to,Sbase,Srated,uk,XR_ratio,i0,Pv0,tap_side,tap_pos,tap_inc,tap_max,tap_min,p_ind) begin
-    Δtap = copy(p[p_ind])
-    if tap_pos + Δtap >= tap_max
-        Δtap = tap_max - tap_pos
-    elseif tap_pos + Δtap <= tap_min
-        Δtap = tap_min - tap_pos
-    end
+    Δtap = p[p_ind]
+    Δtap = IfElse.ifelse(
+        tap_pos + Δtap >= tap_max,
+        tap_max - tap_pos,
+        IfElse.ifelse(tap_pos + Δtap <= tap_min, tap_min - tap_pos, p[p_ind]))
 
-    üLV    = 1.0
-    üHV    = 1.0
-    if tap_side == "LV"
-        üLV = 1.0 / (1.0 + (tap_pos + Δtap) * tap_inc / 100.0)
-    elseif tap_side == "HV"
-        üHV = 1.0 / (1.0 + (tap_pos + Δtap) * tap_inc / 100.0)
-    else
-        error("Can not interprete tap_side (HV/LV): $tap_side")
-    end
+    üLV = IfElse.ifelse(
+        tap_side == "LV",
+        1.0 / (1.0 + (tap_pos + Δtap) * tap_inc / 100.0),
+        1.0)
+
+    üHV = IfElse.ifelse(
+        tap_side == "HV",
+        1.0 / (1.0 + (tap_pos + Δtap) * tap_inc / 100.0),
+        1.0)
 
     #Calculatiing leakage reactance Xa and winding resistance Ra
-    Ra = 0.
-    Xa = 0.
-    if XR_ratio == 0
-        Ra = uk
-        Xa = 0.
-    elseif XR_ratio == Inf
-        Ra = 0.
-        Xa = uk
-    else
-        Ra = uk / sqrt(1 + XR_ratio^2)
-        Xa = XR_ratio * Ra
-    end
-    Ya  = 1.0 / (0.5 * (Ra + 1im*Xa))    #it is assumed that losses are equally (0.5) distributed over both sides
+    Ra = IfElse.ifelse(
+        XR_ratio == 0.0,
+        uk,
+        IfElse.ifelse(XR_ratio == Inf, 0.0, uk / sqrt(1 + XR_ratio^2)))
+
+    Xa = IfElse.ifelse(
+        XR_ratio == 0.0,
+        0.0,
+        IfElse.ifelse(XR_ratio == Inf, uk, XR_ratio * Ra))
+
+    Ya = 1.0 / (0.5 * (Ra + 1im * Xa))    #it is assumed that losses are equally (0.5) distributed over both sides
     Ybs = Ya                             #Ybs should be changed, if losses are not equally distributed
 
     #Calculating magnetising reactance Xm and core resistance Rfe from iron losess
-    Zm  = 1.0 / (i0 / 100.0) #no-load currents depends on complete magnetising impedance
+    Zm = 1.0 / (i0 / 100.0) #no-load currents depends on complete magnetising impedance
     Rfe = Srated / Pv0
-    Xm = Inf
-    if i0 != 0
-        Xm  = 1.0 / sqrt(1.0/Zm^2 - 1.0/Rfe^2)
-    end
-    Ym  = 1.0/Rfe + 1.0/(1im*Xm)
+    Xm = IfElse.ifelse(i0 != 0.0, 1.0 / sqrt(1.0 / Zm^2 - 1.0 / Rfe^2), Inf)
+    Ym = 1.0 / Rfe + 1.0 / (1im * Xm)
 
     Ybase = Sbase / Srated #this could be changed, if global base values are available
-    Y     = 1.0 / (Ya + Ybs + Ym) ./ Ybase
-    Y = Y.*PiModel(Ya*Ybs, Ya*Ym, Ybs*Ym,üHV,üLV)
+    Y = 1.0 / (Ya + Ybs + Ym) ./ Ybase
+    Y = Y .* PiModel(Ya * Ybs, Ya * Ym, Ybs * Ym, üHV, üLV)
     # If current is flowing away from the source, it is negative at the source.
-    voltage_vector = [source_voltage,destination_voltage]
+    voltage_vector = [source_voltage, destination_voltage]
     current_vector = Y * voltage_vector
 end
 

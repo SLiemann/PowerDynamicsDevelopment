@@ -2,8 +2,8 @@ using PowerDynamics
 using DifferentialEquations
 using Plots
 using ModelingToolkit
-using Distributed
-@everywhere using IfElse
+#using Distributed
+#@everywhere using IfElse: ifelse
 
 function calcOLTCHIsken(pg, ic)
     timer_start = -1.0
@@ -88,9 +88,7 @@ function calcOLTCHIsken(pg, ic)
         tstops=[10.0],
         maxiters = 1e5,
     )
-    display(sol.t[end])
-    return sol
-    #return PowerGridSolution(sol, pg)
+    return PowerGridSolution(sol, pg)
 end
 
 include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/grids/OLTC_Hybrid_Sensis.jl")
@@ -98,11 +96,12 @@ include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/grids/OLTC_Hybrid_
 pg, ic0 = GetInitializedOLTCHisken()
 
 pgsol = calcOLTCHIsken(pg,ic0)
-pgsol = DiffEqBase.solution_new_retcode(pgsol, :Success)
-pgsol = PowerGridSolution(pgsol,pg)
-plot(pgsol,["bus4"],:i)
+plot(pgsol,["bus4"],:v);
 
 mtk = GetMTKOLTCSystem((0.0, 200.0), [0.25,0.0])
+eqs = equations(mtk)
+st  = states(mtk)
+par = parameters(mtk)
 
 include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/grids/LTVS_Test_System.jl")
 mtk = GetMTKLTVSSystem((0.0,10.0),nothing)

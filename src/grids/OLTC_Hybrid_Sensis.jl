@@ -2,6 +2,10 @@ using PowerDynamics
 using OrderedCollections: OrderedDict
 using ModelingToolkit
 
+include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/operationpoint/PowerFlow.jl")
+include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/utility/utility_functions.jl")
+include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/operationpoint/InitializeInternals.jl")
+
 function OLTC_Hybrid_Sensi(;x_grid = 0.25)
     Ubase = 380e3
     Sbase = 100e6
@@ -44,9 +48,6 @@ function OLTC_Hybrid_Sensi(;x_grid = 0.25)
 end
 
 function GetInitializedOLTCHisken()
-    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/operationpoint/PowerFlow.jl")
-    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/utility/utility_functions.jl")
-    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/operationpoint/InitializeInternals.jl")
     pg = OLTC_Hybrid_Sensi()
     U,δ,ic0 = PowerFlowClassic(pg,iwamoto = true)
     Ykk = NodalAdmittanceMatrice(pg)
