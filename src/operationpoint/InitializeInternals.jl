@@ -40,8 +40,7 @@ function InitNode(SM::FourthOrderEq,ind::Int64,I_c::Array{Complex{Float64},2},ic
    return [v_d_temp, v_q_temp, δ, 0.], node_temp
 end
 
-InitNode(SM::SixOrderMarconatoMachine,ind::Int64,I_c::Array{Complex{Float64},2},ic_lf::Array{Float64,1},ind_offset::Int64)    = InitNodeSM(SM,ind,I_c,ic_lf,ind_offset)
-function InitNodeSM(SM,ind::Int64,I_c::Array{Complex{Float64},2},ic_lf::Array{Float64,1},ind_offset::Int64)
+function InitNodeSM(SM::SixOrderMarconatoMachine,ind::Int64,I_c::Array{Complex{Float64},2},ic_lf::Array{Float64,1},ind_offset::Int64)
    v_d_temp = ic_lf[ind_offset]
    v_q_temp = ic_lf[ind_offset+1]
    #Rotor angle
@@ -152,7 +151,7 @@ function InitNode(SM::SixOrderMarconatoMachineAVROEL,ind::Int64,I_c::Array{Compl
    return [v_d_temp, v_q_temp, δ, 0., e_ds, e_qs, e_dss, e_qss,ifd,SM.L1,v_f,v_f], node_temp
 end
 
-function InitNode(load::SimpleRecoveryLoad,ind::Int64,I_c::Array{Complex{Float64},2},ic_lf::Array{Float64,1},ind_offset::Int64)
+function InitNode(load::Union{SimpleRecoveryLoad,SimpleRecoveryLoadParam},ind::Int64,I_c::Array{Complex{Float64},2},ic_lf::Array{Float64,1},ind_offset::Int64)
    v_d_temp = ic_lf[ind_offset]
    v_q_temp = ic_lf[ind_offset+1]#
    v = sqrt(v_d_temp^2 + v_q_temp^2)
