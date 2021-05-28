@@ -84,7 +84,7 @@ function SimulateOLTCHIsken()
             op_prob = ODEProblem(integrator.f, ic_tmp, (0.0, 1e-6), p_tmp, initializealg = BrownFullBasicInit())
             ic_new = solve(op_prob,Rodas5())
             integrator.u = ic_new.u[end]
-            event_recorder = vcat(event_recorder,[integrator.t integrator.p' 2 2])
+            event_recorder = vcat(event_recorder,[integrator.t integrator.p' 2 1])
         end
     end
 
@@ -95,18 +95,18 @@ function SimulateOLTCHIsken()
     function timer_off(integrator)
         if timer_start != -1
             timer_start = -1
-            event_recorder = vcat(event_recorder,[integrator.t integrator.p' 4 4])
+            event_recorder = vcat(event_recorder,[integrator.t integrator.p' 4 1])
         end
     end
 
     function voltage_outside(u, t, integrator)
-        sqrt(u[7] * u[7] + u[8] * u[8]) < 1.04 && t>=10.0
+        sqrt(u[7] * u[7] + u[8] * u[8]) < 1.04 && t>10.0
     end
 
     function timer_on(integrator)
         if timer_start == -1
             timer_start = integrator.t
-            event_recorder = vcat(event_recorder,[integrator.t integrator.p' 3 3])
+            event_recorder = vcat(event_recorder,[integrator.t integrator.p' 3 1])
         end
     end
 
@@ -160,4 +160,95 @@ function SimulateOLTCHIsken()
         maxiters = 1e5,
     )
     return PowerGridSolution(sol, pg), event_recorder
+end
+
+GetTriggeringConditions() = GetTriggeringConditions(GetMTKOLTCSystem()) #--> ZU SPEZIFISCH
+function GetTriggeringConditions(mtk::ODESystem) #--> ZU SPEZIFISCH
+    st = states(mtk)
+    @variables t
+    h = [
+        0.0 ~ t - 10.0,
+        0.0 ~ t - 20.0,
+        0.0 ~ hypot(st[7], st[8]) - 1.04,
+        0.0 ~ hypot(st[7], st[8]) - 1.04,
+    ]
+    return h
+end
+
+GetStateResetFunctions() = GetStateResetFunctions(GetMTKOLTCSystem()) #--> ZU SPEZIFISCH
+function GetStateResetFunctions(mtk::ODESystem) #--> ZU SPEZIFISCH
+    st = states(mtk)
+    return [zeros(length(st),1) .~ st]
+end
+
+function CalcTriggerAndStateResetJacobians(mtk::ODESystem)
+    eqs, aeqs, x, y = GetSymbolicEquationsAndStates(mtk)
+    h = GetTriggeringConditions(mtk) #--> zukünftig Übergabeparameter
+    s = GetStateResetFunctions(mtk) #--> zukünftig Übergabeparameter
+    hx = Array{Array{Num}}(undef,length(h),1)
+    hy = similar(hx)
+    sx = Array{Array{Num}}(undef,length(s),1)
+    sy = similar(sx)
+    for i=1:length(h)
+        hx[i] = GetJacobian([h[i]],x)
+        hy[i] = GetJacobian([h[i]],y)
+    end
+    for i=1:length(s)
+        sx[i] = GetJacobian(s[i],x)
+        sy[i] = GetJacobian(s[i],y)
+    end
+    return hx,hy,sx,sy
+end
+
+function CalcSensitivityAfterJump(
+    states,
+    params,
+    xx0_pre,
+    yx0_pre,
+    x0_pre,
+    x0_post,
+    p_pre,
+    p_post,
+    f,
+    g,
+    J,
+    hx,
+    hy,
+    sx,
+    sy,
+)
+    f, g, x, y = sys
+    fx, fy, gx, gy = J
+
+    subs_pre = [states .=> x0_pre; params .=> p_pre]
+    subs_post = [states .=> x0_post; params .=> p_post]
+
+    f_pre = Substitute(f, subs_pre)
+    f_post = Substitute(f, subs_post)
+
+    fx_pre = Substitute(fx, subs_pre)
+    fy_pre = Substitute(fy, subs_pre)
+    gx_pre = Substitute(gx, subs_pre)
+    gy_pre = Substitute(gy, subs_pre)
+
+    gx_post = Substitute(gx, subs_post)
+    gy_post = Substitute(gy, subs_post)
+
+    hx_pre = Substitute(hx, subs_pre)
+    hy_pre = Substitute(hy, subs_pre)
+    sx_pre = Substitute(sx, subs_pre)
+    sy_pre = Substitute(sy, subs_pre)
+
+    gygx = inv(gy_pre) * gx_pre
+
+    hx_star = hx_pre - hy_pre * gygx
+
+    s_star = sx_pre - sy_pre * gygx
+
+    τx0 = s_star * xx0_pre / (s_star * f_pre)
+
+    xx0_post = xx0_pre * hx_star - (f_post - hx_star * f_pre) * τx0
+    yx0_post = inv(gy_post) * gx_post * xx0_post
+
+    return xx0_post, yx0_post
 end

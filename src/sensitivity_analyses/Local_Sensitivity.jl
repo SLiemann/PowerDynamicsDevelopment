@@ -164,7 +164,7 @@ function GetSymbolicEquationsAndStates(
 end
 
 function GetJacobian(
-  eqs::Array{Equation,1},
+  eqs::Array{Equation},
   states::Array{Term{Real,Nothing},1},
 )
     Fx = Array{Num}(undef, size(eqs)[1], size(states)[1])
@@ -248,7 +248,6 @@ end
 
 function InitTrajectorySensitivity(
   mtsys::ODESystem,
-  time_interval::Tuple{Float64,Float64},
   ic::Array{Float64,1},
   p::Array{Float64,1},
   sensis_u0_pd::Array{Int64,1},
@@ -322,10 +321,10 @@ function InitTrajectorySensitivity(
     (Gp * vcat(zeros(size(sensis_u0)[1], size(sensis_p)[1]), I))
   yx0_k = yx0 .=> Substitute([yx0_t0 yp_t0], [symu0; symp])
 
-  return xx0_k,yx0_k,state,A_states,D_states,M,N,O,symp,Δt,len_sens
+  return xx0_k,yx0_k,state,A_states,D_states,M,N,O,symp,Δt,len_sens, (Fx,Fy,Gx,Gy)
 end
 
-function ContinuousSensitivity(sensi,sol,xx0_k,yx0_k,state,A_states,D_states,M,N,O,symp,Δt,len_sens)
+function ContinuousSensitivity(sol,xx0_k,yx0_k,state,A_states,D_states,M,N,O,symp,Δt,len_sens)
   sensi = Vector{Array{Float64}}(undef, len_sens)
   for i = 1:length(sensi)
     sensi[i] = Array{Float64}(
@@ -355,5 +354,5 @@ function ContinuousSensitivity(sensi,sol,xx0_k,yx0_k,state,A_states,D_states,M,N
     xx0_k = xx0 .=> res[1:size(D_states)[1], :]
     yx0_k = yx0 .=> res[size(D_states)[1]+1:end, :]
   end
-  return sensi
+  return sensi, xx0_k, yx0_k
 end
