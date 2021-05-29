@@ -321,7 +321,7 @@ function InitTrajectorySensitivity(
     (Gp * vcat(zeros(size(sensis_u0)[1], size(sensis_p)[1]), I))
   yx0_k = yx0 .=> Substitute([yx0_t0 yp_t0], [symu0; symp])
 
-  return xx0_k,yx0_k,state,A_states,D_states,M,N,O,symp,Δt,len_sens, (Fx,Fy,Gx,Gy)
+  return xx0_k,yx0_k,state,A_states,D_states,M,N,O,symp,Δt,len_sens, eqs,aeqs,(Fx,Fy,Gx,Gy)
 end
 
 function ContinuousSensitivity(sol,xx0_k,yx0_k,state,A_states,D_states,M,N,O,symp,Δt,len_sens)

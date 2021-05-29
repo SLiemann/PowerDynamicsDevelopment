@@ -217,7 +217,6 @@ function CalcSensitivityAfterJump(
     sx,
     sy,
 )
-    f, g, x, y = sys
     fx, fy, gx, gy = J
 
     subs_pre = [states .=> x0_pre; params .=> p_pre]
