@@ -252,22 +252,21 @@ function InitTrajectorySensitivity(
   p::Array{Float64,1},
   sensis_u0_pd::Array{Int64,1},
   sensis_p_pd::Array{Int64,1},
-  sol::ODESolution,
 )
   fulleqs = equations(mtsys)
-  state = states(mtsys)
-  params = parameters(mtsys)
-  eqs, aeqs, D_states, A_states = GetSymbolicEquationsAndStates(fulleqs, state)
+  sym_states = states(mtsys)
+  sym_params = parameters(mtsys)
+  eqs, aeqs, D_states, A_states = GetSymbolicEquationsAndStates(fulleqs, sym_states)
 
   #it is assumed that state and rhs(powergrid).syms have the same order
   #sensis_u0 = state[indexin(sensis_u0_pd, rhs(pg).syms)]
-  sensis_u0 = state[sensis_u0_pd]
+  sensis_u0 = sym_states[sensis_u0_pd]
   #sensis_p_pd is here a list with indices of the parameters p
-  sensis_p = params[sensis_p_pd]
+  sensis_p = sym_params[sensis_p_pd]
 
   #dict from states and parameters with their starting values
-  symu0 = state .=> ic
-  symp = params .=> p
+  symu0 = sym_states .=> ic
+  symp = sym_params .=> p
 
   Fx, Fy, Gx, Gy = GetSymbolicFactorizedJacobian(eqs, aeqs, D_states, A_states)
 
@@ -287,8 +286,8 @@ function InitTrajectorySensitivity(
   end
 
   @parameters Δt
-  @parameters xx0[1:size(D_states)[1], 1:len_sens] #xx0 are the sensitivities regargind differential states
-  @parameters yx0[1:size(A_states)[1], 1:len_sens] #yx0 are the sensitivities regargind algebraic states
+  @parameters xx0[1:size(D_states)[1], 1:len_sens] #xx0 are the sensitivities regarding differential states
+  @parameters yx0[1:size(A_states)[1], 1:len_sens] #yx0 are the sensitivities regarding algebraic states
   M = [
     Δt/2*Fx-I Δt/2*Fy
     Gx Gy
@@ -321,10 +320,12 @@ function InitTrajectorySensitivity(
     (Gp * vcat(zeros(size(sensis_u0)[1], size(sensis_p)[1]), I))
   yx0_k = yx0 .=> Substitute([yx0_t0 yp_t0], [symu0; symp])
 
-  return xx0_k,yx0_k,state,A_states,D_states,M,N,O,symp,Δt,len_sens, eqs,aeqs,(Fx,Fy,Gx,Gy)
+  eqs = Num.(my_rhs.(eqs))
+  aeqs = Num.(my_rhs.(aeqs))
+  return xx0_k,yx0_k,sym_states,sym_params,A_states,D_states,M,N,O,symp,Δt,len_sens, eqs,aeqs,(Fx,Fy,Gx,Gy)
 end
 
-function ContinuousSensitivity(sol,xx0_k,yx0_k,state,A_states,D_states,M,N,O,symp,Δt,len_sens)
+function ContinuousSensitivity(sol,xx0_k,yx0_k,sym_states,A_states,D_states,M,N,O,symp,Δt,len_sens)
   sensi = Vector{Array{Float64}}(undef, len_sens)
   for i = 1:length(sensi)
     sensi[i] = Array{Float64}(
@@ -333,11 +334,15 @@ function ContinuousSensitivity(sol,xx0_k,yx0_k,state,A_states,D_states,M,N,O,sym
       size(sol)[2] - 1,
     )
   end
+  xx0 = [i[1] for i in xx0_k]
+  yx0 = [i[1] for i in yx0_k]
+  ind_y = setdiff(indexin(A_states, sym_states), [nothing])
+  ind_x = setdiff(indexin(D_states, sym_states), [nothing])
   for i = 1:size(sol)[2]-1
     dt = sol.t[i+1] - sol.t[i]
 
-    uk = state .=> sol.u[i]
-    uk1 = state .=> sol.u[i+1]
+    uk = sym_states .=> sol.u[i]
+    uk1 = sym_states .=> sol.u[i+1]
 
     Mfloat = Substitute(M, [uk1; symp; Δt => dt])
     Nfloat = Substitute(N, [uk; symp; vec(xx0_k); vec(yx0_k); Δt => dt])
@@ -345,8 +350,6 @@ function ContinuousSensitivity(sol,xx0_k,yx0_k,state,A_states,D_states,M,N,O,sym
     res = inv(Mfloat) * (Nfloat + Ofloat)
 
     for j = 1:length(sensi)
-      ind_y = setdiff(indexin(A_states, state), [nothing])
-      ind_x = setdiff(indexin(D_states, state), [nothing])
       sensi[j][ind_x, i] = res[1:size(D_states)[1], j]
       sensi[j][ind_y, i] = res[size(D_states)[1]+1:end, j]
     end

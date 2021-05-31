@@ -31,7 +31,7 @@ function OLTC_Hybrid_Sensi(;x_grid = 0.25)
             Sbase = Sbase,
             Srated = 100e6,
             uk = 0.01,
-            XR_ratio = 999,
+            XR_ratio = Inf,
             i0 = 0.0,
             Pv0 = 0.0,
             tap_side = "LV",
@@ -41,7 +41,7 @@ function OLTC_Hybrid_Sensi(;x_grid = 0.25)
             tap_min = -8,
             p_ind=2
         ),
-        "branch3" => PiModelLine(from="bus3",to="bus4",y=1.0/(1im*0.8),y_shunt_km=0.0,y_shunt_mk=0.0),
+        "branch3" => PiModelLine(from="bus3",to="bus4",y=1.0/(1im*0.80/1.0125),y_shunt_km=0.0,y_shunt_mk=0.0),
     )
     pg = PowerGrid(buses, branches)
 end
@@ -50,7 +50,7 @@ GetParametersOLTCHisken() =  [0.25,0.0,5.0,5.0]
 
 function GetInitializedOLTCHisken()
     pg = OLTC_Hybrid_Sensi()
-    U,δ,ic0 = PowerFlowClassic(pg,iwamoto = true)
+    U,δ,ic0 = PowerFlowClassic(pg,iwamoto = false)
     Ykk = NodalAdmittanceMatrice(pg)
     Uc = U.*exp.(1im*δ/180*pi)
     I_c = Ykk*Uc
@@ -84,7 +84,7 @@ function SimulateOLTCHIsken()
             op_prob = ODEProblem(integrator.f, ic_tmp, (0.0, 1e-6), p_tmp, initializealg = BrownFullBasicInit())
             ic_new = solve(op_prob,Rodas5())
             integrator.u = ic_new.u[end]
-            event_recorder = vcat(event_recorder,[integrator.t integrator.p' 2 1])
+            event_recorder = vcat(event_recorder,[integrator.t integrator.p' 3 1])
         end
     end
 
@@ -129,10 +129,10 @@ function SimulateOLTCHIsken()
     end
 
     function check_voltage_low(u,t,integrator)
-            sqrt(u[7]*u[7] + u[8]*u[8]) < 0.75
+            sqrt(u[7]*u[7] + u[8]*u[8]) < 0.45
     end
     function check_voltage_high(u,t,integrator)
-            sqrt(u[7]*u[7] + u[8]*u[8]) > 1.1
+            sqrt(u[7]*u[7] + u[8]*u[8]) > 1.4
     end
 
     function stop_integration(integrator)
@@ -155,7 +155,7 @@ function SimulateOLTCHIsken()
         prob,
         Rodas4(),
         callback = CallbackSet(cb1, cb2, cb3,cb4,cb5),
-        dtmax = 1e-3,
+        dtmax = 1e-2,
         tstops=[10.0],
         maxiters = 1e5,
     )
@@ -166,43 +166,43 @@ GetTriggeringConditions() = GetTriggeringConditions(GetMTKOLTCSystem()) #--> ZU 
 function GetTriggeringConditions(mtk::ODESystem) #--> ZU SPEZIFISCH
     st = states(mtk)
     @variables t
-    h = [
+    s = [
         0.0 ~ t - 10.0,
         0.0 ~ t - 20.0,
         0.0 ~ hypot(st[7], st[8]) - 1.04,
         0.0 ~ hypot(st[7], st[8]) - 1.04,
     ]
-    return h
+    return s
 end
 
 GetStateResetFunctions() = GetStateResetFunctions(GetMTKOLTCSystem()) #--> ZU SPEZIFISCH
-function GetStateResetFunctions(mtk::ODESystem) #--> ZU SPEZIFISCH
-    st = states(mtk)
-    return [zeros(length(st),1) .~ st]
+function GetStateResetFunctions(mtk::ODESystem)
+    eqs, aeqs, D_states, A_states = GetSymbolicEquationsAndStates(mtk)
+    return [zeros(length(D_states),1) .~ D_states] #--> ZU SPEZIFISCH
 end
 
 function CalcTriggerAndStateResetJacobians(mtk::ODESystem)
     eqs, aeqs, x, y = GetSymbolicEquationsAndStates(mtk)
-    h = GetTriggeringConditions(mtk) #--> zukünftig Übergabeparameter
-    s = GetStateResetFunctions(mtk) #--> zukünftig Übergabeparameter
+    s = GetTriggeringConditions(mtk) #--> zukünftig Übergabeparameter
+    h = GetStateResetFunctions(mtk) #--> zukünftig Übergabeparameter
     hx = Array{Array{Num}}(undef,length(h),1)
     hy = similar(hx)
     sx = Array{Array{Num}}(undef,length(s),1)
     sy = similar(sx)
     for i=1:length(h)
-        hx[i] = GetJacobian([h[i]],x)
-        hy[i] = GetJacobian([h[i]],y)
+        hx[i] = GetJacobian(h[i],x)
+        hy[i] = GetJacobian(h[i],y)
     end
     for i=1:length(s)
-        sx[i] = GetJacobian(s[i],x)
-        sy[i] = GetJacobian(s[i],y)
+        sx[i] = GetJacobian([s[i]],x)
+        sy[i] = GetJacobian([s[i]],y)
     end
     return hx,hy,sx,sy
 end
 
 function CalcSensitivityAfterJump(
-    states,
-    params,
+    sym_states,
+    sym_params,
     xx0_pre,
     yx0_pre,
     x0_pre,
@@ -219,8 +219,8 @@ function CalcSensitivityAfterJump(
 )
     fx, fy, gx, gy = J
 
-    subs_pre = [states .=> x0_pre; params .=> p_pre]
-    subs_post = [states .=> x0_post; params .=> p_post]
+    subs_pre = [sym_states .=> x0_pre; sym_params .=> p_pre]
+    subs_post = [sym_states .=> x0_post; sym_params .=> p_post]
 
     f_pre = Substitute(f, subs_pre)
     f_post = Substitute(f, subs_post)
@@ -244,10 +244,16 @@ function CalcSensitivityAfterJump(
 
     s_star = sx_pre - sy_pre * gygx
 
-    τx0 = s_star * xx0_pre / (s_star * f_pre)
+    τx0 = s_star * xx0_pre
+    tmp = s_star * f_pre
+    if sum(tmp) != 0.0
+        τx0 = s_star * xx0_pre ./ (tmp)
+    else
+        τx0 = 0.0.*τx0
+    end
 
-    xx0_post = xx0_pre * hx_star - (f_post - hx_star * f_pre) * τx0
-    yx0_post = inv(gy_post) * gx_post * xx0_post
+    xx0_post = hx_star  * xx0_pre - (f_post - hx_star * f_pre) * τx0
+    yx0_post = -inv(gy_post) * gx_post * xx0_post
 
     return xx0_post, yx0_post
 end
