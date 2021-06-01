@@ -1,6 +1,5 @@
-using PowerDynamics
 using PowerDynamics: _find_operationpoint_rootfind
-using PowerDynamics: rhs, SixOrderMarconatoMachine, symbolsof
+using PowerDynamics: rhs#, symbolsof
 using NLsolve: nlsolve, converged
 using IfElse
 #include("PowerFlow.jl") # for NodalAdmittanceMatrice

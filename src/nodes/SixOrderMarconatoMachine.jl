@@ -1,4 +1,4 @@
-# Sebastian Liemann, ie3 TU Dortmund, based on F. Milano, Power System Modelling and Scripting, Springer Verlag, 2010
+#= Sebastian Liemann, ie3 TU Dortmund, based on F. Milano, Power System Modelling and Scripting, Springer Verlag, 2010
 @doc doc"""
 ```Julia
 SixOrderMarconatoMachine(Sbase,Srated,H, P, D, Ω, E_f, R_a,T_ds,T_qs,T_dss,T_qss,X_d,X_q,X_ds,X_qs,X_dss,X_qss,T_AA)
@@ -40,6 +40,7 @@ The model has the following internal dynamic variables:
 - `T_AA` : additional leakage time constant in d-axis, given in [s]
 
 """
+=#
 @DynamicNode SixOrderMarconatoMachine(Sbase,Srated,H, P, D, Ω, E_f, R_a,T_ds,T_qs,T_dss,T_qss,X_d,X_q,X_ds,X_qs,X_dss,X_qss,T_AA) begin
     MassMatrix(m_int =[true,true,true,true,true,true])
 end begin

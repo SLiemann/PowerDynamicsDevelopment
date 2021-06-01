@@ -1,3 +1,4 @@
+#=
 @doc doc"""
 ```Julia
 SimpleRecoveryLoad(P0, Q0, Pd, Pt, Qt,Tp, Tq)
@@ -15,6 +16,7 @@ IEEE TRANSACTIONS ON CIRCUITS AND SYSTEMS, vol. 47, February 2000
 - `Tp`: Load recovery constant p-axis [s]
 - `Tq`: Load recovery constant q-axis [s]
 """
+=#
 @DynamicNode SimpleRecoveryLoad(P0, Q0, Pt, Qt, Tp, Tq)  begin
     MassMatrix(m_int = [true, true])
 end  begin

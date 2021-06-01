@@ -2,10 +2,6 @@ using PowerDynamics
 using OrderedCollections: OrderedDict
 using ModelingToolkit
 
-include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/operationpoint/PowerFlow.jl")
-include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/utility/utility_functions.jl")
-include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/operationpoint/InitializeInternals.jl")
-
 function OLTC_Hybrid_Sensi(;x_grid = 0.25)
     Ubase = 380e3
     Sbase = 100e6
@@ -106,7 +102,7 @@ function SimulateOLTCHIsken()
     function timer_on(integrator)
         if timer_start == -1
             timer_start = integrator.t
-            event_recorder = vcat(event_recorder,[integrator.t integrator.p' 3 1])
+            event_recorder = vcat(event_recorder,[integrator.t integrator.p' 2 1])
         end
     end
 
@@ -155,7 +151,8 @@ function SimulateOLTCHIsken()
         prob,
         Rodas4(),
         callback = CallbackSet(cb1, cb2, cb3,cb4,cb5),
-        dtmax = 1e-2,
+        dt = 1e-2,
+        adaptive = false,
         tstops=[10.0],
         maxiters = 1e5,
     )

@@ -1,3 +1,4 @@
+#=
 """
 ```Julia
     StaticPowerTransformer(from,to,Sbase,Srated,uk,XR_ratio,i0,Pv0,tap_side,tap_pos,tap_inc)
@@ -20,6 +21,7 @@ Transformer based on typical equipment parameters
 - `tap_inc`: voltag increase per tap in [%], e.g. 1 %
 
 """
+=#
 @Line StaticPowerTransformer(from,to,Sbase,Srated,uk,XR_ratio,i0,Pv0,tap_side,tap_pos,tap_inc) begin
     üLV    = 1.0
     üHV    = 1.0

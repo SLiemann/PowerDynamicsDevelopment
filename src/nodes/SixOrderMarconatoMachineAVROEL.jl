@@ -1,4 +1,5 @@
-# Sebastian Liemann, ie3 TU Dortmund, based on F. Milano, Power System Modelling and Scripting, Springer Verlag, 2010
+using IfElse
+#= Sebastian Liemann, ie3 TU Dortmund, based on F. Milano, Power System Modelling and Scripting, Springer Verlag, 2010
 @doc doc"""
 ```Julia
 SixOrderMarconatoMachineAVROEL(Sbase,Srated,H, P, D, Ω, R_a,T_ds,T_qs,T_dss,T_qss,X_d,X_q,X_ds,X_qs,X_dss,X_qss,T_AA,V0,Ifdlim,L1,G1,Ta,Tb,G2,L2)
@@ -54,6 +55,7 @@ The model has the following internal dynamic variables:
 - `L2` : Upper Limit of Anti-Windup Integrator inside of the PT1
 
 """
+=#
 @DynamicNode SixOrderMarconatoMachineAVROEL(Sbase,Srated,H, P, D, Ω, R_a,T_ds,T_qs,T_dss,T_qss,X_d,X_q,X_ds,X_qs,X_dss,X_qss,T_AA,V0,Ifdlim,L1,G1,Ta,Tb,G2,L2) begin
     MassMatrix(m_int =[true,true,true,true,true,true,false,true,true,true])
 end begin

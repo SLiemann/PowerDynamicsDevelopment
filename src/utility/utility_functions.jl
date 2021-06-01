@@ -1,3 +1,5 @@
+using ModelingToolkit
+    
 function getPreFaultVoltages(pg::PowerGrid,ic_prefault::Array{Float64,1},ic_endfault::Array{Float64,1})
     ind = getVoltageSymbolPositions(pg)
     ic_endfault[ind] = ic_prefault[ind]
@@ -27,4 +29,31 @@ function AddZerosIntoSolution(pg1::PowerGrid,pg2::PowerGrid,sol)
         end
     end
     return sol
+end
+
+function PiModel(y::Complex{Num}, y_shunt_km, y_shunt_mk, t_km, t_mk)
+    Π = Array{Union{Complex{Float64},Complex{Num}}}(undef,2,2)
+    Π[1, 1] = - abs2(t_km) * (y + y_shunt_km) # Our sign convention is opposite for the source of the edge
+    Π[1, 2] = conj(t_km) * t_mk * y # Our sign convention is opposite for the source of the edge
+    Π[2, 1] = - conj(t_mk) * t_km * y
+    Π[2, 2] = abs2(t_mk) * (y + y_shunt_mk)
+    Π
+end
+
+function PiModel(y, y_shunt_km, y_shunt_mk, t_km, t_mk::Num)
+    Π = Array{Union{Complex{Float64},Complex{Num}}}(undef,2,2)
+    Π[1, 1] = - abs2(t_km) * (y + y_shunt_km) # Our sign convention is opposite for the source of the edge
+    Π[1, 2] = conj(t_km) * t_mk * y # Our sign convention is opposite for the source of the edge
+    Π[2, 1] = - conj(t_mk) * t_km * y
+    Π[2, 2] = abs2(t_mk) * (y + y_shunt_mk)
+    Π
+end
+
+function PiModel(y, y_shunt_km, y_shunt_mk, t_km::Num, t_mk)
+    Π = Array{Union{Complex{Float64},Complex{Num}}}(undef,2,2)
+    Π[1, 1] = - abs2(t_km) * (y + y_shunt_km) # Our sign convention is opposite for the source of the edge
+    Π[1, 2] = conj(t_km) * t_mk * y # Our sign convention is opposite for the source of the edge
+    Π[2, 1] = - conj(t_mk) * t_km * y
+    Π[2, 2] = abs2(t_mk) * (y + y_shunt_mk)
+    Π
 end

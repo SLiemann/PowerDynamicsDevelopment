@@ -1,3 +1,4 @@
+#=
 @doc """
 ```Julia
     PiModelLineParam(from, to, y, y_shunt_km, y_shunt_mk)
@@ -19,6 +20,7 @@ See also the Chapter 2 in
 # Assumptions:
 - the line admittance is symmetric
 """
+=#
 @Line PiModelLineParam(from, to, y, y_shunt_km, y_shunt_mk,p_ind) begin
     # If current is flowing away from the source, it is negative at the source.
     Y = PiModel(1.0/(1im*p[p_ind]), y_shunt_km, y_shunt_mk, 1, 1)

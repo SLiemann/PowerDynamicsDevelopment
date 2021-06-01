@@ -1,4 +1,4 @@
-# (C) 2018 Potsdam Institute for Climate Impact Research, authors and contributors (see AUTHORS file)
+#= (C) 2018 Potsdam Institute for Climate Impact Research, authors and contributors (see AUTHORS file)
 # Licensed under GNU GPL v3 (see LICENSE file)
 
 @doc doc"""
@@ -20,6 +20,7 @@ Using `SlackAlgebraic` for node ``a`` applies the equation
 0 = U_a - u_a.
 ```
 """
+=#
 @DynamicNode SlackAlgebraicParam(U) begin
     MassMatrix()
 end begin

@@ -1,4 +1,6 @@
-@doc doc"""
+#=
+import Base: @doc
+Base.@doc doc"""
 ```Julia
 SimpleRecoveryLoadParam(P0, Q0, Pd, Pt, Qt,Tp, Tq)
 ```
@@ -16,6 +18,7 @@ IEEE TRANSACTIONS ON CIRCUITS AND SYSTEMS, vol. 47, February 2000
     - `Tp`: Load recovery constant p-axis [s] --> PARAMETER
     - `Tq`: Load recovery constant q-axis [s] --> PARAMETER
 """
+=#
 @DynamicNode SimpleRecoveryLoadParam(P0, Q0, Pt, Qt, p_ind)  begin
     MassMatrix(m_int = [true, true])
 end  begin
