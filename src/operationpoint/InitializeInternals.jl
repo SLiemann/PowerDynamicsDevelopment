@@ -152,9 +152,28 @@ end
 
 function InitNode(load::Union{SimpleRecoveryLoad,SimpleRecoveryLoadParam},ind::Int64,I_c::Array{Complex{Float64},2},ic_lf::Array{Float64,1},ind_offset::Int64)
    v_d_temp = ic_lf[ind_offset]
-   v_q_temp = ic_lf[ind_offset+1]#
+   v_q_temp = ic_lf[ind_offset+1]
    v = sqrt(v_d_temp^2 + v_q_temp^2)
    xd = load.P0 - load.Pt * (v^2)
    xq = load.Q0 - load.Qt * (v^2)
    return [v_d_temp,v_q_temp,xd, xq], load
+end
+
+function InitNode(GFC::GridFormingConverter,ind::Int64,I_c::Array{Complex{Float64},2},ic_lf::Array{Float64,1},ind_offset::Int64)
+   v_d_temp = ic_lf[ind_offset]
+   v_q_temp = ic_lf[ind_offset+1]
+   U0 = v_d_temp+1im*v_q_temp
+   ω = 2*50*pi
+   θ = 0.0
+   E = U0 + (GFC.rf + 1im*GFC.lf) * (I_c[ind] + U0/(-1im*GFC.cf))/ (GFC.Srated/GFC.Sbase)
+
+
+   ω = 0.0
+   Q = 0.0
+   e_ud = 0.0
+   e_uq = 0.0
+   e_id = 0.0
+   e_iq = 0.0
+in
+   return [v_d_temp, v_q_temp,θ,ω,Q,e_ud,e_uq,e_id,e_iq], GFC
 end

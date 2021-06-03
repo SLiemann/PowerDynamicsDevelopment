@@ -39,7 +39,7 @@ end begin
 
     ω0 = 2.0*pi*50.0
 
-end [[θ,dθ],[dω,ω],[dQ,Q],[de_ud,e_ud],[de_uq,e_uq][de_id,e_id],[de_iq,e_iq]] begin
+end [[dθ,θ],[dω,ω],[dQ,Q],[de_ud,e_ud],[de_uq,e_uq],[de_id,e_id],[de_iq,e_iq]] begin
     umeas = 1im*u*(cos(-θ)+1im*sin(-θ))
     udmeas = real(umeas)
     uqmeas = imag(umeas)
