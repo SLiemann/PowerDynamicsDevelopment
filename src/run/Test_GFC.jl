@@ -17,3 +17,24 @@ I_c = Ykk*Uc
 S = conj(Ykk*Uc).*Uc
 
 pg1 ,ic = InitializeInternalDynamics(pg,I_c,ic0)
+
+prob = ODEProblem(rhs(pg1),ic,(0.0,100.0),[1])
+sol = solve(prob,Rodas4())
+pgsol = PowerGridSolution(sol,pg)
+plot(pgsol,["bus3"],:iabs)
+plot(pgsol,["bus3"],:umabs)
+plot(pgsol,["bus3"],:umangle)
+
+plot(pgsol,["bus3"],:p)
+plot(pgsol,["bus3"],:θ)
+plot(pgsol,["bus3"],:φ)
+plot(pgsol,["bus3"],:ω)
+plot(pgsol,["bus3"],:v)
+plot(pgsol,["bus3"],:Q)
+
+rhs(pg).syms .=> ic
+
+uend = pgsol.dqsol.u[end]
+
+[uend ic]
+ic = uend

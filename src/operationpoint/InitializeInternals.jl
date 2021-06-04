@@ -163,17 +163,57 @@ function InitNode(GFC::GridFormingConverter,ind::Int64,I_c::Array{Complex{Float6
    v_d_temp = ic_lf[ind_offset]
    v_q_temp = ic_lf[ind_offset+1]
    U0 = v_d_temp+1im*v_q_temp
-   ω = 2*50*pi
-   θ = 0.0
-   E = U0 + (GFC.rf + 1im*GFC.lf) * (I_c[ind] + U0/(-1im*GFC.cf))/ (GFC.Srated/GFC.Sbase)
 
-
+   i1 =  I_c[ind] + U0/(-1im*GFC.xcf) / (GFC.Srated/GFC.Sbase)
+   E = U0 + (GFC.rf + 1im*GFC.xlf) * i1
+   θ = angle(U0)
    ω = 0.0
-   Q = 0.0
-   e_ud = 0.0
-   e_uq = 0.0
-   e_id = 0.0
-   e_iq = 0.0
-in
-   return [v_d_temp, v_q_temp,θ,ω,Q,e_ud,e_uq,e_id,e_iq], GFC
+
+   s = U0 * conj(I_c[ind])
+   p = real(s)
+   q = imag(s)
+   Q = q
+   q0set = q
+
+   idqmeas = 1im*I_c[ind]*(cos(-θ)+1im*sin(-θ))
+   idmeas = real(idqmeas)
+   iqmeas = imag(idqmeas)
+
+   idq = 1im*i1*(cos(-θ)+1im*sin(-θ))
+   id = real(idq)
+   iq = imag(idq)
+
+   U0 = U0*(cos(-θ)+1im*sin(-θ))
+   udmeas = real(U0) #should be equal abs(U0)
+   uqmeas = imag(U0) #should be zero
+
+   E0 = E*(cos(-θ)+1im*sin(-θ))
+   umd = real(E0)
+   umq = imag(E0)
+
+   e_id = (umd - udmeas + iq * GFC.xlf) / GFC.Ki_i
+   e_iq = (umq - uqmeas - id * GFC.xlf) / GFC.Ki_i
+
+   e_ud = (id - idmeas + uqmeas / GFC.xcf) / GFC.Ki_u
+   e_uq = (iq - iqmeas - udmeas / GFC.xcf) / GFC.Ki_u
+
+   GFC_new = GridFormingConverter(
+      Sbase = GFC.Sbase,
+      Srated = GFC.Srated,
+      p0set = GFC.p0set,
+      q0set = q0set,
+      u0set = GFC.u0set,
+      Kp_droop = GFC.Kp_droop,
+      Kq_droop = GFC.Kq_droop,
+      ωf = GFC.ωf,
+      xlf = GFC.xlf,
+      rf = GFC.rf,
+      xcf = GFC.xcf,
+      Kp_u = GFC.Kp_u,
+      Ki_u = GFC.Ki_u,
+      Kp_i = GFC.Kp_i,
+      Ki_i = GFC.Ki_i,
+   )
+
+   return [v_d_temp, v_q_temp,θ,ω,Q,e_ud,e_uq,e_id,e_iq,abs(E),θ], GFC_new
 end
