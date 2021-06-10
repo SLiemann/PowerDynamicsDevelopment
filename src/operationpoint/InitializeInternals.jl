@@ -164,7 +164,7 @@ function InitNode(GFC::GridFormingConverter,ind::Int64,I_c::Array{Complex{Float6
    v_q_temp = ic_lf[ind_offset+1]
    U0 = v_d_temp+1im*v_q_temp
 
-   i1 =  I_c[ind] + U0/(-1im*GFC.xcf) / (GFC.Srated/GFC.Sbase)
+   i1 = I_c[ind] + U0/(-1im*GFC.xcf) / (GFC.Srated/GFC.Sbase)
    E = U0 + (GFC.rf + 1im*GFC.xlf) * i1
    θ = angle(U0)
    ω = 0.0
@@ -194,8 +194,8 @@ function InitNode(GFC::GridFormingConverter,ind::Int64,I_c::Array{Complex{Float6
    e_id = (umd - udmeas + iq * GFC.xlf) / GFC.Ki_i
    e_iq = (umq - uqmeas - id * GFC.xlf) / GFC.Ki_i
 
-   e_ud = (id - idmeas + uqmeas / GFC.xcf) / GFC.Ki_u
-   e_uq = (iq - iqmeas - udmeas / GFC.xcf) / GFC.Ki_u
+   e_ud = (id - idmeas + uqmeas / GFC.xcf) / GFC.Ki_u #hier müsste es ohne idmeas und iqmeas sein
+   e_uq = (iq - iqmeas - udmeas / GFC.xcf) / GFC.Ki_u #passt das überhaupt mit dem Srated/Sbase???
 
    GFC_new = GridFormingConverter(
       Sbase = GFC.Sbase,
