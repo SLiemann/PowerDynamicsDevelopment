@@ -184,7 +184,7 @@ function InitNode(GFC::GridFormingConverter,ind::Int64,I_c::Array{Complex{Float6
    iq = imag(idq)
 
    U0 = U0*(cos(-θ)+1im*sin(-θ))
-   udmeas = real(U0) #should be equal abs(U0)
+   udmeas = real(U0) #should be equal to abs(U0)
    uqmeas = imag(U0) #should be zero
 
    E0 = E*(cos(-θ)+1im*sin(-θ))
@@ -213,7 +213,10 @@ function InitNode(GFC::GridFormingConverter,ind::Int64,I_c::Array{Complex{Float6
       Ki_u = GFC.Ki_u,
       Kp_i = GFC.Kp_i,
       Ki_i = GFC.Ki_i,
+      imax = GFC.imax,
+      Kvi = GFC.Kvi,
+      σXR = GFC.σXR
    )
 
-   return [v_d_temp, v_q_temp,θ,ω,Q,e_ud,e_uq,e_id,e_iq,abs(E),θ], GFC_new
+   return [v_d_temp, v_q_temp,θ,ω,Q,e_ud,e_uq,e_id,e_iq,abs(E),θ/pi*180.0], GFC_new
 end
