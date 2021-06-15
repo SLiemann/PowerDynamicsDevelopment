@@ -1,5 +1,5 @@
 using ModelingToolkit
-    
+
 function getPreFaultVoltages(pg::PowerGrid,ic_prefault::Array{Float64,1},ic_endfault::Array{Float64,1})
     ind = getVoltageSymbolPositions(pg)
     ic_endfault[ind] = ic_prefault[ind]

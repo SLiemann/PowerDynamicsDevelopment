@@ -159,7 +159,7 @@ function InitNode(load::Union{SimpleRecoveryLoad,SimpleRecoveryLoadParam},ind::I
    return [v_d_temp,v_q_temp,xd, xq], load
 end
 
-function InitNode(GFC::GridFormingConverter,ind::Int64,I_c::Array{Complex{Float64},2},ic_lf::Array{Float64,1},ind_offset::Int64)
+function InitNode(GFC::Union{GridFormingConverter,GridFormingConverterParam},ind::Int64,I_c::Array{Complex{Float64},2},ic_lf::Array{Float64,1},ind_offset::Int64)
    v_d_temp = ic_lf[ind_offset]
    v_q_temp = ic_lf[ind_offset+1]
    U0 = v_d_temp+1im*v_q_temp
@@ -197,11 +197,12 @@ function InitNode(GFC::GridFormingConverter,ind::Int64,I_c::Array{Complex{Float6
    e_ud = (id - idmeas + uqmeas / GFC.xcf) / GFC.Ki_u #hier müsste es ohne idmeas und iqmeas sein
    e_uq = (iq - iqmeas - udmeas / GFC.xcf) / GFC.Ki_u #passt das überhaupt mit dem Srated/Sbase???
 
-   GFC_new = GridFormingConverter(
+   if typeof(GFC) == GridFormingConverterParam
+   GFC_new = GridFormingConverterParam(
       Sbase = GFC.Sbase,
       Srated = GFC.Srated,
       p0set = GFC.p0set,
-      q0set = q0set,
+      q0set = q0set, #new
       u0set = GFC.u0set,
       Kp_droop = GFC.Kp_droop,
       Kq_droop = GFC.Kq_droop,
@@ -215,8 +216,31 @@ function InitNode(GFC::GridFormingConverter,ind::Int64,I_c::Array{Complex{Float6
       Ki_i = GFC.Ki_i,
       imax = GFC.imax,
       Kvi = GFC.Kvi,
-      σXR = GFC.σXR
+      σXR = GFC.σXR,
+      p_ind = GFC.p_ind
    )
+   else
+      GFC_new = GridFormingConverter(
+         Sbase = GFC.Sbase,
+         Srated = GFC.Srated,
+         p0set = GFC.p0set,
+         q0set = q0set, #new
+         u0set = GFC.u0set,
+         Kp_droop = GFC.Kp_droop,
+         Kq_droop = GFC.Kq_droop,
+         ωf = GFC.ωf,
+         xlf = GFC.xlf,
+         rf = GFC.rf,
+         xcf = GFC.xcf,
+         Kp_u = GFC.Kp_u,
+         Ki_u = GFC.Ki_u,
+         Kp_i = GFC.Kp_i,
+         Ki_i = GFC.Ki_i,
+         imax = GFC.imax,
+         Kvi = GFC.Kvi,
+         σXR = GFC.σXR,
+      )
+   end
 
    return [v_d_temp, v_q_temp,θ,ω,Q,e_ud,e_uq,e_id,e_iq,abs(E),θ/pi*180.0], GFC_new
 end

@@ -201,16 +201,11 @@ function Substitute(syms::Array{Num}, subs_args) #SymbolicUtils.Symbolic{Real} :
   return Symbolics.value.(substitute.(syms, (subs_args,)))
 end
 
-function CalcEigenValues(
-  pg::PowerGrid,
-  ic::Array{Float64,1},
-  p::Array{Float64,1};
-  output::Bool = false,
-)
-  mtsys = GetMTKSystem(pg, (0.0, 1.0), ic, p)
+function CalcEigenValues(pg::PowerGrid, p::Array{Float64,1}; output::Bool = false)
+  mtsys = GetMTKSystem(pg, (0.0, 1.0), p)
   Fx, Fy, Gx, Gy = GetSymbolicFactorizedJacobian(mtsys)
   Fxf, Fyf, Gxf, Gyf = [
-    Substitute(f, [symstates .=> ic0; parameters(mtsys) .=> 1]) for
+    Substitute(f, [states(mtsys) .=> ic0; parameters(mtsys) .=> p]) for
     f in [Fx, Fy, Gx, Gy]
   ]
   Af = Fxf - Fyf * inv(Gyf) * Gxf
@@ -228,14 +223,13 @@ function CalcEigenValues(
   return EW
 end
 
-function GetMTKSystem(
-  pg::PowerGrid,
-  time_interval::Tuple{Float64,Float64},
-  ic::Array{Float64,1},
-  p::Array{Float64,1},
-)
-  #workaround for modelingtoolkitize (only Int64 entries for mass matrix)
-  prob = ODEProblem(rhs(pg), ic, time_interval, p)
+function GetMTKSystem(pg::PowerGrid, time_interval::Tuple{Float64,Float64}, p::Array{Float64,1})
+  U,δ,ic0 = PowerFlowClassic(pg,iwamoto = false)
+  Ykk = NodalAdmittanceMatrice(pg)
+  Uc = U.*exp.(1im*δ/180*pi)
+  I_c = Ykk*Uc
+  pg_new, ic =  InitializeInternalDynamics(pg,I_c,ic0)
+  prob = ODEProblem(rhs(pg_new), ic, time_interval, p)
   new_f = ODEFunction(
     prob.f.f,
     syms = prob.f.syms,
