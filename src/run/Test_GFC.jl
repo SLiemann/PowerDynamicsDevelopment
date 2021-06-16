@@ -19,21 +19,13 @@ S = conj(Ykk*Uc).*Uc
 
 pg1 ,ic = InitializeInternalDynamics(pg,I_c,ic0)
 params = GFC_params()
-prob = ODEProblem(rhs(pg1),ic,(0.0,10.0),params)
-pgsol = simGFC(prob)
-
-mtk = GetMTKSystem(pg,(0.0,10.0),params)
-tmp = CalcEigenValues(pg,params,output = true)
+prob = ODEProblem(rhs(pg1),ic,(0.0,100.0),params)
+@time pgsol = simGFC(prob)
 
 plot(pgsol,["bus3"],:iabs,legend =false)
 ylims!((0.94,1.01))
-
 plot(pgsol,["bus3"],:v)
-plot(pgsol,["bus2"],:v)
-
-plot(pgsol,["bus3"],:umabs)
-plot(pgsol,["bus3"],:umangle)
-
+plot(pgsol,["bus2"],:iabs)
 plot(pgsol,["bus3"],:p)
 plot(pgsol,["bus3"],:q)
 plot(pgsol,["bus3"],:θ)
@@ -45,6 +37,8 @@ xlims!((4.9,5.50))
 plot(pgsol,["bus3"],:e_uq)
 plot(pgsol,["bus3"],:e_ud)
 
+mtk = GetMTKSystem(pg,(0.0,10.0),params)
+tmp = CalcEigenValues(pg1,params,output = true)
 #Checking initialization
 [rhs(pg).syms pgsol.dqsol.u[end] ic]
 
@@ -76,7 +70,7 @@ function simGFC(prob)
     cb = DiscreteCallback(((u,t,integrator) -> t in tstep[1]), fault_state)
     cb1 = DiscreteCallback(((u,t,integrator) -> t in tstep[2]), postfault_state)
 
-    sol = solve(prob, Rodas4(),callback = CallbackSet(cb,cb1), tstops= tstep, dtmax = 1e-3)
+    sol = solve(prob, Rodas4(), tstops= tstep, dtmax = 1e-2,progress=true)#,callback = CallbackSet(cb,cb1)
     return PowerGridSolution(sol,pg_new)
 end
 

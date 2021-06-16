@@ -205,14 +205,14 @@ function CalcEigenValues(pg::PowerGrid, p::Array{Float64,1}; output::Bool = fals
   mtsys = GetMTKSystem(pg, (0.0, 1.0), p)
   Fx, Fy, Gx, Gy = GetSymbolicFactorizedJacobian(mtsys)
   Fxf, Fyf, Gxf, Gyf = [
-    Substitute(f, [states(mtsys) .=> ic0; parameters(mtsys) .=> p]) for
+    Substitute(f, mtsys.defaults) for
     f in [Fx, Fy, Gx, Gy]
   ]
   Af = Fxf - Fyf * inv(Gyf) * Gxf
   EW = eigvals(Af)
   if output
     println("|ID | Real-part | Imag-part | Frequency | Damping Time Constant |")
-    index = indexin(x, symstates)
+    index = indexin(x, states(mtsys))
     syms = rhs(pg).syms[index]
     for (ind, ew) in enumerate(EW)
       println(

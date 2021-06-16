@@ -1,39 +1,44 @@
 using PowerDynamics
-using OrderedCollections: OrderedDict
+#using OrderedCollections: OrderedDict
 using Plots
-import PowerDynamics: PiModel
+#import PowerDynamics: PiModel
 using DifferentialEquations
-using CSV #read PF DataFrames
-using DataFrames #for CSV
-using Distributed
-@everywhere using IfElse
+#using CSV #read PF DataFrames
+#using DataFrames #for CSV
+#using Distributed
 
-include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/operationpoint/PowerFlow.jl")
-include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/utility/utility_functions.jl")
-include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/operationpoint/InitializeInternals.jl")
-include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/grids/LTVS_Test_System.jl")
+Ubase = 380e3
+Sbase = 100e6
+Zbase = (Ubase^2)/Sbase
 
-@everywhere Ubase = 380e3
-@everywhere Sbase = 100e6
-@everywhere Zbase = (Ubase^2)/Sbase
+begin
+    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/include_costum_nodes_lines_utilities.jl")
+    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/grids/LTVS_Test_System.jl")
+end   cvb
 
-pg = LTVS_Test_System()
+pg = GFC_LTVS_Test_System()
 #Load Flow
-Qmax   = [Inf, Inf, Inf,Inf, Inf,sqrt(1-0.9^2)]
-Qmin   = -Qmax
-U,δ1,ic = PowerFlowClassic(pg,iwamoto = true, Qmax = Qmax, Qmin = Qmin, Qlimit_iter_check = 2,max_tol = 1e-8)
+Qmax   = [Inf, Inf, Inf,Inf, Inf,sqrt(1-0.95^2)]
+Qmin   = -Qmaxgtz65
+U,δ1,ic = PowerFlowClassic(pg,iwamoto = true, Qmax = Qmax, Qmin = Qmin, Qlimit_iter_check = 2,max_tol = 1e-6)
 Ykk = NodalAdmittanceMatrice(pg)
 Uc = U.*exp.(1im*δ1/180*pi)
 I_c = Ykk*Uc
 S = conj(Ykk*Uc).*Uc
 pg, ic0 = InitializeInternalDynamics(pg,I_c,ic)
 
-function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Float64,Float64})
+pgsol  = run_LTVS_simulation(pg,ic0,(0.0,120.0))
+plot(pgsol,collect(keys(pg.nodes))[1:end-1],:v,legend = (0.3, 0.3))
+plot(pgsol,"bus4",:iabs,legend = false)
+plot!([0.0,120.0],[6.8,6.8])
+ylims!((6.0,7.5))
+xlims!((0.9,1.5))
 
+function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Float64,Float64})
     tfault = [1.0, 1.15]
-    Zfault = 1im*20.0
+    Zfault = 20.0
     pg_fault = deepcopy(pg)
-    pg_fault.nodes["busv"] = VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=0., B=0.,Y_n = complex(1.0/(Zfault/Zbase)))
+    pg_fault.nodes["busv"] = VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=0., B=0.,Y_n = complex(1.0/(Zfault/42)))
     nodes_postfault = deepcopy(pg.nodes)
     branches_postfault = deepcopy(pg.lines)
     delete!(nodes_postfault,"busv")
@@ -41,7 +46,8 @@ function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Fl
     delete!(branches_postfault,"Line_v-2")
     pg_postfault = PowerGrid(nodes_postfault,branches_postfault)
 
-    problem = ODEProblem{true}(rhs(pg),ic1,tspan)
+    params = GFC_LTVS_params()
+    problem = ODEProblem{true}(rhs(pg),ic1,tspan,params)
     timer_start = -1.0
     timer_now   = 0.0
     branch_oltc = "branch4"
@@ -69,7 +75,7 @@ function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Fl
         end
         np_pg.lines[branch_oltc] = node
         ode = rhs(np_pg)
-        op_prob = ODEProblem(ode, sol1[end], (0.0, 1e-6), nothing, initializealg = BrownFullBasicInit())
+        op_prob = ODEProblem(ode, sol1[end], (0.0, 1e-6), params, initializealg = BrownFullBasicInit())
         x2 = solve(op_prob,Rodas4())
         x2 = x2.u[end]
 
@@ -107,7 +113,7 @@ function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Fl
     function errorState(integrator)
         sol1 = integrator.sol
         ode = rhs(pg_fault)
-        op_prob = ODEProblem(ode, sol1[end], (0.0, 1e-6), nothing, initializealg = BrownFullBasicInit())
+        op_prob = ODEProblem(ode, sol1[end], (0.0, 1e-6), params, initializealg = BrownFullBasicInit())
         x2 = solve(op_prob,Rodas5())
         x2 = x2.u[end]
 
@@ -125,11 +131,11 @@ function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Fl
         ic_tmp = deepcopy(integrator.sol.u[indexin(tfault[1],integrator.sol.t)[1]])
         ic_tmp = getPreFaultVoltages(pg,ic_tmp,deepcopy(sol[end]))
         deleteat!(ic_tmp,index:index+1)
-        op_prob = ODEProblem(ode, ic_tmp, (0.0, 1e-6), nothing, initializealg = BrownFullBasicInit())
+        op_prob = ODEProblem(ode, ic_tmp, (0.0, 1e-6), params, initializealg = BrownFullBasicInit())
         x3 = solve(op_prob,Rodas5())
         x3 = x3.u[end]
 
-        resize!(integrator,18)
+        resize!(integrator,length(ic0)-2)
         integrator.f = rhs(pg_postfault)
         integrator.cache.tf.f = integrator.f
         integrator.u = x3#sol2[end]
@@ -141,7 +147,7 @@ function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Fl
     end
 
     function check_voltage(u,t,integrator)
-            sqrt(u[index_U_load]*u[index_U_load] + u[index_U_load+1]*u[index_U_load+1]) < 0.4
+            sqrt(u[index_U_load]*u[index_U_load] + u[index_U_load+1]*u[index_U_load+1]) < 0.2
     end
 
     function stop_integration(integrator)
@@ -158,14 +164,11 @@ function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Fl
     cb5 = DiscreteCallback(((u,t,integrator) -> t in tfault[2]), regularState)
     cb6 = DiscreteCallback(check_voltage, stop_integration)
 
-    sol = solve(problem, Rodas4(), callback = CallbackSet(cb1,cb2,cb3,cb4,cb5,cb6), tstops=[tfault[1],tfault[2]], dtmax = 1e-3) #
-    sol = AddZerosIntoSolution(pg,pg_postfault,deepcopy(sol))
+    sol = solve(problem, Rodas4(), callback = CallbackSet(cb1,cb2,cb3,cb4,cb5,cb6), tstops=[tfault[1],tfault[2]], dtmax = 1e-2,progress =true) #
+    sol = AddNaNsIntoSolution(pg,pg_postfault,deepcopy(sol))
 
     return PowerGridSolution(sol, pg)
 end
-
-pgsol = run_LTVS_simulation(pg,ic0,(0.0,120.0));
-plot(pgsol,collect(keys(pg.nodes))[1:end-1],:v,legend = (0.3, 0.3))
 
 nodes_postfault = deepcopy(pg.nodes)
 branches_postfault = deepcopy(pg.lines)

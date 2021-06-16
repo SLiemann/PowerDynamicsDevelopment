@@ -70,6 +70,6 @@ function GFC_params()
     Ki_i = 1.19
     imax = 0.95
     Kvi = 0.8272172037144201
-    σXR = 100.0
+    σXR = 10.0
     return [Kp_droop,Kq_droop,ωf,xlf,rf,xcf,Kp_u,Ki_u,Kp_i,Ki_i,imax,Kvi,σXR]
 end
