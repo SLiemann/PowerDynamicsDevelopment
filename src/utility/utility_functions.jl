@@ -23,9 +23,9 @@ function AddNaNsIntoSolution(pg1::PowerGrid,pg2::PowerGrid,sol)
     first_ind = PowerDynamics.variable_index(pg1.nodes,key1[n],:u_r)
     start_u = findfirst(x-> x== length(sol.u[end]),length.(sol.u))
     for i in start_u:length(sol.u)
-        splice!(sol.u[i],first_ind:first_ind-1,NaN*ones(len_bus))
+        splice!(sol.u[i],first_ind:first_ind-1,NaN*zeros(len_bus))
         for j in sol.k[i]
-            splice!(j,first_ind:first_ind-1,NaN*ones(len_bus))
+            splice!(j,first_ind:first_ind-1,NaN*zeros(len_bus))
         end
     end
     return sol

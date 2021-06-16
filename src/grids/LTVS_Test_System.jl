@@ -92,8 +92,8 @@ function GFC_LTVS_params()
     Ki_u = 1.16
     Kp_i = 0.73
     Ki_i = 1.19
-    imax = 6.5
-    Kvi = 0.02#0.8272172037144201
+    imax = 6.8
+    Kvi = 0.01#0.8272172037144201
     σXR = 3.0
     return [Kp_droop,Kq_droop,ωf,xlf,rf,xcf,Kp_u,Ki_u,Kp_i,Ki_i,imax,Kvi,σXR]
 end

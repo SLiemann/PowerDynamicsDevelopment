@@ -14,7 +14,7 @@ Zbase = (Ubase^2)/Sbase
 begin
     include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/include_costum_nodes_lines_utilities.jl")
     include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/grids/LTVS_Test_System.jl")
-end   cvb
+end
 
 pg = GFC_LTVS_Test_System()
 #Load Flow
@@ -38,7 +38,7 @@ function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Fl
     tfault = [1.0, 1.15]
     Zfault = 20.0
     pg_fault = deepcopy(pg)
-    pg_fault.nodes["busv"] = VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=0., B=0.,Y_n = complex(1.0/(Zfault/42)))
+    pg_fault.nodes["busv"] = VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=0., B=0.,Y_n = complex(1.0/(Zfault/Zbase)))
     nodes_postfault = deepcopy(pg.nodes)
     branches_postfault = deepcopy(pg.lines)
     delete!(nodes_postfault,"busv")
