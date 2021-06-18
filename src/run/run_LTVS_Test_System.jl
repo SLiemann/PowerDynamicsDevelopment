@@ -3,8 +3,8 @@ using PowerDynamics
 using Plots
 #import PowerDynamics: PiModel
 using DifferentialEquations
-#using CSV #read PF DataFrames
-#using DataFrames #for CSV
+using CSV #read PF DataFrames
+using DataFrames #for CSV
 #using Distributed
 
 Ubase = 380e3
@@ -15,11 +15,37 @@ begin
     include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/include_costum_nodes_lines_utilities.jl")
     include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/grids/LTVS_Test_System.jl")
 end
+pgsol  = run_LTVS_simulation(pg,ic0,(0.0,70.0))
+plot(pgsol,collect(keys(pg.nodes))[1:end-1],:v,legend = (0.3, 0.3))
+plot(pgsol,"bus4",:i_abs)
+plot!(pgsol,"bus4",:iabs)
+
+begin
+    plot(pgsol,collect(keys(pg.nodes))[1:end-1], :v,size = (1000, 500))
+    test = DataFrame(CSV.File("C:\\Users\\liemann\\Desktop\\Basisszenario\\data.csv"; header=false, delim=';', type=Float64))
+    plot!(test.Column1,test.Column2,label = "PF-bus1")
+    plot!(test.Column1,test.Column3,label = "PF-bus2")
+    plot!(test.Column1,test.Column4,label = "PF-bus3")
+    plot!(test.Column1,test.Column5,label = "PF-bus4")
+end
+ylims!((0.85,1.01))
+xlims!((0,8.0))
+begin
+    plot(pgsol,"bus4", :iabs,size = (1000, 500))
+    plot!(pgsol,"bus4", :i_abs)
+    test = DataFrame(CSV.File("C:\\Users\\liemann\\Desktop\\Basisszenario\\data_c.csv"; header=false, delim=';', type=Float64))
+    plot!(test.Column1,test.Column2,label = "I")
+    plot!(test.Column1,test.Column3,label = "I0")
+end
+
+ylims!((5,9))
+xlims!((0,8.0))
+
 
 pg = GFC_LTVS_Test_System()
 #Load Flow
-Qmax   = [Inf, Inf, Inf,Inf, Inf,sqrt(1-0.95^2)]
-Qmin   = -Qmaxgtz65
+Qmax   = [Inf, Inf, Inf,Inf, sqrt(1-0.95^2), Inf]
+Qmin   = -Qmax
 U,δ1,ic = PowerFlowClassic(pg,iwamoto = true, Qmax = Qmax, Qmin = Qmin, Qlimit_iter_check = 2,max_tol = 1e-6)
 Ykk = NodalAdmittanceMatrice(pg)
 Uc = U.*exp.(1im*δ1/180*pi)
@@ -27,15 +53,13 @@ I_c = Ykk*Uc
 S = conj(Ykk*Uc).*Uc
 pg, ic0 = InitializeInternalDynamics(pg,I_c,ic)
 
-pgsol  = run_LTVS_simulation(pg,ic0,(0.0,120.0))
-plot(pgsol,collect(keys(pg.nodes))[1:end-1],:v,legend = (0.3, 0.3))
-plot(pgsol,"bus4",:iabs,legend = false)
+
+plot(pgsol,"bus3",:p,legend = false)
 plot!([0.0,120.0],[6.8,6.8])
-ylims!((6.0,7.5))
-xlims!((0.9,1.5))
+
 
 function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Float64,Float64})
-    tfault = [1.0, 1.15]
+    tfault = [2.0, 2.15]
     Zfault = 20.0
     pg_fault = deepcopy(pg)
     pg_fault.nodes["busv"] = VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=0., B=0.,Y_n = complex(1.0/(Zfault/Zbase)))
@@ -53,6 +77,7 @@ function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Fl
     branch_oltc = "branch4"
     tap = pg.lines[branch_oltc].tap_pos
     OLTC = deepcopy(pg.lines[branch_oltc])
+    tap_max = 20.0
     postfault_state = false
     fault_state = false
     #index_U_oltc = getNodeVoltageSymbolPosition(pg,pg.lines[branch_oltc].to)
@@ -61,27 +86,29 @@ function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Fl
     function TapState(integrator)
         timer_start = integrator.t
         sol1 = integrator.sol
-        tap += 1
-        node = StaticPowerTransformer(from=OLTC.from,to=OLTC.to,Srated=OLTC.Srated,
-                                      uk=OLTC.uk,XR_ratio=OLTC.XR_ratio,i0=OLTC.i0,
-                                      Pv0=OLTC.Pv0,Sbase=OLTC.Sbase,
-                                      tap_side = OLTC.tap_side, tap_pos = tap,tap_inc = OLTC.tap_inc)
-        if postfault_state
-            np_pg = deepcopy(pg_postfault)
-        elseif fault_state
-            np_pg = deepcopy(pg_fault)
-        else
-            np_pg = deepcopy(pg)
-        end
-        np_pg.lines[branch_oltc] = node
-        ode = rhs(np_pg)
-        op_prob = ODEProblem(ode, sol1[end], (0.0, 1e-6), params, initializealg = BrownFullBasicInit())
-        x2 = solve(op_prob,Rodas4())
-        x2 = x2.u[end]
+        if tap < tap_max
+            tap += 1
+            node = StaticPowerTransformer(from=OLTC.from,to=OLTC.to,Srated=OLTC.Srated,
+                                          uk=OLTC.uk,XR_ratio=OLTC.XR_ratio,i0=OLTC.i0,
+                                          Pv0=OLTC.Pv0,Sbase=OLTC.Sbase,
+                                          tap_side = OLTC.tap_side, tap_pos = tap,tap_inc = OLTC.tap_inc)
+            if postfault_state
+                np_pg = deepcopy(pg_postfault)
+            elseif fault_state
+                np_pg = deepcopy(pg_fault)
+            else
+                np_pg = deepcopy(pg)
+            end
+            np_pg.lines[branch_oltc] = node
+            ode = rhs(np_pg)
+            op_prob = ODEProblem(ode, sol1[end], (0.0, 1e-6), params, initializealg = BrownFullBasicInit())
+            x2 = solve(op_prob,Rodas4())
+            x2 = x2.u[end]
 
-        integrator.f = ode
-        integrator.cache.tf.f = integrator.f
-        integrator.u = x2#sol1[end]
+            integrator.f = ode
+            integrator.cache.tf.f = integrator.f
+            integrator.u = x2#sol1[end]
+        end
     end
 
     function voltage_deadband(u,t,integrator)
@@ -129,7 +156,7 @@ function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Fl
         index = PowerDynamics.variable_index(pg.nodes,"busv",:u_r)
 
         ic_tmp = deepcopy(integrator.sol.u[indexin(tfault[1],integrator.sol.t)[1]])
-        ic_tmp = getPreFaultVoltages(pg,ic_tmp,deepcopy(sol[end]))
+        #ic_tmp = getPreFaultVoltages(pg,ic_tmp,deepcopy(sol[end]))
         deleteat!(ic_tmp,index:index+1)
         op_prob = ODEProblem(ode, ic_tmp, (0.0, 1e-6), params, initializealg = BrownFullBasicInit())
         x3 = solve(op_prob,Rodas5())

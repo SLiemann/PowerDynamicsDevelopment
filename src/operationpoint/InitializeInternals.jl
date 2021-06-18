@@ -164,7 +164,7 @@ function InitNode(GFC::Union{GridFormingConverter,GridFormingConverterParam},ind
    v_q_temp = ic_lf[ind_offset+1]
    U0 = v_d_temp+1im*v_q_temp
 
-   i1 = I_c[ind]+ U0/(-1im*GFC.xcf) #/ (GFC.Srated/GFC.Sbase)
+   i1 = I_c[ind] - U0/(-1im*GFC.xcf) #/ (GFC.Srated/GFC.Sbase)
    E = U0 + (GFC.rf + 1im*GFC.xlf) * i1
    θ = angle(U0)
    ω = 0.0
@@ -206,7 +206,8 @@ function InitNode(GFC::Union{GridFormingConverter,GridFormingConverterParam},ind
          u0set = GFC.u0set,
          Kp_droop = GFC.Kp_droop,
          Kq_droop = GFC.Kq_droop,
-         ωf = GFC.ωf,
+         ωf_P = GFC.ωf_P,
+         ωf_Q = GFC.ωf_Q,
          xlf = GFC.xlf,
          rf = GFC.rf,
          xcf = GFC.xcf,
@@ -217,9 +218,10 @@ function InitNode(GFC::Union{GridFormingConverter,GridFormingConverterParam},ind
          imax = GFC.imax,
          Kvi = GFC.Kvi,
          σXR = GFC.σXR,
+         K_vq = GFC.K_vq,
          p_ind = GFC.p_ind
       )
-      return [v_d_temp, v_q_temp,θ,ω,Q,e_ud,e_uq,e_id,e_iq], GFC_new
+      return [v_d_temp, v_q_temp,θ,ω,Q,e_ud,e_uq,e_id,e_iq,abs(idq)], GFC_new
    else
       GFC_new = GridFormingConverter(
          Sbase = GFC.Sbase,
