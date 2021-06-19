@@ -75,7 +75,7 @@ function GFC_LTVS_Test_System()
     branches=OrderedDict(
         "Line_1-2"=> PiModelLine(from= "bus1", to = "bus2",y=1.0/Z_EHV_Line, y_shunt_km=B_half, y_shunt_mk=B_half),
         "Line_1-v"=> PiModelLine(from= "bus1", to = "busv",y=1.0/(Z_EHV_Line*0.75), y_shunt_km=B_half, y_shunt_mk=0.0),
-        "Line_v-2"=> PiModelLine(from= "bus2", to = "busv",y=1.0/(Z_EHV_Line*0.25), y_shunt_km=0.0, y_shunt_mk=B_half),
+        "Line_v-2"=> PiModelLine(from= "bus2", to = "busv",y=1.0/(Z_EHV_Line*0.25), y_shunt_km=B_half, y_shunt_mk=0.0),
         "branch3"=> StaticPowerTransformer(from="bus2",to="bus4",Sbase=Sbase,Srated=600e6,uk=0.15,XR_ratio=Inf,
                                            i0=0.0,Pv0=0.0,tap_side = "HV",tap_pos = 0,tap_inc = 1.0),
         "branch4"=> StaticPowerTransformer(from="bus2",to="bus3",Sbase=Sbase,Srated=1200e6,uk=0.15,XR_ratio=Inf,

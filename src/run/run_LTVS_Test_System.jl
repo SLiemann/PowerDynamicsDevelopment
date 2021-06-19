@@ -15,6 +15,18 @@ begin
     include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/include_costum_nodes_lines_utilities.jl")
     include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/grids/LTVS_Test_System.jl")
 end
+pg = GFC_LTVS_Test_System()
+#Load Flow
+Qmax   = [Inf, Inf, Inf,Inf, sqrt(1-0.90^2), Inf]
+Qmin   = -Qmax
+U,δ1,ic = PowerFlowClassic(pg,iwamoto = true, Qmax = Qmax, Qmin = Qmin, Qlimit_iter_check = 2,max_tol = 1e-8)
+Ykk = NodalAdmittanceMatrice(pg)
+Uc = U.*exp.(1im*δ1/180*pi)
+I_c = Ykk*Uc
+S = conj(Ykk*Uc).*Uc
+pg, ic0 = InitializeInternalDynamics(pg,I_c,ic)
+
+
 pgsol  = run_LTVS_simulation(pg,ic0,(0.0,70.0))
 plot(pgsol,collect(keys(pg.nodes))[1:end-1],:v,legend = (0.3, 0.3))
 plot(pgsol,"bus4",:i_abs)
@@ -37,22 +49,8 @@ begin
     plot!(test.Column1,test.Column2,label = "I")
     plot!(test.Column1,test.Column3,label = "I0")
 end
-
 ylims!((5,9))
 xlims!((0,8.0))
-
-
-pg = GFC_LTVS_Test_System()
-#Load Flow
-Qmax   = [Inf, Inf, Inf,Inf, sqrt(1-0.95^2), Inf]
-Qmin   = -Qmax
-U,δ1,ic = PowerFlowClassic(pg,iwamoto = true, Qmax = Qmax, Qmin = Qmin, Qlimit_iter_check = 2,max_tol = 1e-6)
-Ykk = NodalAdmittanceMatrice(pg)
-Uc = U.*exp.(1im*δ1/180*pi)
-I_c = Ykk*Uc
-S = conj(Ykk*Uc).*Uc
-pg, ic0 = InitializeInternalDynamics(pg,I_c,ic)
-
 
 plot(pgsol,"bus3",:p,legend = false)
 plot!([0.0,120.0],[6.8,6.8])
