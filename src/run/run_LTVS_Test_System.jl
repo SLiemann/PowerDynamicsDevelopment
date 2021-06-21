@@ -25,36 +25,53 @@ Uc = U.*exp.(1im*δ1/180*pi)
 I_c = Ykk*Uc
 S = conj(Ykk*Uc).*Uc
 pg, ic0 = InitializeInternalDynamics(pg,I_c,ic)
+pgsol  = run_LTVS_simulation(pg,ic0,(0.0,120.0))
+prob = ODEProblem(rhs(pg),ic0,(0.0,10.0),GFC_LTVS_params())
+sol = solve(prob, Rodas4())
 
+a = [rhs(pg).syms sol.u[end] ic0]
+pgsol = PowerGridSolution(sol,pg)
 
-pgsol  = run_LTVS_simulation(pg,ic0,(0.0,70.0))
 plot(pgsol,collect(keys(pg.nodes))[1:end-1],:v,legend = (0.3, 0.3))
 plot(pgsol,"bus4",:i_abs)
-plot!(pgsol,"bus4",:iabs)
+xlims!((0.0,2.0))
+ylims!((0.99,1.01))
+plot(pgsol,"bus4",:Pout)
+plot!(pgsol,"bus4",:Qout)
+plot(pgsol,"bus4",:v)
 
+plot(pgsol,"bus4", :Um,size = (1000, 500),label = "PD-Um")
 begin
     plot(pgsol,collect(keys(pg.nodes))[1:end-1], :v,size = (1000, 500))
+    #plot(pgsol,"bus4", :Um,size = (1000, 500),label = "PD-Um")
+    #plot(pgsol,"bus4", :v,label = "PD-V0", legend= false)
+    #ylims!((0.90,1.01))
+    xlims!((1.9,2.3))
     test = DataFrame(CSV.File("C:\\Users\\liemann\\Desktop\\Basisszenario\\data.csv"; header=false, delim=';', type=Float64))
     plot!(test.Column1,test.Column2,label = "PF-bus1")
     plot!(test.Column1,test.Column3,label = "PF-bus2")
     plot!(test.Column1,test.Column4,label = "PF-bus3")
-    plot!(test.Column1,test.Column5,label = "PF-bus4")
+    plot!(test.Column1,test.Column5,label = "Matlab-V0")
+    #plot!(test.Column1,test.Column6,label = "Matlab-Um")
 end
-ylims!((0.85,1.01))
-xlims!((0,8.0))
+
 begin
-    plot(pgsol,"bus4", :iabs,size = (1000, 500))
-    plot!(pgsol,"bus4", :i_abs)
+    #plot(pgsol,"bus4", :iabs,size = (1000, 500),label = "PD-I0")
+    plot(pgsol,"bus4", :i_abs,label = "PD-Idq")
+    #ylims!((0.95,1.05))
+    xlims!((1.9,2.2))
     test = DataFrame(CSV.File("C:\\Users\\liemann\\Desktop\\Basisszenario\\data_c.csv"; header=false, delim=';', type=Float64))
-    plot!(test.Column1,test.Column2,label = "I")
-    plot!(test.Column1,test.Column3,label = "I0")
+    plot!(test.Column1,test.Column2,label = "Matlab-Idq")
+    plot!(test.Column1,test.Column3,label = "Matlab-I0")
 end
-ylims!((5,9))
-xlims!((0,8.0))
 
-plot(pgsol,"bus3",:p,legend = false)
-plot!([0.0,120.0],[6.8,6.8])
-
+begin
+    plot(pgsol,"bus4", :Ixcf,size = (1000, 500),label = "PD-Ixcf")
+    ylims!((0.06,0.07))
+    #xlims!((0,2.0))
+    test = DataFrame(CSV.File("C:\\Users\\liemann\\Desktop\\Basisszenario\\data_c.csv"; header=false, delim=';', type=Float64))
+    plot!(test.Column1,test.Column4,label = "Matlab-Icf")
+end
 
 function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Float64,Float64})
     tfault = [2.0, 2.15]
