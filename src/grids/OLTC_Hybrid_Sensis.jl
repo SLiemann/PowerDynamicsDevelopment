@@ -42,7 +42,7 @@ function OLTC_Hybrid_Sensi(;x_grid = 0.25)
     pg = PowerGrid(buses, branches)
 end
 tspanOLTCHisken() = (0.0,200.0)
-GetParametersOLTCHisken() =  [0.25,0.0,5.0,5.0]
+GetParametersOLTCHisken(Tp) =  [0.25,0.0,Tp,5.0]
 
 function GetInitializedOLTCHisken()
     pg = OLTC_Hybrid_Sensi()
@@ -54,20 +54,20 @@ function GetInitializedOLTCHisken()
     return InitializeInternalDynamics(pg,I_c,ic0)
 end
 
-function GetMTKOLTCSystem()
+function GetMTKOLTCSystem(;Tp = 5.0)
     pg, ic = GetInitializedOLTCHisken()
     tspan = tspanOLTCHisken()
-    params = GetParametersOLTCHisken()
+    params = GetParametersOLTCHisken(Tp)
     prob   = ODEProblem(rhs(pg),ic,tspan,params)
     new_f = ODEFunction(prob.f.f, syms = prob.f.syms, mass_matrix = Int.(prob.f.mass_matrix))
     ODEProb = ODEProblem(new_f,ic,tspan,params)
     return modelingtoolkitize(ODEProb)
 end
 
-function SimulateOLTCHIsken()
+function SimulateOLTCHIsken(;Tp = 5.0)
     pg, ic = GetInitializedOLTCHisken()
     timer_start = -1.0
-    event_recorder = Array{Float64,2}(undef,0,3+length(GetParametersOLTCHisken()))
+    event_recorder = Array{Float64,2}(undef,0,3+length(GetParametersOLTCHisken(Tp)))
     function TapState(integrator)
         timer_start = integrator.t
         tap_max = pg.lines["branch2"].tap_max
@@ -80,7 +80,7 @@ function SimulateOLTCHIsken()
             op_prob = ODEProblem(integrator.f, ic_tmp, (0.0, 1e-6), p_tmp, initializealg = BrownFullBasicInit())
             ic_new = solve(op_prob,Rodas5())
             integrator.u = ic_new.u[end]
-            event_recorder = vcat(event_recorder,[integrator.t integrator.p' 3 1])
+            event_recorder = vcat(event_recorder,[integrator.t integrator.p' 2 1])
         end
     end
 
@@ -102,7 +102,7 @@ function SimulateOLTCHIsken()
     function timer_on(integrator)
         if timer_start == -1
             timer_start = integrator.t
-            event_recorder = vcat(event_recorder,[integrator.t integrator.p' 2 1])
+            event_recorder = vcat(event_recorder,[integrator.t integrator.p' 4 1])
         end
     end
 
@@ -145,7 +145,7 @@ function SimulateOLTCHIsken()
     cb5 = DiscreteCallback(check_voltage_low, stop_integration)
     cb6 = DiscreteCallback(check_voltage_high, stop_integration)
 
-    params = GetParametersOLTCHisken()
+    params = GetParametersOLTCHisken(Tp)
     prob = ODEProblem(rhs(pg), ic, tspanOLTCHisken(),params)
     sol = solve(
         prob,
@@ -155,12 +155,12 @@ function SimulateOLTCHIsken()
         adaptive = false,
         tstops=[10.0],
         maxiters = 1e5,
+        progress = true,
     )
     return PowerGridSolution(sol, pg), event_recorder
 end
 
-GetTriggeringConditions() = GetTriggeringConditions(GetMTKOLTCSystem()) #--> ZU SPEZIFISCH
-function GetTriggeringConditions(mtk::ODESystem) #--> ZU SPEZIFISCH
+function GetTriggCondsOLTCHisken(mtk::ODESystem)
     st = states(mtk)
     @variables t
     s = [
@@ -172,85 +172,7 @@ function GetTriggeringConditions(mtk::ODESystem) #--> ZU SPEZIFISCH
     return s
 end
 
-GetStateResetFunctions() = GetStateResetFunctions(GetMTKOLTCSystem()) #--> ZU SPEZIFISCH
-function GetStateResetFunctions(mtk::ODESystem)
+function GetStateResFunOLTCHisken(mtk::ODESystem)
     eqs, aeqs, D_states, A_states = GetSymbolicEquationsAndStates(mtk)
-    return [zeros(length(D_states),1) .~ D_states] #--> ZU SPEZIFISCH
-end
-
-function CalcTriggerAndStateResetJacobians(mtk::ODESystem)
-    eqs, aeqs, x, y = GetSymbolicEquationsAndStates(mtk)
-    s = GetTriggeringConditions(mtk) #--> zukünftig Übergabeparameter
-    h = GetStateResetFunctions(mtk) #--> zukünftig Übergabeparameter
-    hx = Array{Array{Num}}(undef,length(h),1)
-    hy = similar(hx)
-    sx = Array{Array{Num}}(undef,length(s),1)
-    sy = similar(sx)
-    for i=1:length(h)
-        hx[i] = GetJacobian(h[i],x)
-        hy[i] = GetJacobian(h[i],y)
-    end
-    for i=1:length(s)
-        sx[i] = GetJacobian([s[i]],x)
-        sy[i] = GetJacobian([s[i]],y)
-    end
-    return hx,hy,sx,sy
-end
-
-function CalcSensitivityAfterJump(
-    sym_states,
-    sym_params,
-    xx0_pre,
-    yx0_pre,
-    x0_pre,
-    x0_post,
-    p_pre,
-    p_post,
-    f,
-    g,
-    J,
-    hx,
-    hy,
-    sx,
-    sy,
-)
-    fx, fy, gx, gy = J
-
-    subs_pre = [sym_states .=> x0_pre; sym_params .=> p_pre]
-    subs_post = [sym_states .=> x0_post; sym_params .=> p_post]
-
-    f_pre = Substitute(f, subs_pre)
-    f_post = Substitute(f, subs_post)
-
-    fx_pre = Substitute(fx, subs_pre)
-    fy_pre = Substitute(fy, subs_pre)
-    gx_pre = Substitute(gx, subs_pre)
-    gy_pre = Substitute(gy, subs_pre)
-
-    gx_post = Substitute(gx, subs_post)
-    gy_post = Substitute(gy, subs_post)
-
-    hx_pre = Substitute(hx, subs_pre)
-    hy_pre = Substitute(hy, subs_pre)
-    sx_pre = Substitute(sx, subs_pre)
-    sy_pre = Substitute(sy, subs_pre)
-
-    gygx = inv(gy_pre) * gx_pre
-
-    hx_star = hx_pre - hy_pre * gygx
-
-    s_star = sx_pre - sy_pre * gygx
-
-    τx0 = s_star * xx0_pre
-    tmp = s_star * f_pre
-    if sum(tmp) != 0.0
-        τx0 = s_star * xx0_pre ./ (tmp)
-    else
-        τx0 = 0.0.*τx0
-    end
-
-    xx0_post = hx_star  * xx0_pre - (f_post - hx_star * f_pre) * τx0
-    yx0_post = -inv(gy_post) * gx_post * xx0_post
-
-    return xx0_post, yx0_post
+    return [zeros(length(D_states),1) .~ D_states]
 end

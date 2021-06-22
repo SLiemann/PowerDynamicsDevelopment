@@ -67,7 +67,7 @@ end [[θ,dθ],[ω,dω],[Qm,dQm],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_
     pmeas = real(u * conj(i))
     qmeas = imag(u * conj(i))
 
-    idq = i / (Srated/Sbase) - u / (-1im * xcf) / (Srated/Sbase)
+    idq = i / (Srated/Sbase) + u / (-1im * xcf) / (Srated/Sbase)
     idq = 1im*idq*(cos(-θ)+1im*sin(-θ))
     id  = real(idq)
     iq  = imag(idq)

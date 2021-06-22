@@ -201,27 +201,6 @@ function Substitute(syms::Array{Num}, subs_args) #SymbolicUtils.Symbolic{Real} :
   return Symbolics.value.(substitute.(syms, (subs_args,)))
 end
 
-function CalcEigenValues(pg::PowerGrid, p::Array{Float64,1}; output::Bool = false)
-  mtsys = GetMTKSystem(pg, (0.0, 1.0), p)
-  Fx, Fy, Gx, Gy = GetSymbolicFactorizedJacobian(mtsys)
-  Fxf, Fyf, Gxf, Gyf = [
-    Substitute(f, mtsys.defaults) for
-    f in [Fx, Fy, Gx, Gy]
-  ]
-  Af = Fxf - Fyf * inv(Gyf) * Gxf
-  EW = eigvals(Af)
-  if output
-    println("|ID | Real-part | Imag-part | Frequency | Damping Time Constant |")
-    index = indexin(x, states(mtsys))
-    syms = rhs(pg).syms[index]
-    for (ind, ew) in enumerate(EW)
-      println(
-        "| $(syms[ind])) | $(round(real(ew),digits =3)) | $(round(imag(ew),digits = 3)) | $(round(abs(imag(ew))/2/pi,digits =3)) | $(round(1.0/abs(real(ew)),digits =3)) |",
-      )
-    end
-  end
-  return EW
-end
 
 function GetMTKSystem(pg::PowerGrid, time_interval::Tuple{Float64,Float64}, p::Array{Float64,1})
   U,δ,ic0 = PowerFlowClassic(pg,iwamoto = false)
@@ -352,4 +331,162 @@ function ContinuousSensitivity(sol,xx0_k,yx0_k,sym_states,A_states,D_states,M,N,
     yx0_k = yx0 .=> res[size(D_states)[1]+1:end, :]
   end
   return sensi, xx0_k, yx0_k
+end
+
+function CalcTriggerAndStateResetJacobians(mtk::ODESystem,s,h)
+    eqs, aeqs, x, y = GetSymbolicEquationsAndStates(mtk)
+    hx = Array{Array{Num}}(undef,length(h),1)
+    hy = similar(hx)
+    sx = Array{Array{Num}}(undef,length(s),1)
+    sy = similar(sx)
+    for i=1:length(h)
+        hx[i] = GetJacobian(h[i],x)
+        hy[i] = GetJacobian(h[i],y)
+    end
+    for i=1:length(s)
+        sx[i] = GetJacobian([s[i]],x)
+        sy[i] = GetJacobian([s[i]],y)
+    end
+    return hx,hy,sx,sy
+end
+
+function CalcSensitivityAfterJump(
+    sym_states,
+    sym_params,
+    xx0_pre,
+    yx0_pre,
+    x0_pre,
+    x0_post,
+    p_pre,
+    p_post,
+    f,
+    g,
+    J,
+    hx,
+    hy,
+    sx,
+    sy,
+)
+    fx, fy, gx, gy = J
+
+    subs_pre = [sym_states .=> x0_pre; sym_params .=> p_pre]
+    subs_post = [sym_states .=> x0_post; sym_params .=> p_post]
+
+    f_pre = Substitute(f, subs_pre)
+    f_post = Substitute(f, subs_post)
+
+    fx_pre = Substitute(fx, subs_pre)
+    fy_pre = Substitute(fy, subs_pre)
+    gx_pre = Substitute(gx, subs_pre)
+    gy_pre = Substitute(gy, subs_pre)
+
+    gx_post = Substitute(gx, subs_post)
+    gy_post = Substitute(gy, subs_post)
+
+    hx_pre = Substitute(hx, subs_pre)
+    hy_pre = Substitute(hy, subs_pre)
+    sx_pre = Substitute(sx, subs_pre)
+    sy_pre = Substitute(sy, subs_pre)
+
+    gygx = inv(gy_pre) * gx_pre
+
+    hx_star = hx_pre - hy_pre * gygx
+
+    s_star = sx_pre - sy_pre * gygx
+
+    τx0 = s_star * xx0_pre
+    tmp = s_star * f_pre
+    if sum(tmp) != 0.0
+        τx0 = s_star * xx0_pre ./ (tmp)
+    else
+        τx0 = 0.0.*τx0
+    end
+
+    xx0_post = hx_star  * xx0_pre - (f_post - hx_star * f_pre) * τx0
+    yx0_post = -inv(gy_post) * gx_post * xx0_post
+
+    return xx0_post, yx0_post
+end
+
+function CalcHybridTrajectorySensitivity(mtk,sol,p_pre,evr,s,h,u0_sensi,p_sensi)
+    ic = sol.prob.u0
+    xx0_k, yx0_k, sym_states,sym_params, A_states, D_states, M, N, O, symp, Δt,len_sens, f, g, J =
+        InitTrajectorySensitivity(mtk, ic, p_pre, u0_sensi, p_sensi)
+    xx0 = [i[1] for i in xx0_k]
+    yx0 = [i[1] for i in yx0_k]
+    fx,fy,gx,gy = J
+    hx,hy,sx,sy = CalcTriggerAndStateResetJacobians(mtk,s,h)
+    sensis = Vector{Array{Float64}}(undef, len_sens)
+    for i = 1:length(sensis)
+      sensis[i] = Array{Float64}(
+        undef,
+        size(D_states)[1] + size(A_states)[1],
+        size(sol)[2] - 1,
+      )
+    end
+    ind_sol = vcat(1,setdiff(indexin(evr[:,1],sol.t).+1,[nothing]),length(sol.t))
+    #ind_sol = [1]
+    #for i in evr[:,1] # DifferentialEquations.jl has multiple time points
+    #    ind_sol = vcat(ind_sol,findall(x->x==i,sol.t)[end])
+    #end
+    #ind_sol = vcat(ind_sol,length(sol.t))
+
+    @progress for i = 1:length(ind_sol)-1
+        sol_part = sol[ind_sol[i]:ind_sol[i+1]]
+        sensi_part,xx0_k,yx0_k = ContinuousSensitivity(
+                                    sol_part,
+                                    xx0_k,
+                                    yx0_k,
+                                    sym_states,
+                                    A_states,
+                                    D_states,
+                                    M,
+                                    N,
+                                    O,
+                                    symp,
+                                    Δt,
+                                    len_sens,
+                                )
+        for j = 1:length(sensi_part)
+            sensis[j][:,ind_sol[i]:ind_sol[i+1]-1] = sensi_part[j]
+        end
+        if ind_sol[i+1] ≠ ind_sol[end]
+            display("Event at t = $(evr[i,1])")
+
+            xx0_pre = [i[2] for i in xx0_k]
+            yx0_pre = [i[2] for i in yx0_k]
+            x0_pre = sol.u[ind_sol[i+1]]    # ind_sol[i+1]-1 is before jump
+            x0_post = sol.u[ind_sol[i+1]+1]    # ind_sol[i+1] is after jump
+            p_post = evr[i,2:end-2]
+            hx_tmp = hx[Int(evr[i,end])]
+            hy_tmp = hy[Int(evr[i,end])]
+            sx_tmp = sx[Int(evr[i,end-1])]
+            sy_tmp = sy[Int(evr[i,end-1])]
+
+            xx0_post, yx0_post = CalcSensitivityAfterJump(
+                                    sym_states,
+                                    sym_params,
+                                    xx0_pre,
+                                    yx0_pre,
+                                    x0_pre,
+                                    x0_post,
+                                    p_pre,
+                                    p_post,
+                                    f,
+                                    g,
+                                    J,
+                                    hx_tmp,
+                                    hy_tmp,
+                                    sx_tmp,
+                                    sy_tmp,
+                                )
+        else
+            return sensis
+        end
+
+        xx0_k = xx0 .=> xx0_post
+        yx0_k = yx0 .=> yx0_post
+        symp = sym_params .=> p_post
+        p_pre = p_post
+    end
 end
