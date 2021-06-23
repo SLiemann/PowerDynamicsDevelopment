@@ -3,10 +3,10 @@ using PowerDynamics
 using Plots
 #import PowerDynamics: PiModel
 using DifferentialEquations
-using CSV #read PF DataFrames
-using DataFrames #for CSV
+#using CSV #read PF DataFrames
+#using DataFrames #for CSV
 #using Distributed
-using JLD
+#using JLD
 
 Ubase = 380e3
 Sbase = 100e6
@@ -16,19 +16,24 @@ begin
     include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/include_costum_nodes_lines_utilities.jl")
     include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/grids/LTVS_Test_System.jl")
     include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/sensitivity_analyses/Local_Sensitivity.jl")
+    #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/sensitivity_analyses/LS_old.jl")
 end
 
-pg, ic0 = GetInitializedLTVSSystem(gfc = true)
-pgsol,evr  = run_LTVS_simulation(pg,ic0,(0.0,50.0))
+pg, ic0 = GetInitializedLTVSSystem(gfc = "gfc_normal")
+pgsol,evr  = run_LTVS_simulation(pg,ic0,(0.0,5.0))
 
+mtk_normal = GetMTKLTVSSystem(pg_state = "gfc_normal")
+mtk_fault = GetMTKLTVSSystem(pg_state = "gfc_fault")
+mtk_postfault = GetMTKLTVSSystem(pg_state = "gfc_postfault")
+mtk = [mtk_normal; mtk_fault; mtk_postfault]
+
+s = GetTriggCondsLTVS(mtk_normal)
+h = GetStateResFunLTVS(mtk_normal)
 p_pre = GFC_LTVS_params()
-mtk = GetMTKLTVSSystem((0.0,50.0),p_pre,gfc = true)
+@time toll = CalcHybridTrajectorySensitivity(mtk,pgsol.dqsol,p_pre,evr,s,h,[1],[13,14])
 
-s = GetTriggCondsLTVS(mtk)
-h = GetStateResFunLTVS(mtk)
-@time toll = CalcHybridTrajectorySensitivity(mtk,pgsol.dqsol,p_pre,evr,s,h,[1],[13])
-toll = load("/tmp/myfile.jld")
-plot(pgsol.dqsol.t[1:end-1],toll[2][8,1:end])
+toll2 = load("/tmp/myfile.jld")
+plot(pgsol.dqsol.t[1:end-1],toll[3][16,1:end])
 
 a = [rhs(pg).syms sol.u[end] ic0]
 pgsol = PowerGridSolution(sol,pg)
@@ -73,10 +78,3 @@ begin
     test = DataFrame(CSV.File("C:\\Users\\liemann\\Desktop\\Basisszenario\\data_c.csv"; header=false, delim=';', type=Float64))
     plot!(test.Column1,test.Column4,label = "Matlab-Icf")
 end
-
-nodes_postfault = deepcopy(pg.nodes)
-branches_postfault = deepcopy(pg.lines)
-delete!(nodes_postfault,"busv")
-delete!(branches_postfault,"Line_1-v")
-delete!(branches_postfault,"Line_v-2")
-pg_postfault = PowerGrid(nodes_postfault,branches_postfault)

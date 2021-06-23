@@ -163,45 +163,6 @@ function GetSymbolicEquationsAndStates(
   return eqs, aeqs, D_states, A_states
 end
 
-GetSymbolicStates(mtsys::ODESystem) = GetSymbolicStates(equations(mtsys), states(mtsys))
-function GetSymbolicStates(
-  fulleqs::Array{Equation,1},
-  state::Vector{Term{Real,Nothing}},
-  )
-  A_states = Vector{Term{Real,Nothing}}()
-  D_states = Vector{Term{Real,Nothing}}()
-  for (index, value) in enumerate(fulleqs)
-    if my_lhs(value) !== 0
-      push!(D_states, state[index])
-    elseif my_lhs(value) === 0
-      push!(A_states, state[index])
-    else
-      error("Can not interprete LHS of equation; $value")
-    end
-  end
-  return D_states, A_states
-end
-
-GetSymbolicEquations(mtsys::ODESystem) = GetSymbolicEquations(equations(mtsys), states(mtsys))
-function GetSymbolicEquations(
-  fulleqs::Array{Equation,1},
-  state::Vector{Term{Real,Nothing}},
-  )
-  aeqs = Vector{Equation}()
-  eqs = Vector{Equation}()
-
-  for (index, value) in enumerate(fulleqs)
-    if my_lhs(value) !== 0
-      push!(eqs, value)
-    elseif my_lhs(value) === 0
-      push!(aeqs, value)
-    else
-      error("Can not interprete LHS of equation; $value")
-    end
-  end
-  return eqs, aeqs
-end
-
 function GetJacobian(
   eqs::Array{Equation},
   states::Array{Term{Real,Nothing},1},
@@ -240,6 +201,7 @@ function Substitute(syms::Array{Num}, subs_args) #SymbolicUtils.Symbolic{Real} :
   return Symbolics.value.(substitute.(syms, (subs_args,)))
 end
 
+
 function GetMTKSystem(pg::PowerGrid, time_interval::Tuple{Float64,Float64}, p::Array{Float64,1})
   U,δ,ic0 = PowerFlowClassic(pg,iwamoto = false)
   Ykk = NodalAdmittanceMatrice(pg)
@@ -256,6 +218,7 @@ function GetMTKSystem(pg::PowerGrid, time_interval::Tuple{Float64,Float64}, p::A
   return modelingtoolkitize(ODEProb)
 end
 
+
 function InitTrajectorySensitivity(
   mtsys::ODESystem,
   ic::Array{Float64,1},
@@ -267,7 +230,9 @@ function InitTrajectorySensitivity(
   sym_states = states(mtsys)
   sym_params = parameters(mtsys)
   eqs, aeqs, D_states, A_states = GetSymbolicEquationsAndStates(fulleqs, sym_states)
+
   #it is assumed that state and rhs(powergrid).syms have the same order
+  #sensis_u0 = state[indexin(sensis_u0_pd, rhs(pg).syms)]
   sensis_u0 = sym_states[sensis_u0_pd]
   #sensis_p_pd is here a list with indices of the parameters p
   sensis_p = sym_params[sensis_p_pd]
@@ -278,15 +243,14 @@ function InitTrajectorySensitivity(
 
   Fx, Fy, Gx, Gy = GetSymbolicFactorizedJacobian(eqs, aeqs, D_states, A_states)
 
-  len_sens = size(sensis_u0)[1] + size(sensis_p)[1]
   Diff_u0 = Differential.(sensis_u0)
   Diff_p = Differential.(sensis_p)
+  len_sens = size(sensis_u0)[1] + size(sensis_p)[1]
   Fp = Array{Num}(undef, size(eqs)[1], len_sens)
   Gp = Array{Num}(undef, size(aeqs)[1], len_sens)
 
   Fp[:, 1:size(Diff_u0)[1]] .= Num(0)
   Gp[:, 1:size(Diff_u0)[1]] .= Num(0)
-
   for (ind, val) in enumerate(Diff_p)
     Fp[:, ind+size(Diff_u0)[1]] =
       Num.(expand_derivatives.(map(val, my_rhs.(eqs))))
@@ -297,7 +261,20 @@ function InitTrajectorySensitivity(
   @parameters Δt
   @parameters xx0[1:size(D_states)[1], 1:len_sens] #xx0 are the sensitivities regarding differential states
   @parameters yx0[1:size(A_states)[1], 1:len_sens] #yx0 are the sensitivities regarding algebraic states
-  M,N,O = TrajectorySensitivityMatrices([Fx, Fy, Gx, Gy],Fp,Gp,xx0,yx0,aeqs,A_states,len_sens)
+  M = [
+    Δt/2*Fx-I Δt/2*Fy
+    Gx Gy
+  ]
+  N =
+    isempty(aeqs) ? -xx0 - Δt / 2 * (Fx * xx0 + Fy * yx0 + Fp) :
+    [
+      -xx0 - Δt / 2 * (Fx * xx0 + Fy * yx0 + Fp)
+      zeros(size(A_states)[1], len_sens)
+    ]
+  O = [
+    -Δt / 2 * Fp
+    -Gp
+  ]
 
   #Initialisierung: xx0 enthält die Sensis für x0 und p für x
   xx0_k = xx0 .=> 0.0
@@ -318,27 +295,7 @@ function InitTrajectorySensitivity(
 
   eqs = Num.(my_rhs.(eqs))
   aeqs = Num.(my_rhs.(aeqs))
-  return xx0_k,yx0_k,sym_states,sym_params,A_states,D_states,M,N,O,symp,Δt,len_sens, eqs,aeqs,(Fx,Fy,Gx,Gy),Fp,Gp
-end
-
-function TrajectorySensitivityMatrices(J,Fp,Gp,xx0,yx0,aeqs,A_states,len_sens)
-    @parameters Δt
-    Fx,Fy,Gx,Gy = J
-    M = [
-      Δt/2*Fx-I Δt/2*Fy
-      Gx Gy
-    ]
-    N =
-      isempty(aeqs) ? -xx0 - Δt / 2 * (Fx * xx0 + Fy * yx0 + Fp) :
-      [
-        -xx0 - Δt / 2 * (Fx * xx0 + Fy * yx0 + Fp)
-        zeros(size(A_states)[1], len_sens)
-      ]
-    O = [
-      -Δt / 2 * Fp
-      -Gp
-    ]
-   return M,N,O
+  return xx0_k,yx0_k,sym_states,sym_params,A_states,D_states,M,N,O,symp,Δt,len_sens, eqs,aeqs,(Fx,Fy,Gx,Gy)
 end
 
 function ContinuousSensitivity(sol,xx0_k,yx0_k,sym_states,A_states,D_states,M,N,O,symp,Δt,len_sens)
@@ -402,69 +359,63 @@ function CalcSensitivityAfterJump(
     x0_post,
     p_pre,
     p_post,
-    f_pre,
-    f_post,
-    g_pre,
-    g_post,
-    J_pre,
-    J_post,
+    f,
+    g,
+    J,
     hx,
     hy,
     sx,
     sy,
 )
-    fx_pre, fy_pre, gx_pre, gy_pre = J_pre
-    fx_post, fy_post, gx_post, gy_post = J_post
+    fx, fy, gx, gy = J
 
     subs_pre = [sym_states .=> x0_pre; sym_params .=> p_pre]
     subs_post = [sym_states .=> x0_post; sym_params .=> p_post]
 
-    f_pre_float = Substitute(f_pre, subs_pre)
-    f_post_float = Substitute(f_post, subs_post)
+    f_pre = Substitute(f, subs_pre)
+    f_post = Substitute(f, subs_post)
 
-    fx_pre_float = Substitute(fx_pre, subs_pre)
-    fy_pre_float = Substitute(fy_pre, subs_pre)
-    gx_pre_float = Substitute(gx_pre, subs_pre)
-    gy_pre_float = Substitute(gy_pre, subs_pre)
+    fx_pre = Substitute(fx, subs_pre)
+    fy_pre = Substitute(fy, subs_pre)
+    gx_pre = Substitute(gx, subs_pre)
+    gy_pre = Substitute(gy, subs_pre)
 
-    gx_post_float = Substitute(gx_post, subs_post)
-    gy_post_float = Substitute(gy_post, subs_post)
+    gx_post = Substitute(gx, subs_post)
+    gy_post = Substitute(gy, subs_post)
 
     hx_pre = Substitute(hx, subs_pre)
     hy_pre = Substitute(hy, subs_pre)
     sx_pre = Substitute(sx, subs_pre)
     sy_pre = Substitute(sy, subs_pre)
 
-    gygx = inv(gy_pre_float) * gx_pre_float
+    gygx = inv(gy_pre) * gx_pre
 
-    hx_star = hx_pre- hy_pre * gygx
+    hx_star = hx_pre - hy_pre * gygx
 
     s_star = sx_pre - sy_pre * gygx
 
     τx0 = s_star * xx0_pre
-    tmp = s_star * f_pre_float
+    tmp = s_star * f_pre
     if sum(tmp) != 0.0
         τx0 = s_star * xx0_pre ./ (tmp)
     else
         τx0 = 0.0.*τx0
     end
 
-    xx0_post = hx_star  * xx0_pre - (f_post_float - hx_star * f_pre_float) * τx0
-    yx0_post = -inv(gy_post_float) * gx_post_float * xx0_post
+    xx0_post = hx_star  * xx0_pre - (f_post - hx_star * f_pre) * τx0
+    yx0_post = -inv(gy_post) * gx_post * xx0_post
 
     return xx0_post, yx0_post
 end
 
-function CalcHybridTrajectorySensitivity(mtk::Vector{ODESystem},sol,p_pre,evr,s,h,u0_sensi,p_sensi)
-    mtk0 = mtk[1] # it is assumed that the first element is the initial system
+function CalcHybridTrajectorySensitivity(mtk,sol,p_pre,evr,s,h,u0_sensi,p_sensi)
     ic = sol.prob.u0
     xx0_k, yx0_k, sym_states,sym_params, A_states, D_states, M, N, O, symp, Δt,len_sens, f, g, J =
-        InitTrajectorySensitivity(mtk0, ic, p_pre, u0_sensi, p_sensi)
+        InitTrajectorySensitivity(mtk, ic, p_pre, u0_sensi, p_sensi)
     xx0 = [i[1] for i in xx0_k]
     yx0 = [i[1] for i in yx0_k]
-    f_all,g_all,J_all,M_all,N_all,O_all = GetEqsJacobianSensMatrices(mtk,xx0,yx0,u0_sensi,p_sensi)
-    Fx_all, Fy_all, Gx_all, Gy_all = J_all
-    hx,hy,sx,sy = CalcTriggerAndStateResetJacobians(mtk0,s,h)
+    fx,fy,gx,gy = J
+    hx,hy,sx,sy = CalcTriggerAndStateResetJacobians(mtk,s,h)
     sensis = Vector{Array{Float64}}(undef, len_sens)
     for i = 1:length(sensis)
       sensis[i] = Array{Float64}(
@@ -480,26 +431,18 @@ function CalcHybridTrajectorySensitivity(mtk::Vector{ODESystem},sol,p_pre,evr,s,
     #end
     #ind_sol = vcat(ind_sol,length(sol.t))
 
-    Fx_pre = Fx_all[1]
-    Fy_pre = Fy_all[1]
-    Gx_pre = Gx_all[1]
-    Gy_pre = Gy_all[1]
-    J_pre = Fx_pre, Fy_pre, Gx_pre, Gy_pre
-
-    f_pre = f_all[1]
-    g_pre = g_all[1]
     @progress for i = 1:length(ind_sol)-1
         sol_part = sol[ind_sol[i]:ind_sol[i+1]]
         sensi_part,xx0_k,yx0_k = ContinuousSensitivity(
                                     sol_part,
                                     xx0_k,
                                     yx0_k,
-                                    sym_states, #at first, assumed to be constant
-                                    A_states, #at first, assumed to be constant
-                                    D_states, #at first, assumed to be constant
-                                    M, #can change after event
-                                    N, #can change after event
-                                    O, #can change after event
+                                    sym_states,
+                                    A_states,
+                                    D_states,
+                                    M,
+                                    N,
+                                    O,
                                     symp,
                                     Δt,
                                     len_sens,
@@ -514,20 +457,11 @@ function CalcHybridTrajectorySensitivity(mtk::Vector{ODESystem},sol,p_pre,evr,s,
             yx0_pre = [i[2] for i in yx0_k]
             x0_pre = sol.u[ind_sol[i+1]]    # ind_sol[i+1]-1 is before jump
             x0_post = sol.u[ind_sol[i+1]+1]    # ind_sol[i+1] is after jump
-            p_post = evr[i,3:end-2]
+            p_post = evr[i,2:end-2]
             hx_tmp = hx[Int(evr[i,end])]
             hy_tmp = hy[Int(evr[i,end])]
             sx_tmp = sx[Int(evr[i,end-1])]
             sy_tmp = sy[Int(evr[i,end-1])]
-
-            Fx_post = Fx_all[Int(evr[i,2])]
-            Fy_post = Fy_all[Int(evr[i,2])]
-            Gx_post = Gx_all[Int(evr[i,2])]
-            Gy_post = Gy_all[Int(evr[i,2])]
-            J_post = Fx_post, Fy_post, Gx_post, Gy_post
-
-            f_post = f_all[Int(evr[i,2])]
-            g_post = g_all[Int(evr[i,2])]
 
             xx0_post, yx0_post = CalcSensitivityAfterJump(
                                     sym_states,
@@ -538,12 +472,9 @@ function CalcHybridTrajectorySensitivity(mtk::Vector{ODESystem},sol,p_pre,evr,s,
                                     x0_post,
                                     p_pre,
                                     p_post,
-                                    f_pre,
-                                    f_post,
-                                    g_pre,
-                                    g_post,
-                                    J_pre,
-                                    J_post,
+                                    f,
+                                    g,
+                                    J,
                                     hx_tmp,
                                     hy_tmp,
                                     sx_tmp,
@@ -557,59 +488,5 @@ function CalcHybridTrajectorySensitivity(mtk::Vector{ODESystem},sol,p_pre,evr,s,
         yx0_k = yx0 .=> yx0_post
         symp = sym_params .=> p_post
         p_pre = p_post
-        M,N,O = M_all[Int(evr[i,2])], N_all[Int(evr[i,2])], O_all[Int(evr[i,2])]
-
-        Fx_pre = deepcopy(Fx_post)
-        Fy_pre = deepcopy(Fy_post)
-        Gx_pre = deepcopy(Gx_post)
-        Gy_pre = deepcopy(Gy_post)
-        J_pre = Fx_pre, Fy_pre, Gx_pre, Gy_pre
-
-        f_pre = deepcopy(f_post)
-        g_pre = deepcopy(g_post)
     end
-end
-
-function GetEqsJacobianSensMatrices(mtk::Vector{ODESystem},xx0,yx0,u0_sens,p_sens)
-    f = Vector{Array{Num,1}}(undef,length(mtk))
-    g = similar(f)
-
-    Fx = Vector{Array{Num,2}}(undef,length(mtk))
-    Fy = similar(Fx)
-    Gx = similar(Fx)
-    Gy = similar(Fx)
-    Fp = similar(Fx)
-    Gp = similar(Fx)
-
-    M = similar(Fx)
-    N = similar(Fx)
-    O = similar(Fx)
-
-    len_sens = size(u0_sens)[1] + size(p_sens)[1]
-    sensis_u0 = states(mtk[1])[u0_sens]
-    sensis_p = parameters(mtk[1])[u0_sens]
-    Diff_u0 = Differential.(u0_sens)
-    Diff_p = Differential.(p_sens)
-
-    for (ind,val) in enumerate(mtk)
-        fulleqs = equations(val)
-        symstates = states(val)
-        f_tmp, g_tmp, x, y = GetSymbolicEquationsAndStates(fulleqs, symstates)
-        Fx[ind],Fy[ind],Gx[ind],Gy[ind] = GetSymbolicFactorizedJacobian(f_tmp, g_tmp, x, y)
-
-        Fp[ind] = Num(0).*zeros(length(x),len_sens) #init with zeros
-        Gp[ind] = Num(0).*zeros(length(y),len_sens)
-        for (ind2, val2) in enumerate(Diff_p)
-          Fp[ind][:, ind2+size(Diff_u0)[1]] =
-            Num.(expand_derivatives.(map(val2, my_rhs.(f_tmp))))
-          Gp[ind][:, ind2+size(Diff_u0)[1]] =
-            Num.(expand_derivatives.(map(val2, my_rhs.(g_tmp))))
-        end
-
-        M[ind],N[ind],O[ind] = TrajectorySensitivityMatrices([Fx[ind],Fy[ind],Gx[ind],Gy[ind]],Fp[ind],Gp[ind],xx0,yx0,g_tmp,y,len_sens)
-        f[ind] = my_rhs.(f_tmp)
-        g[ind] = my_rhs.(g_tmp)
-    end
-
-    return f,g,[Fx,Fy,Gx,Gy],M,N,O
 end

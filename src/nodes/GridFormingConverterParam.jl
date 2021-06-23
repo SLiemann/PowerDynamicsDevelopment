@@ -18,7 +18,7 @@ The model has the following internal dynamic variables:
 """
 =#
 @DynamicNode GridFormingConverterParam(Sbase,Srated,p0set,q0set,u0set,Kp_droop,Kq_droop,ωf_P,ωf_Q,xlf,rf,xcf,Kp_u,Ki_u,Kp_i,Ki_i,imax,Kvi,σXR,K_vq,p_ind) begin
-    MassMatrix(m_int =[true,true,true,true,true,true,true,false,false,false,false,false])
+    MassMatrix(m_int =[true,true,true,true,true,true,true,false])#,false,false,false,false
 end begin
     @assert Sbase > 0 "Base apparent power of the grid in VA, should be >0"
     @assert Srated > 0 "Rated apperent power of the machine in VA, should be >0"
@@ -41,7 +41,8 @@ end begin
     @assert σXR >= 0 "X/R ratio for for virtual impedance in p.u., should be >=0"
     @assert K_vq >= 0 "Gain for intrusion of Vq for P-droop in p.u., should be >=0"
 
-end [[θ,dθ],[ω,dω],[Qm,dQm],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_iq],[i_abs,di_abs],[Um,dUm],[Ixcf,dIxcf],[Pout,dPout],[Qout,dQout]] begin
+end [[θ,dθ],[ω,dω],[Qm,dQm],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_iq],[i_abs,di_abs]] begin
+    #,[Um,dUm],[Ixcf,dIxcf],[Pout,dPout],[Qout,dQout]
     Kp_droop = p[p_ind[1]]
     Kp_droop = p[p_ind[2]]
     ωf_P = p[p_ind[3]]
@@ -129,10 +130,10 @@ end [[θ,dθ],[ω,dω],[Qm,dQm],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_
     du = u - u0 #algebraic constraint
 
     di_abs = i_abs - I_abs #for output
-    dUm = Um - abs(um) #for output
-    dIxcf= Ixcf - abs(u / (-1im * xcf)) / (Srated/Sbase) #for output
-    dPout = Pout - pmeas #for output
-    dQout = Qout - qmeas #for output
+    #dUm = Um - abs(um) #for output
+    #dIxcf= Ixcf - abs(u / (-1im * xcf)) / (Srated/Sbase) #for output
+    #dPout = Pout - pmeas #for output
+    #dQout = Qout - qmeas #for output
 end
 
 export GridFormingConverterParam

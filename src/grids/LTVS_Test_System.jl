@@ -9,6 +9,8 @@ Ubase = 380e3
 Ibase = Sbase/Ubase/sqrt(3)
 Zbase = Ubase^2/Sbase
 
+zfault() = 40.0/Zbase
+
 function LTVS_Test_System()
     buses=OrderedDict(
         "bus1" => SlackAlgebraic(U=1.0),
@@ -105,15 +107,19 @@ function GFC_LTVS_params()
     ]
 end
 
-function GetInitializedLTVSSystem(;gfc = false)
-    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/operationpoint/PowerFlow.jl")
-    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/utility/utility_functions.jl")
-    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/operationpoint/InitializeInternals.jl")
-    if gfc
+function GetInitializedLTVSSystem(;gfc = "gfc_normal")
+    if gfc == "gfc_normal"
         pg = GFC_LTVS_Test_System()
     else
         pg = LTVS_Test_System()
     end
+    return GetInitializedLTVSSystem(pg)
+end
+
+function GetInitializedLTVSSystem(pg::PowerGrid)
+    #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/operationpoint/PowerFlow.jl")
+    #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/utility/utility_functions.jl")
+    #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/operationpoint/InitializeInternals.jl")
     Qmax   = [Inf, Inf, Inf,Inf, Inf,sqrt(1-0.95^2)]
     Qmin   = -Qmax
     U,δ,ic0 = PowerFlowClassic(pg,iwamoto = true, Qmax = Qmax, Qmin = Qmin, Qlimit_iter_check = 2,max_tol = 1e-6)
@@ -124,8 +130,19 @@ function GetInitializedLTVSSystem(;gfc = false)
     return InitializeInternalDynamics(pg,I_c,ic0)
 end
 
-function GetMTKLTVSSystem(tspan,p;gfc = false)
-    pg, ic = GetInitializedLTVSSystem(gfc = gfc)
+function GetMTKLTVSSystem(;pg_state = "gfc_normal")
+    pg0 = GFC_LTVS_Test_System()
+    if pg_state == "gfc_fault"
+        pg = GetFaultLTVSPG(pg0)
+        ic = zeros(systemsize(pg))
+    elseif pg_state == "gfc_postfault"
+        pg = GetPostFaultLTVSPG(pg0)
+        ic = zeros(systemsize(pg))
+    else
+        pg, ic = GetInitializedLTVSSystem(pg0)
+    end
+    p = GFC_LTVS_params()
+    tspan = (0.0,1.0)
     prob   = ODEProblem(rhs(pg),ic,tspan,p)
     new_f = ODEFunction(prob.f.f, syms = prob.f.syms, mass_matrix = Int.(prob.f.mass_matrix))
     ODEProb = ODEProblem(new_f,ic,tspan,p)
@@ -134,15 +151,9 @@ end
 
 function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Float64,Float64})
     tfault = [2.0, 2.15]
-    Zfault = 40.0
-    pg_fault = deepcopy(pg)
-    pg_fault.nodes["busv"] = VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=0., B=0.,Y_n = complex(1.0/(Zfault/Zbase)))
-    nodes_postfault = deepcopy(pg.nodes)
-    branches_postfault = deepcopy(pg.lines)
-    #delete!(nodes_postfault,"busv")
-    #delete!(branches_postfault,"Line_1-v")
-    delete!(branches_postfault,"Line_v-2")
-    pg_postfault = PowerGrid(nodes_postfault,branches_postfault)
+
+    pg_fault = GetFaultLTVSPG(pg)
+    pg_postfault = GetPostFaultLTVSPG(pg)
 
     params = GFC_LTVS_params()
     problem = ODEProblem{true}(rhs(pg),ic1,tspan,params)
@@ -157,7 +168,7 @@ function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Fl
     #index_U_oltc = getNodeVoltageSymbolPosition(pg,pg.lines[branch_oltc].to)
     index_U_oltc = PowerDynamics.variable_index(pg.nodes,pg.lines[branch_oltc].to,:u_r)
     index_U_load = PowerDynamics.variable_index(pg.nodes,"bus3",:u_r)
-    event_recorder = Array{Float64,2}(undef,0,3+length(params))
+    event_recorder = Array{Float64,2}(undef,0,4+length(params))
     function TapState(integrator)
         timer_start = integrator.t
         sol1 = integrator.sol
@@ -179,11 +190,11 @@ function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Fl
             op_prob = ODEProblem(ode, sol1[end], (0.0, 1e-6), params, initializealg = BrownFullBasicInit())
             x2 = solve(op_prob,Rodas4())
             x2 = x2.u[end]
-
             integrator.f = ode
             integrator.cache.tf.f = integrator.f
             integrator.u = x2#sol1[end]
-            event_recorder = vcat(event_recorder,[integrator.t integrator.p' 3 1])
+            active_pg = GetActivePG(fault_state,postfault_state)
+            event_recorder = vcat(event_recorder,[integrator.t active_pg integrator.p' 3 1])
         end
     end
 
@@ -194,7 +205,8 @@ function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Fl
     function timer_off(integrator)
         if timer_start != -1
             timer_start = -1
-            event_recorder = vcat(event_recorder,[integrator.t integrator.p' 4 1])
+            active_pg = GetActivePG(fault_state,postfault_state)
+            event_recorder = vcat(event_recorder,[integrator.t active_pg integrator.p' 4 1])
         end
     end
 
@@ -205,7 +217,8 @@ function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Fl
     function timer_on(integrator)
         if timer_start == -1
             timer_start = integrator.t
-            event_recorder = vcat(event_recorder,[integrator.t integrator.p' 4 1])
+            active_pg = GetActivePG(fault_state,postfault_state)
+            event_recorder = vcat(event_recorder,[integrator.t active_pg integrator.p' 4 1])
         end
     end
 
@@ -228,7 +241,8 @@ function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Fl
         integrator.cache.tf.f = integrator.f
         integrator.u = x2
         fault_state = true
-        event_recorder = vcat(event_recorder,[integrator.t integrator.p' 2 1])
+        active_pg = GetActivePG(fault_state,postfault_state)
+        event_recorder = vcat(event_recorder,[integrator.t active_pg integrator.p' 2 1])
     end
 
     function regularState(integrator)
@@ -248,11 +262,12 @@ function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Fl
         integrator.cache.tf.f = integrator.f
         integrator.u = x3#sol2[end]
 
-        postfault_state = true
-        fault_state = false
         index_U_oltc = PowerDynamics.variable_index(pg_postfault.nodes,pg_postfault.lines[branch_oltc].to,:u_r)
         index_U_load = PowerDynamics.variable_index(pg_postfault.nodes,"bus3",:u_r)
-        event_recorder = vcat(event_recorder,[integrator.t integrator.p' 3 1])
+        postfault_state = true
+        fault_state = false
+        active_pg = GetActivePG(fault_state,postfault_state)
+        event_recorder = vcat(event_recorder,[integrator.t active_pg integrator.p' 3 1])
     end
 
     function check_voltage(u,t,integrator)
@@ -273,10 +288,35 @@ function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Fl
     cb5 = DiscreteCallback(((u,t,integrator) -> t in tfault[2]), regularState)
     cb6 = DiscreteCallback(check_voltage, stop_integration)
 
-    sol = solve(problem, Rodas4(), callback = CallbackSet(cb1,cb2,cb3,cb4,cb5,cb6), tstops=[tfault[1],tfault[2]], dtmax = 1e-2,progress =true) #
+    sol = solve(problem, Rodas4(), callback = CallbackSet(cb1,cb2,cb3,cb4,cb5,cb6), tstops=[tfault[1],tfault[2]], dtmax = 1e-1,progress =true) #
     #sol = AddNaNsIntoSolution(pg,pg_postfault,deepcopy(sol))
 
     return PowerGridSolution(sol, pg), event_recorder
+end
+
+function GetActivePG(fault_state::Bool, postfault_state::Bool)
+    if fault_state
+        active_pg = 2
+    elseif postfault_state
+        active_pg = 3
+    else
+        active_pg = 1
+    end
+    return active_pg
+end
+
+function GetFaultLTVSPG(pg::PowerGrid)
+    pg_fault = deepcopy(pg)
+    pg_fault.nodes["busv"] = VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=0., B=0.,Y_n = complex(1.0/(zfault())))
+    return pg_fault
+end
+function GetPostFaultLTVSPG(pg::PowerGrid)
+    nodes_postfault = deepcopy(pg.nodes)
+    branches_postfault = deepcopy(pg.lines)
+    #delete!(nodes_postfault,"busv")
+    #delete!(branches_postfault,"Line_1-v")
+    delete!(branches_postfault,"Line_v-2")
+    return PowerGrid(nodes_postfault,branches_postfault)
 end
 
 function GetTriggCondsLTVS(mtk::ODESystem)
