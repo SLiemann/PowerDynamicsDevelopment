@@ -20,7 +20,7 @@ begin
 end
 
 pg, ic0 = GetInitializedLTVSSystem(gfc = "gfc_normal")
-pgsol,evr  = run_LTVS_simulation(pg,ic0,(0.0,5.0))
+pgsol,evr  = run_LTVS_simulation(pg,ic0,(0.0,90.0))
 
 mtk_normal = GetMTKLTVSSystem(pg_state = "gfc_normal")
 mtk_fault = GetMTKLTVSSystem(pg_state = "gfc_fault")
@@ -85,10 +85,11 @@ for i in sensis_p[3:end]
 end
 xlims!((1.9,2.3))
 ylims!((-40.0,10.0))
+toll = toll_new
 begin
-    indi = 15
+    indi = 15 #15 ist am interessantesten!!!!
     display(plot(pgsol.dqsol.t[1:end-1],toll[indi][look_on,1:end], label = labels_p[indi], title = "Sensis of $(String(syms[look_on]))"))
-    xlims!((0.0,5.0))
+    #xlims!((0.0,5.0))
 end
 
 
@@ -99,7 +100,7 @@ for (ind,val) in enumerate(collect(eachcol(toll[15])))# - 39019
 end
 pgsol_tmp = PowerGridSolution(sol_sensi_per,pg)
 plot!(pgsol,"bus4",:i_abs)
-plot!(pgsol_tmp,"bus4",:i_abs)
+plot!(pgsol_tmp,"bus4",:i_abs, label = "0.001")
 
 
 
