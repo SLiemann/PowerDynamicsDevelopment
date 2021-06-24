@@ -260,7 +260,7 @@ function InitTrajectorySensitivity(
   mtsys::ODESystem,
   ic::Array{Float64,1},
   p::Array{Float64,1},
-  sensis_u0_pd::Array{Int64,1},
+  sensis_u0_pd::Array{Any,1},
   sensis_p_pd::Array{Int64,1},
 )
   fulleqs = equations(mtsys)
@@ -318,7 +318,7 @@ function InitTrajectorySensitivity(
 
   eqs = Num.(my_rhs.(eqs))
   aeqs = Num.(my_rhs.(aeqs))
-  return xx0_k,yx0_k,sym_states,sym_params,A_states,D_states,M,N,O,symp,Δt,len_sens, eqs,aeqs,(Fx,Fy,Gx,Gy),Fp,Gp
+  return xx0_k,yx0_k,sym_states,sym_params,A_states,D_states,M,N,O,symp,Δt,len_sens, eqs,aeqs,(Fx,Fy,Gx,Gy)
 end
 
 function TrajectorySensitivityMatrices(J,Fp,Gp,xx0,yx0,aeqs,A_states,len_sens)
@@ -360,9 +360,9 @@ function ContinuousSensitivity(sol,xx0_k,yx0_k,sym_states,A_states,D_states,M,N,
     uk = sym_states .=> sol.u[i]
     uk1 = sym_states .=> sol.u[i+1]
 
-    Mfloat = Substitute(M, [uk1; symp; Δt => dt])
-    Nfloat = Substitute(N, [uk; symp; vec(xx0_k); vec(yx0_k); Δt => dt])
-    Ofloat = Substitute(O, [uk1; symp; Δt => dt])
+    Mfloat = Float64.(Substitute(M, [uk1; symp; Δt => dt]))
+    Nfloat = Float64.(Substitute(N, [uk; symp; vec(xx0_k); vec(yx0_k); Δt => dt]))
+    Ofloat = Float64.(Substitute(O, [uk1; symp; Δt => dt]))
     res = inv(Mfloat) * (Nfloat + Ofloat)
 
     for j = 1:length(sensi)
@@ -419,21 +419,21 @@ function CalcSensitivityAfterJump(
     subs_pre = [sym_states .=> x0_pre; sym_params .=> p_pre]
     subs_post = [sym_states .=> x0_post; sym_params .=> p_post]
 
-    f_pre_float = Substitute(f_pre, subs_pre)
-    f_post_float = Substitute(f_post, subs_post)
+    f_pre_float = Float64.(Substitute(f_pre, subs_pre))
+    f_post_float = Float64.(Substitute(f_post, subs_post))
 
-    fx_pre_float = Substitute(fx_pre, subs_pre)
-    fy_pre_float = Substitute(fy_pre, subs_pre)
-    gx_pre_float = Substitute(gx_pre, subs_pre)
-    gy_pre_float = Substitute(gy_pre, subs_pre)
+    fx_pre_float = Float64.(Substitute(fx_pre, subs_pre))
+    fy_pre_float = Float64.(Substitute(fy_pre, subs_pre))
+    gx_pre_float = Float64.(Substitute(gx_pre, subs_pre))
+    gy_pre_float = Float64.(Substitute(gy_pre, subs_pre))
 
-    gx_post_float = Substitute(gx_post, subs_post)
-    gy_post_float = Substitute(gy_post, subs_post)
+    gx_post_float = Float64.(Substitute(gx_post, subs_post))
+    gy_post_float = Float64.(Substitute(gy_post, subs_post))
 
-    hx_pre = Substitute(hx, subs_pre)
-    hy_pre = Substitute(hy, subs_pre)
-    sx_pre = Substitute(sx, subs_pre)
-    sy_pre = Substitute(sy, subs_pre)
+    hx_pre = Float64.(Substitute(hx, subs_pre))
+    hy_pre = Float64.(Substitute(hy, subs_pre))
+    sx_pre = Float64.(Substitute(sx, subs_pre))
+    sy_pre = Float64.(Substitute(sy, subs_pre))
 
     gygx = inv(gy_pre_float) * gx_pre_float
 
@@ -488,6 +488,8 @@ function CalcHybridTrajectorySensitivity(mtk::Vector{ODESystem},sol,p_pre,evr,s,
 
     f_pre = f_all[1]
     g_pre = g_all[1]
+    Mc = copy(M)
+
     @progress for i = 1:length(ind_sol)-1
         sol_part = sol[ind_sol[i]:ind_sol[i+1]]
         sensi_part,xx0_k,yx0_k = ContinuousSensitivity(
@@ -557,6 +559,8 @@ function CalcHybridTrajectorySensitivity(mtk::Vector{ODESystem},sol,p_pre,evr,s,
         yx0_k = yx0 .=> yx0_post
         symp = sym_params .=> p_post
         p_pre = p_post
+
+        Mc = copy(M)
         M,N,O = M_all[Int(evr[i,2])], N_all[Int(evr[i,2])], O_all[Int(evr[i,2])]
 
         Fx_pre = deepcopy(Fx_post)
@@ -587,9 +591,9 @@ function GetEqsJacobianSensMatrices(mtk::Vector{ODESystem},xx0,yx0,u0_sens,p_sen
 
     len_sens = size(u0_sens)[1] + size(p_sens)[1]
     sensis_u0 = states(mtk[1])[u0_sens]
-    sensis_p = parameters(mtk[1])[u0_sens]
-    Diff_u0 = Differential.(u0_sens)
-    Diff_p = Differential.(p_sens)
+    sensis_p = parameters(mtk[1])[p_sens]
+    Diff_u0 = Differential.(sensis_u0)
+    Diff_p = Differential.(sensis_p)
 
     for (ind,val) in enumerate(mtk)
         fulleqs = equations(val)

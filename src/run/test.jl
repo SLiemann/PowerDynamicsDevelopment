@@ -25,28 +25,46 @@ xx0_k, yx0_k, sym_states,sym_params, A_states, D_states, M, N, O, symp, Δt,len_
 xx0 = [i[1] for i in xx0_k]
 yx0 = [i[1] for i in yx0_k]
 f_all,g_all,J_all,M_all,N_all,O_all = GetEqsJacobianSensMatrices(mtk,xx0,yx0,u0_sensi,p_sensi)
-Fx_all, Fy_all, Gx_all, Gy_all = J_all
-hx,hy,sx,sy = CalcTriggerAndStateResetJacobians(mtk0,s,h)
-sensis = Vector{Array{Float64}}(undef, len_sens)
-for i = 1:length(sensis)
-  sensis[i] = Array{Float64}(
-    undef,
-    size(D_states)[1] + size(A_states)[1],
-    size(pgsol.dqsol)[2] - 1,
-  )
+
+u0_sens = u0_sensi
+p_sens = p_sensi
+
+f = Vector{Array{Num,1}}(undef,length(mtk))
+g = similar(f)
+
+Fx = Vector{Array{Num,2}}(undef,length(mtk))
+Fy = similar(Fx)
+Gx = similar(Fx)
+Gy = similar(Fx)
+Fp = similar(Fx)
+Gp = similar(Fx)
+
+M = similar(Fx)
+N = similar(Fx)
+O = similar(Fx)
+
+len_sens = size(u0_sens)[1] + size(p_sens)[1]
+sensis_u0 = states(mtk[1])[u0_sens]
+sensis_p = parameters(mtk[1])[u0_sens]
+Diff_u0 = Differential.(u0_sens)
+Diff_p = Differential.(p_sens)
+
+for (ind,val) in enumerate(mtk)
+    fulleqs = equations(val)
+    symstates = states(val)
+    f_tmp, g_tmp, x, y = GetSymbolicEquationsAndStates(fulleqs, symstates)
+    Fx[ind],Fy[ind],Gx[ind],Gy[ind] = GetSymbolicFactorizedJacobian(f_tmp, g_tmp, x, y)
+
+    Fp[ind] = Num(0).*zeros(length(x),len_sens) #init with zeros
+    Gp[ind] = Num(0).*zeros(length(y),len_sens)
+    for (ind2, val2) in enumerate(Diff_p)
+      Fp[ind][:, ind2+size(Diff_u0)[1]] =
+        Num.(expand_derivatives.(map(val2, my_rhs.(f_tmp))))
+      Gp[ind][:, ind2+size(Diff_u0)[1]] =
+        Num.(expand_derivatives.(map(val2, my_rhs.(g_tmp))))
+    end
+
+    M[ind],N[ind],O[ind] = TrajectorySensitivityMatrices([Fx[ind],Fy[ind],Gx[ind],Gy[ind]],Fp[ind],Gp[ind],xx0,yx0,g_tmp,y,len_sens)
+    f[ind] = my_rhs.(f_tmp)
+    g[ind] = my_rhs.(g_tmp)
 end
-ind_sol = vcat(1,setdiff(indexin(evr[:,1],pgsol.dqsol.t).+1,[nothing]),length(pgsol.dqsol.t))
-#ind_sol = [1]
-#for i in evr[:,1] # DifferentialEquations.jl has multiple time points
-#    ind_sol = vcat(ind_sol,findall(x->x==i,sol.t)[end])
-#end
-#ind_sol = vcat(ind_sol,length(sol.t))
-
-Fx_pre = Fx_all[1]
-Fy_pre = Fy_all[1]
-Gx_pre = Gx_all[1]
-Gy_pre = Gy_all[1]
-J_pre = Fx_pre, Fy_pre, Gx_pre, Gy_pre
-
-f_pre = f_all[1]
-g_pre = g_all[1]

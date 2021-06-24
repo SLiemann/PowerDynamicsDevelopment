@@ -412,9 +412,18 @@ function CalcHybridTrajectorySensitivity(mtk,sol,p_pre,evr,s,h,u0_sensi,p_sensi)
     ic = sol.prob.u0
     xx0_k, yx0_k, sym_states,sym_params, A_states, D_states, M, N, O, symp, Δt,len_sens, f, g, J =
         InitTrajectorySensitivity(mtk, ic, p_pre, u0_sensi, p_sensi)
+    display(xx0_k)
+    display(yx0_k)
+    display(sym_states)
+    display(sym_params)
+    display(A_states)
+    display(D_states)
+    display(symp)
+    display(len_sens)
+    display(Δt)
     xx0 = [i[1] for i in xx0_k]
     yx0 = [i[1] for i in yx0_k]
-    fx,fy,gx,gy = J
+    #fx,fy,gx,gy = J
     hx,hy,sx,sy = CalcTriggerAndStateResetJacobians(mtk,s,h)
     sensis = Vector{Array{Float64}}(undef, len_sens)
     for i = 1:length(sensis)
@@ -425,6 +434,7 @@ function CalcHybridTrajectorySensitivity(mtk,sol,p_pre,evr,s,h,u0_sensi,p_sensi)
       )
     end
     ind_sol = vcat(1,setdiff(indexin(evr[:,1],sol.t).+1,[nothing]),length(sol.t))
+
     #ind_sol = [1]
     #for i in evr[:,1] # DifferentialEquations.jl has multiple time points
     #    ind_sol = vcat(ind_sol,findall(x->x==i,sol.t)[end])
