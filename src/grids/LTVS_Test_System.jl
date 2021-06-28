@@ -10,8 +10,8 @@ Ibase = Sbase/Ubase/sqrt(3)
 Zbase = Ubase^2/Sbase
 
 zfault() = 40.0/Zbase
-tfault_on() = 2.0
-tfault_off() = 2.15
+tfault_on() = 0.1
+tfault_off() = 0.25
 dt_max() = 1e-2
 
 function LTVS_Test_System()
@@ -70,7 +70,7 @@ function GFC_LTVS_Test_System()
             imax = 1.0,
             Kvi = 0.05, #0.8272172037144201, # 0.677
             σXR = 10.0,
-            K_vq = 0.001,
+            K_vq = 0.01,
             p_ind = collect(1:15),
         ),
         "busv" => VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=0., B=0.,Y_n = complex(0.0)))
@@ -245,7 +245,7 @@ function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Fl
         integrator.u = x2
         fault_state = true
         active_pg = GetActivePG(fault_state,postfault_state)
-        event_recorder = vcat(event_recorder,[integrator.t active_pg integrator.p' 2 1])
+        event_recorder = vcat(event_recorder,[integrator.t active_pg integrator.p' 1 1])
     end
 
     function regularState(integrator)
@@ -253,7 +253,8 @@ function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Fl
         ode   = rhs(pg_postfault)
         index = PowerDynamics.variable_index(pg.nodes,"busv",:u_r)
 
-        ic_tmp = deepcopy(integrator.sol.u[indexin(tfault[1],integrator.sol.t)[1]])
+        #ic_tmp = deepcopy(integrator.sol.u[indexin(tfault[1],integrator.sol.t)[1]])
+        ic_tmp = sol[end]
         #ic_tmp = getPreFaultVoltages(pg,ic_tmp,deepcopy(sol[end]))
         #deleteat!(ic_tmp,index:index+1)
         op_prob = ODEProblem(ode, ic_tmp, (0.0, 1e-6), params, initializealg = BrownFullBasicInit())
@@ -270,7 +271,7 @@ function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Fl
         postfault_state = true
         fault_state = false
         active_pg = GetActivePG(fault_state,postfault_state)
-        event_recorder = vcat(event_recorder,[integrator.t active_pg integrator.p' 3 1])
+        event_recorder = vcat(event_recorder,[integrator.t active_pg integrator.p' 2 1])
     end
 
     function check_voltage(u,t,integrator)
