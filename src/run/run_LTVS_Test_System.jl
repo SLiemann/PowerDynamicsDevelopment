@@ -18,13 +18,12 @@ begin
     include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/sensitivity_analyses/Local_Sensitivity.jl")
     #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/sensitivity_analyses/LS_old.jl")
     pg, ic0 = GetInitializedLTVSSystem(gfc = "gfc_normal")
-    pgsol,evr  = run_LTVS_simulation(pg,ic0,(0.0,0.35))
+    pgsol,evr  = run_LTVS_simulation(pg,ic0,(0.0,90.0))
 end
 
 mtk_normal = GetMTKLTVSSystem(pg_state = "gfc_normal")
 mtk_fault = GetMTKLTVSSystem(pg_state = "gfc_fault")
 mtk_postfault = GetMTKLTVSSystem(pg_state = "gfc_postfault")
-mtk = [mtk_normal; mtk_fault; mtk_postfault]
 mtk = [mtk_normal; mtk_fault; mtk_postfault]
 
 s = GetTriggCondsLTVS(mtk_normal)
@@ -33,25 +32,25 @@ p_pre = GFC_LTVS_params()
 sensis_p = collect(1:15)
 @time toll = CalcHybridTrajectorySensitivity(mtk,pgsol.dqsol,p_pre,evr,s,h,[],[15])
 
-save("C:/Users/liemann/Desktop/Sens_LTVS/sens_kq_on_1_1em2_diff_mtk_ohne_HTS.jld", "sens", toll,"ic0",ic0,"p_pre",p_pre,"evr",evr,"sensis_p",sensis_p)
+save("C:/Users/liemann/Desktop/Sens_LTVS/sens_kq_1em3_dt_1em2.jld", "sens", toll,"ic0",ic0,"p_pre",p_pre,"evr",evr,"sensis_p",sensis_p)
 
 
 toll = load("C:/Users/liemann/Desktop/Sens_LTVS/sens_kq_on_90.jld")
 toll = toll["sens"]
 plot(1:length(toll[1][16,1:end]),toll[1][16,1:end])
 plot!(pgsol.dqsol.t[1:end-1],toll[1][16,1:end])
-xlims!((1,5))
-xlims!((2,2.3))
-ylims!((-0.3,0.60))
+xlims!((1,90))
+xlims!((1,20))
+ylims!((0.8,1.005))
 plot!(pgsol,"bus4",:v, label = "Imax = 1.0") #, linestyle = :dash)
 a = [rhs(pg).syms sol.u[end] ic0]
 pgsol = PowerGridSolution(sol,pg)
 collect(1:15)
 
-plot!(pgsol,collect(keys(pg.nodes)),:v,legend = (0.8, 0.5)) #, linestyle = :dash
+plot!(pgsol,collect(keys(pg.nodes)),:v,legend = false, linestyle = :dot) #, linestyle = :dash
 xlims!((0,90))#, linestyle = :dash
 plot(pgsol,"bus4",:i_abs, label = "original")
-xlims!((1.9,2.3))
+xlims!((0.9,5.3))
 ylims!((0.99,1.01))
 plot(pgsol,"bus4",:Pout)
 plot!(pgsol,"bus4",:Qout)
@@ -97,23 +96,25 @@ end
 #Calculation of approximated solution
 sol_sensi_per = deepcopy(pgsol.dqsol)
 for (ind,val) in enumerate(collect(eachcol(toll[1])))# - 39019
-    sol_sensi_per.u[ind] .+= val*(0.009)
+    sol_sensi_per.u[ind] .+= val*(0.004)
     #display(val)
 end
 pgsol_tmp = PowerGridSolution(sol_sensi_per,pg)
 plot!(pgsol_tmp,"bus4",:i_abs, label = "approximated", legend = (0.2,0.5))
 plot!(pgsol,"bus4",:i_abs, label = "real perturbed")
-
+plot!(pgsol_tmp,collect(keys(pg.nodes)),:v,legend = false, linestyle = :dash) #
 
 
 # Plotting influence on voltage
 sol_sensi_per = deepcopy(pgsol.dqsol)
 for (ind,val) in enumerate(collect(eachcol(toll[1])))# - 39019
-    sol_sensi_per.u[ind] .+= val*(0.01)
+    sol_sensi_per.u[ind] .+= val*(0.009)
     #display(val)
 end
 pgsol_tmp = PowerGridSolution(sol_sensi_per,pg)
 plot(pgsol_tmp,"bus2",:v, label = labels_p[1], title = "Influence on V2 Betrag", legend = :outertopright, size = (1000,1000))
+plot!(pgsol_tmp,collect(keys(pg.nodes)),:v,legend = false, linestyle = :dash)
+
 for i in 3:length(toll)
     sol_sensi_per = deepcopy(pgsol.dqsol)
     for (ind,val) in enumerate(collect(eachcol(toll[i])))# - 39019

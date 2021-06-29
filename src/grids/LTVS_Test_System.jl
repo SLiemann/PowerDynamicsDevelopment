@@ -10,8 +10,8 @@ Ibase = Sbase/Ubase/sqrt(3)
 Zbase = Ubase^2/Sbase
 
 zfault() = 40.0/Zbase
-tfault_on() = 0.1
-tfault_off() = 0.25
+tfault_on() = 1.0
+tfault_off() = 1.15
 dt_max() = 1e-2
 
 function LTVS_Test_System()
@@ -70,7 +70,7 @@ function GFC_LTVS_Test_System()
             imax = 1.0,
             Kvi = 0.05, #0.8272172037144201, # 0.677
             σXR = 10.0,
-            K_vq = 0.01,
+            K_vq = 0.001,
             p_ind = collect(1:15),
         ),
         "busv" => VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=0., B=0.,Y_n = complex(0.0)))
