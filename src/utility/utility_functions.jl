@@ -60,7 +60,7 @@ function PiModel(y, y_shunt_km, y_shunt_mk, t_km::Num, t_mk)
     Π
 end
 
-function CalcEigenValues(pg::PowerGrid, p::Array{Float64,1}; output::Bool = false)
+function CalcEigenValues(pg::PowerGrid, p::Array{Float64,1}; output::Bool = false, plot::Bool = false)
   mtsys = GetMTKSystem(pg, (0.0, 1.0), p)
   Fx, Fy, Gx, Gy = GetSymbolicFactorizedJacobian(mtsys)
   Fxf, Fyf, Gxf, Gyf = [
@@ -69,15 +69,31 @@ function CalcEigenValues(pg::PowerGrid, p::Array{Float64,1}; output::Bool = fals
   ]
   Af = Fxf - Fyf * inv(Gyf) * Gxf
   EW = eigvals(Af)
+
+  x,y = GetSymbolicStates(mtsys)
+  index = indexin(x, states(mtsys))
+  syms = rhs(pg).syms[index]
   if output
-    println("|ID | Real-part | Imag-part | Frequency | Damping Time Constant |")
-    index = indexin(x, states(mtsys))
-    syms = rhs(pg).syms[index]
+    display("|ID | Real-part | Imag-part | Frequency | Damping Time Constant |")
     for (ind, ew) in enumerate(EW)
-      println(
+      display(
         "| $(syms[ind])) | $(round(real(ew),digits =3)) | $(round(imag(ew),digits = 3)) | $(round(abs(imag(ew))/2/pi,digits =3)) | $(round(1.0/abs(real(ew)),digits =3)) |",
       )
     end
+  end
+  if plot
+      scatter([real(EW)[1]],[imag(EW)[1]], legend = :outertopright,label = String(syms[1]))
+      for i in 2:length(EW)
+          scatter!([real(EW)[i]],[imag(EW)[i]],label = String(syms[i]))
+      end
+      ylims!((-maximum(imag.(EW))*1.1,maximum(imag.(EW))*1.1))
+      min_real_ew = minimum(real.(EW))
+      plot!([min_real_ew;0.0],[min_real_ew*20.0;0.0], linestyle=:dash,linecolor = :red, label = "5 % damping")
+      plot!([min_real_ew;0.0],[-min_real_ew*20.0;0.0], linestyle=:dash,linecolor = :red, label = nothing)
+      plot!([min_real_ew;0.0],[min_real_ew*10.0;0.0], linestyle=:dash,linecolor = :blue, label = "10 % damping")
+      plot!([min_real_ew;0.0],[-min_real_ew*10.0;0.0], linestyle=:dash,linecolor = :blue, label = nothing)
+      plot!([min_real_ew;0.0],[min_real_ew*5.0;0.0], linestyle=:dash,linecolor = :green, label = "20 % damping")
+      display(plot!([min_real_ew;0.0],[-min_real_ew*5.0;0.0], linestyle=:dash,linecolor = :green, label = nothing))
   end
   return EW
 end

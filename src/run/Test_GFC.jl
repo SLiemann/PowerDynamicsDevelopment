@@ -9,22 +9,24 @@ begin
     include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/include_costum_nodes_lines_utilities.jl")
     include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/grids/GFC_Test_Grid.jl")
     include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/sensitivity_analyses/Local_Sensitivity.jl")
+
+    pg = GFC_Test_Grid()
+    U,δ,ic0 = PowerFlowClassic(pg, iwamoto = true, max_tol = 1e-7)
+    Ykk = NodalAdmittanceMatrice(pg)
+    Uc = U.*exp.(1im*δ/180*pi)
+    I_c = Ykk*Uc
+    S = conj(Ykk*Uc).*Uc
+
+    pg1 ,ic = InitializeInternalDynamics(pg,I_c,ic0)
+    params = GFC_params()
+    prob = ODEProblem(rhs(pg1),ic,(0.0,10.0),params)
 end
-pg = GFC_Test_Grid()
-U,δ,ic0 = PowerFlowClassic(pg)
-Ykk = NodalAdmittanceMatrice(pg)
-Uc = U.*exp.(1im*δ/180*pi)
-I_c = Ykk*Uc
-S = conj(Ykk*Uc).*Uc
+@time pgsol,evr = simGFC(prob)
 
-pg1 ,ic = InitializeInternalDynamics(pg,I_c,ic0)
-params = GFC_params()
-prob = ODEProblem(rhs(pg1),ic,(0.0,100.0),params)
-@time pgsol = simGFC(prob)
-
-plot(pgsol,["bus3"],:iabs,legend =false)
-ylims!((0.94,1.01))
-plot(pgsol,["bus3"],:v)
+plot(pgsol,["bus3"],:i_abs, label = "Kvi = " * string(pg.nodes["bus3"].Kvi) * ", K_vq = " *string(pg.nodes["bus3"].K_vq))
+ylims!((2.5,2.99))
+xlims!((0.99,2.5))
+plot(pgsol,collect(keys(pg.nodes))[2:end],:v)
 plot(pgsol,["bus2"],:iabs)
 plot(pgsol,["bus3"],:p)
 plot(pgsol,["bus3"],:q)
@@ -42,37 +44,6 @@ tmp = CalcEigenValues(pg1,params,output = true)
 #Checking initialization
 [rhs(pg).syms pgsol.dqsol.u[end] ic]
 
-function simGFC(prob)
-    #pg_new = GFC_Test_Grid(p_new = -1.3)
-    pg_new = GFC_Test_Grid(y_new = 150.0)
-    params = GFC_params()
-    tstep = [1.0,1.15]
-    function fault_state(integrator)
-        new_f = rhs(pg_new)
-        op_prob = ODEProblem(new_f, integrator.sol[end], (0.0, 1e-6),params, initializealg = BrownFullBasicInit())
-        ic_new = solve(op_prob,Rodas5())
-        integrator.f = new_f
-        integrator.cache.tf.f = integrator.f
-        integrator.u = ic_new.u[end]
-    end
-
-    function postfault_state(integrator)
-        sol = integrator.sol
-        ic_tmp = deepcopy(integrator.sol.u[indexin(tstep[1],integrator.sol.t)[1]])
-        ic_tmp = getPreFaultVoltages(pg_new,ic_tmp,deepcopy(sol[end]))
-        op_prob = ODEProblem(prob.f, ic_tmp, (0.0, 1e-6),params, initializealg = BrownFullBasicInit())
-        ic_new = solve(op_prob,Rodas5())
-        integrator.f = prob.f
-        integrator.cache.tf.f = integrator.f
-        integrator.u = ic_new.u[end]
-    end
-
-    cb = DiscreteCallback(((u,t,integrator) -> t in tstep[1]), fault_state)
-    cb1 = DiscreteCallback(((u,t,integrator) -> t in tstep[2]), postfault_state)
-
-    sol = solve(prob, Rodas4(), tstops= tstep, dtmax = 1e-2,progress=true)#,callback = CallbackSet(cb,cb1)
-    return PowerGridSolution(sol,pg_new)
-end
 
 #return sol
 

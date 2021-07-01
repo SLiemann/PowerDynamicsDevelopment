@@ -35,11 +35,11 @@ sensis_p = collect(1:15)
 save("C:/Users/liemann/Desktop/Sens_LTVS/sens_kq_1em3_dt_1em2.jld", "sens", toll,"ic0",ic0,"p_pre",p_pre,"evr",evr,"sensis_p",sensis_p)
 
 
-toll = load("C:/Users/liemann/Desktop/Sens_LTVS/sens_kq_on_90.jld")
+toll = load("C:/Users/liemann/Desktop/Sens_LTVS/sens_kq_1em3_t_90_dt_1em2.jld")
 toll = toll["sens"]
 plot(1:length(toll[1][16,1:end]),toll[1][16,1:end])
 plot!(pgsol.dqsol.t[1:end-1],toll[1][16,1:end])
-xlims!((1,90))
+xlims!((1,900))
 xlims!((1,20))
 ylims!((0.8,1.005))
 plot!(pgsol,"bus4",:v, label = "Imax = 1.0") #, linestyle = :dash)
