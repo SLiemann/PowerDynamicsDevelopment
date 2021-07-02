@@ -555,7 +555,6 @@ function CalcHybridTrajectorySensitivity(mtk::Vector{ODESystem},sol,p_pre,evr,s,
         else
             return sensis
         end
-        display(yx0_post)
         xx0_k = xx0 .=> xx0_post
         yx0_k = yx0 .=> yx0_post
         symp = sym_params .=> p_post

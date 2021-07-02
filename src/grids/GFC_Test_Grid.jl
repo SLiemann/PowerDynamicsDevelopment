@@ -6,8 +6,8 @@ Sbase = 100e6
 Zbase = (Ubase^2) / (Sbase)
 
 zfault() = 0.5*150.0
-tfault_on() = 1.0
-tfault_off() = 1.15
+tfault_on() = 0.1
+tfault_off() = 0.25
 dt_max() = 1e-2
 
 function GFC_Test_Grid(;p_new = 0.0,q_new = 0.0,y_new = 0.0)
@@ -24,7 +24,7 @@ function GFC_Test_Grid(;p_new = 0.0,q_new = 0.0,y_new = 0.0)
         "bus3" => GridFormingConverterParam(
             Sbase = Sbase,
             Srated = 6*Sbase,
-            p0set = 5.7, # based on Sbase!
+            p0set = 3.0, # based on Sbase!
             q0set = 0.01,
             u0set = 1.00,
             Kp_droop = 0.02,
@@ -38,10 +38,10 @@ function GFC_Test_Grid(;p_new = 0.0,q_new = 0.0,y_new = 0.0)
             Ki_u = 1.161022,
             Kp_i = 0.738891, # 0.73
             Ki_i = 1.19,
-            imax = 0.95,
-            Kvi = 0.2, #0.8272172037144201, # 0.677
+            imax = 0.90,
+            Kvi = 1.5, #0.8272172037144201, # 0.677
             σXR = 3.0,
-            K_vq = 0.03,
+            K_vq = 0.01,
             p_ind = collect(1:15),
         ),
     )
@@ -106,7 +106,7 @@ function simGFC(prob)
         integrator.f = prob.f
         integrator.cache.tf.f = integrator.f
         integrator.u = ic_new.u[end]
-        event_recorder = vcat(event_recorder,[integrator.t 3 integrator.p' 2 1])
+        event_recorder = vcat(event_recorder,[integrator.t 1 integrator.p' 2 1])
     end
 
     cb = DiscreteCallback(((u,t,integrator) -> t in tstep[1]), fault_state)
