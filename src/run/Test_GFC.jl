@@ -49,6 +49,9 @@ xlims!((4.9,5.50))
 plot(pgsol,["bus3"],:e_uq)
 plot(pgsol,["bus3"],:e_ud)
 
+sol = ExtractResult(pgsol,:ω_3)
+f, freq = DFT(sol,pgsol.dqsol.t)
+plot(freq,abs.(f), xlim=(-10, 10))
 #Calculating approximated trajectory
 #sol_original = deepcopy(pgsol.dqsol)
 #pgsol_or = deepcopy(pgsol)

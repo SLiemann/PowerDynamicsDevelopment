@@ -1,4 +1,6 @@
 using ModelingToolkit
+using PowerDynamics
+using FFTW
 
 function getPreFaultVoltages(pg::PowerGrid,ic_prefault::Array{Float64,1},ic_endfault::Array{Float64,1})
     ind = getVoltageSymbolPositions(pg)
@@ -96,4 +98,19 @@ function CalcEigenValues(pg::PowerGrid, p::Array{Float64,1}; output::Bool = fals
       display(plot!([min_real_ew;0.0],[-min_real_ew*5.0;0.0], linestyle=:dash,linecolor = :green, label = nothing))
   end
   return EW
+end
+
+function DFT(signal,t)
+    N = length(t)
+    Ts = t[end]/N  #it is assumed that measured point are equally distributed
+    # Fourier Transform of it
+    F = fft(signal) |> fftshift
+    freqs = fftfreq(N, 1.0/Ts) |> fftshift
+    return F, freqs
+end
+
+function ExtractResult(pgsol::PowerGridSolution, sym::Symbol)
+    sol = pgsol.dqsol
+    ind = indexin([sym],rhs(pgsol.powergrid).syms)[1]
+    return pgsol.dqsol[ind,:]
 end
