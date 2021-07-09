@@ -114,3 +114,14 @@ function ExtractResult(pgsol::PowerGridSolution, sym::Symbol)
     ind = indexin([sym],rhs(pgsol.powergrid).syms)[1]
     return pgsol.dqsol[ind,:]
 end
+
+function ExtractResult(pgsol::PowerGridSolution, bus::String, sym::Symbol)
+    keys_node = collect(keys(pgsol.powergrid.nodes))
+    ind = indexin([bus],keys_node)[1]
+    if isnothing(ind)
+        error("$bus is not a valid bus key")
+    else
+        sym = Symbol(string(sym,"_",ind))
+        return ExtractResult(pgsol,sym)
+    end
+end

@@ -34,7 +34,7 @@ save("C:/Users/liemann/Desktop/Sens_GFC_Test/sens_all_p0set_3_dt_1em2.jld", "sen
 
 plot(pgsol.dqsol.t[1:end-1],sens[1][14,:])
 
-plot(pgsol,["bus3"],:i_abs, label = "Kvi = " * string(pg.nodes["bus3"].Kvi) * ", K_vq = " *string(pg.nodes["bus3"].K_vq))
+plot!(pgsol,["bus3"],:i_abs, label = "Kvi = " * string(pg.nodes["bus3"].Kvi) * ", K_vq = " *string(pg.nodes["bus3"].K_vq))
 ylims!((2.5,2.99))
 xlims!((0.99,2.5))
 plot(pgsol,collect(keys(pg.nodes))[2:end],:v)
@@ -50,6 +50,7 @@ plot(pgsol,["bus3"],:e_uq)
 plot(pgsol,["bus3"],:e_ud)
 
 sol = ExtractResult(pgsol,:ω_3)
+
 f, freq = DFT(sol,pgsol.dqsol.t)
 plot(freq,abs.(f), xlim=(-10, 10))
 #Calculating approximated trajectory
@@ -107,3 +108,14 @@ b = 2.0*(Imax - I_tresh) * (ΔXR)
 c = - V0^2/Imax^2
 
 kp = (-b + sqrt(b^2 - 4.0*a*c))/(2*a)
+
+
+id = 0.95
+iq = 0.4
+iabs = hypot(id,iq)
+ϕ = atan(iq,id)
+
+iabs = 1
+ids = iabs*cos(ϕ)
+iqs = iabs*sin(ϕ)
+ϕ2 = atan(iqs,ids)

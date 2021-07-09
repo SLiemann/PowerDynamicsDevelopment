@@ -21,7 +21,7 @@ function GFC_Test_Grid(;p_new = 0.0,q_new = 0.0,y_new = 0.0)
             B = 0.0,
             Y_n = y_new,
         ),
-        "bus3" => GridFormingConverterParam(
+        "bus3" => GridFormingConverterCSA(
             Sbase = Sbase,
             Srated = 6*Sbase,
             p0set = 3.0, # based on Sbase!
@@ -39,7 +39,7 @@ function GFC_Test_Grid(;p_new = 0.0,q_new = 0.0,y_new = 0.0)
             Kp_i = 0.738891, # 0.73
             Ki_i = 1.19,
             imax = 0.90,
-            Kvi = 1.5, #0.8272172037144201, # 0.677
+            Kvi = 0.5, #0.8272172037144201, # 0.677
             σXR = 3.0,
             K_vq = 0.01,
             p_ind = collect(1:15),
