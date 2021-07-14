@@ -1,4 +1,4 @@
-using PowerDynamics
+using PowerDynamics: variable_index
 #using OrderedCollections: OrderedDict
 using Plots
 #import PowerDynamics: PiModel
@@ -18,8 +18,22 @@ begin
     include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/sensitivity_analyses/Local_Sensitivity.jl")
     #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/sensitivity_analyses/LS_old.jl")
     pg, ic0 = GetInitializedLTVSSystem(gfc = "gfc_normal")
-    pgsol,evr  = run_LTVS_simulation(pg,ic0,(0.0,90.0))
+    pgsol,evr  = run_LTVS_simulation(pg,ic0,(0.0,150.0))
+    display(plot(pgsol,"bus4",:i_abs, legend = (0.8,0.5)))
 end
+plot(pgsol,"bus4",:i_abs)
+plot(pgsol,collect(keys(pg.nodes)),:v,legend = false)
+plot(pgsol,"bus4",:i_abs, legend = (0.8,0.5))
+plot(pgsol,"bus4",:ω, legend = (0.8,0.1), ylims = (-0.0005,0.0005))
+plot(pgsol,"bus4",:i, legend = (0.8,0.5))
+plot(pgsol,"bus4",:Qout, legend = (0.8,0.5))
+p = ExtractResult(pgsol,"bus4",:Pout)
+q = ExtractResult(pgsol,"bus4",:Qout)
+s = hypot.(p,q)
+plot(pgsol.dqsol.t,s, xlims=(0,2))
+plot(0.0,4,:int,3)
+
+variable_index(pgsol.powergrid.nodes, "bus4", 1)
 
 mtk_normal = GetMTKLTVSSystem(pg_state = "gfc_normal")
 mtk_fault = GetMTKLTVSSystem(pg_state = "gfc_fault")
@@ -47,7 +61,7 @@ a = [rhs(pg).syms sol.u[end] ic0]
 pgsol = PowerGridSolution(sol,pg)
 collect(1:15)
 
-plot!(pgsol,collect(keys(pg.nodes)),:v,legend = false, linestyle = :dot) #, linestyle = :dash
+plot!(pgsol,collect(keys(pg.nodes)),:v,legend = false) #, linestyle = :dash
 xlims!((0,90))#, linestyle = :dash
 plot(pgsol,"bus4",:i_abs, label = "original")
 xlims!((0.9,5.3))

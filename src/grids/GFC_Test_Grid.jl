@@ -7,7 +7,7 @@ Zbase = (Ubase^2) / (Sbase)
 
 zfault() = 0.5*150.0
 tfault_on() = 0.1
-tfault_off() = 0.25
+tfault_off() = 0.35
 dt_max() = 1e-2
 
 function GFC_Test_Grid(;p_new = 0.0,q_new = 0.0,y_new = 0.0)
@@ -38,11 +38,12 @@ function GFC_Test_Grid(;p_new = 0.0,q_new = 0.0,y_new = 0.0)
             Ki_u = 1.161022,
             Kp_i = 0.738891, # 0.73
             Ki_i = 1.19,
-            imax = 0.90,
+            imax = 1.100,
             Kvi = 0.5, #0.8272172037144201, # 0.677
             σXR = 3.0,
-            K_vq = 0.01,
-            p_ind = collect(1:15),
+            K_vq = 0.01*0,
+            imax_csa = 1.2,
+            p_ind = collect(1:16),
         ),
     )
 
@@ -78,6 +79,7 @@ function GFC_params()
         GFC.Kvi,
         GFC.σXR,
         GFC.K_vq,
+        GFC.imax_csa,
     ]
 end
 

@@ -38,7 +38,7 @@ plot!(pgsol,["bus3"],:i_abs, label = "Kvi = " * string(pg.nodes["bus3"].Kvi) * "
 ylims!((2.5,2.99))
 xlims!((0.99,2.5))
 plot(pgsol,collect(keys(pg.nodes))[2:end],:v)
-plot(pgsol,["bus2"],:iabs)
+plot(pgsol,["bus3"],:iabs)
 plot(pgsol,["bus3"],:p)
 plot(pgsol,["bus3"],:q)
 plot(pgsol,["bus3"],:θ)

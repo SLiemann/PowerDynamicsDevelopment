@@ -50,7 +50,7 @@ function GFC_LTVS_Test_System()
         "bus1" => SlackAlgebraic(U=1.0),
         "bus2" => VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=0., B=0.,Y_n = complex(0.0)),
         "bus3" => VoltageDependentLoad(P=-9.6, Q = -2.8, U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),
-        "bus4" => GridFormingConverterParam(
+        "bus4" => GridFormingConverterCSA(
             Sbase = Sbase,
             Srated = 6*Sbase,
             p0set = 5.7, # based on Sbase!
@@ -70,8 +70,9 @@ function GFC_LTVS_Test_System()
             imax = 1.0,
             Kvi = 0.05, #0.8272172037144201, # 0.677
             σXR = 10.0,
-            K_vq = 0.001,
-            p_ind = collect(1:15),
+            K_vq = 0.001*0,
+            imax_csa = 1.1,
+            p_ind = collect(1:16),
         ),
         "busv" => VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=0., B=0.,Y_n = complex(0.0)))
 
@@ -107,6 +108,7 @@ function GFC_LTVS_params()
         GFC.Kvi,
         GFC.σXR,
         GFC.K_vq,
+        GFC.imax_csa,
     ]
 end
 
@@ -285,14 +287,20 @@ function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Fl
         integrator.sol = DiffEqBase.solution_new_retcode(integrator.sol, :Success)
     end
 
+    function deactivate_droop(integrator)
+        integrator.p[3] = 0.0
+        integrator.u[10] = 0.0
+    end
+
     cb1 = DiscreteCallback(voltage_deadband, timer_off)
     cb2 = DiscreteCallback(voltage_outside, timer_on)
     cb3 = DiscreteCallback(timer_hit, TapState)
     cb4 = DiscreteCallback(((u,t,integrator) -> t in tfault[1]), errorState)
     cb5 = DiscreteCallback(((u,t,integrator) -> t in tfault[2]), regularState)
     cb6 = DiscreteCallback(check_voltage, stop_integration)
+    cb7 = DiscreteCallback(((u,t,integrator) -> t in 60.0), deactivate_droop)
 
-    sol = solve(problem, Rodas4(), callback = CallbackSet(cb1,cb2,cb3,cb4,cb5,cb6), tstops=[tfault[1],tfault[2]], dtmax = dt_max(),progress =true) #
+    sol = solve(problem, Rodas4(), callback = CallbackSet(cb1,cb2,cb3,cb4,cb5,cb6,cb7), tstops=[tfault[1],tfault[2],60.0], dtmax = dt_max(),progress =true) #
     #sol = AddNaNsIntoSolution(pg,pg_postfault,deepcopy(sol))
 
     return PowerGridSolution(sol, pg), event_recorder

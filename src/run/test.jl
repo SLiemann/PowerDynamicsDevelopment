@@ -3,7 +3,7 @@ using Plots
 #using DifferentialEquations
 #using ModelingToolkit
 using FFTW
-
+using ModelingToolkit
 
 
 
@@ -23,7 +23,11 @@ end
 tmp_F, tmp_freqs = DFT(signal,t)
 plot(tmp_freqs, abs.(tmp_F), title = "Spectrum", xlim=(0, +10))
 
-
+@variables x, y, z
+eqs = [y ~ atan(x),
+       z ~ sin(x) + cos(x)]
+expand_derivatives.(Differential(x).(eqs))
+expand_derivatives(Differential(x)(sin(x)+cos(x)))
 xlims!((0.75,1))
 # Number of points
 N = 2^14
