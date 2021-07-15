@@ -1,6 +1,9 @@
 import Base: @__doc__
 import PowerDynamics: AbstractLine
-
+## those are need for including custom nodes directly instead copying them into PowerDynamics.jö
+import PowerDynamics: dimension, symbolsof, construct_vertex
+import NetworkDynamics: ODEVertex
+##############
 #Lines
 #include("lines/DynamicPowerTransformer.jl")
 #include("lines/PiModelLineParam.jl")
@@ -13,7 +16,7 @@ import PowerDynamics: AbstractLine
 #include("nodes/SimpleRecoveryLoadParam.jl")
 #include("nodes/SixOrderMarconatoMachine.jl")
 #include("nodes/SixOrderMarconatoMachineAVROEL.jl")
-#include("nodes/SlackAlgebraicParam.jl")
+include("nodes/GridFormingConverterCSA.jl")
 
 #Operation Point
 include("operationpoint/InitializeInternals.jl")

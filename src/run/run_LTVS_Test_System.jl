@@ -1,4 +1,4 @@
-using PowerDynamics: variable_index
+using PowerDynamics
 #using OrderedCollections: OrderedDict
 using Plots
 #import PowerDynamics: PiModel
@@ -17,10 +17,15 @@ begin
     include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/grids/LTVS_Test_System.jl")
     include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/sensitivity_analyses/Local_Sensitivity.jl")
     #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/sensitivity_analyses/LS_old.jl")
+end
+begin
     pg, ic0 = GetInitializedLTVSSystem(gfc = "gfc_normal")
     pgsol,evr  = run_LTVS_simulation(pg,ic0,(0.0,150.0))
     display(plot(pgsol,"bus4",:i_abs, legend = (0.8,0.5)))
 end
+pg= GFC_LTVS_Test_System()
+dimension(pg.nodes["bus3"])
+
 plot(pgsol,"bus4",:i_abs)
 plot(pgsol,collect(keys(pg.nodes)),:v,legend = false)
 plot(pgsol,"bus4",:i_abs, legend = (0.8,0.5))
