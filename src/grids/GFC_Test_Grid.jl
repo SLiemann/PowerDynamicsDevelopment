@@ -38,11 +38,11 @@ function GFC_Test_Grid(;p_new = 0.0,q_new = 0.0,y_new = 0.0)
             Ki_u = 1.161022,
             Kp_i = 0.738891, # 0.73
             Ki_i = 1.19,
-            imax = 1.100,
+            imax = 1.0,
             Kvi = 0.5, #0.8272172037144201, # 0.677
             σXR = 3.0,
-            K_vq = 0.01*0,
-            imax_csa = 1.2,
+            K_vq = 0.01,
+            imax_csa = 1.20,
             p_ind = collect(1:16),
         ),
     )

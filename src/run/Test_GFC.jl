@@ -1,7 +1,7 @@
 using PowerDynamics
 using DifferentialEquations
 using Plots
-using JLD
+#using JLD
 #using ModelingToolkit
 #using CSV
 #using DataFrames
@@ -21,6 +21,7 @@ begin
     pg1 ,ic = InitializeInternalDynamics(pg,I_c,ic0)
     params = GFC_params()
     prob = ODEProblem(rhs(pg1),ic,(0.0,5.0),params)
+    pgsol,evr = simGFC(prob)
 end
 @time pgsol,evr = simGFC(prob)
 
@@ -35,13 +36,13 @@ save("C:/Users/liemann/Desktop/Sens_GFC_Test/sens_all_p0set_3_dt_1em2.jld", "sen
 plot(pgsol.dqsol.t[1:end-1],sens[1][14,:])
 
 plot!(pgsol,["bus3"],:i_abs, label = "Kvi = " * string(pg.nodes["bus3"].Kvi) * ", K_vq = " *string(pg.nodes["bus3"].K_vq))
-ylims!((2.5,2.99))
+ylims!((0.2,1.6))
 xlims!((0.99,2.5))
 plot(pgsol,collect(keys(pg.nodes))[2:end],:v)
-plot(pgsol,["bus3"],:iabs)
+plot(pgsol,["bus3"],:i_abs, label = "mit CSA, imax = "* string(pg.nodes["bus3"].imax_csa))
 plot(pgsol,["bus3"],:p)
 plot(pgsol,["bus3"],:q)
-plot(pgsol,["bus3"],:θ)
+plot!(pgsol,["bus3"],:θ)
 plot(pgsol,["bus3"],:φ)
 plot(pgsol,["bus3"],:ω)
 plot(pgsol,["bus3"],:Qm)

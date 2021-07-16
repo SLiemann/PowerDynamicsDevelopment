@@ -90,7 +90,7 @@ end [[θ,dθ],[ω,dω],[Qm,dQm],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_
     x_vi = Δi * σXR * Kvi
     r_vi = x_vi / σXR
 
-        #integrator from Dominik: Problem: state reset if u raises again, need callback
+    #integrator from Dominik: Problem: state reset if u raises again, need callback
     #dϵ_vi = IfElse.ifelse(abs(umeas) < u0_vi_low, K_i_vi * (I_abs - I_ref),0.0)
 
     Δud_vi = IfElse.ifelse(I_abs >= imax,r_vi * id - x_vi * iq,0.0)
@@ -99,6 +99,7 @@ end [[θ,dθ],[ω,dω],[Qm,dQm],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_
     #Building voltage reference
     udset = Uset - Δud_vi #real(Uset * (cos(θ) + 1im * sin(θ)))
     uqset = 0.0 - Δuq_vi #imag(Uset * (cos(θ) + 1im * sin(θ)))
+
     #Voltage control
     de_ud = udset - udmeas
     de_uq = uqset - uqmeas
@@ -108,10 +109,17 @@ end [[θ,dθ],[ω,dω],[Qm,dQm],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_
 
     #Current saturation algorithm
     iset_abs = hypot(idset,iqset)
-    iset_star = IfElse.ifelse(iset_abs >= imax_csa,imax_csa,iset_abs)
-    ϕ = atan(iqset,idset)
-    idset = iset_star*cos(ϕ)
-    iqset = iset_star*sin(ϕ)
+    iset_lim = IfElse.ifelse(iset_abs >= imax_csa,imax_csa,iset_abs)
+    #ϕ1 = atan(iqset,idset)
+    #idset = iset_lim*cos(ϕ1)
+    #iqset = iset_lim*sin(ϕ1)
+    idset = idset/iset_abs * iset_lim
+    iqset = iqset/iset_abs * iset_lim
+
+    #experimentell
+    anti_windup = IfElse.ifelse(iset_abs >= imax_csa,true,false)
+    de_ud = IfElse.ifelse(anti_windup,0.0, udset - udmeas)
+    de_uq = IfElse.ifelse(anti_windup,0.0, uqset - uqmeas)
 
     #Current control
     de_id = idset - id
