@@ -1,9 +1,3 @@
-using PowerDynamics
-using PowerDynamics: guess
-import PowerDynamics: PiModel
-using LightGraphs #incidence_matrix
-using Roots #for Iwamoto multiplier
-using LinearAlgebra
 
 #Pi models for nodal admittance matrice
 PiModel(L::PiModelLine) = PiModel(L.y,L.y_shunt_km,L.y_shunt_mk,1,1)
@@ -76,6 +70,7 @@ NodeType(L::CSIMinimal)  = 2
 NodeType(L::SimpleRecoveryLoad)  = 2
 NodeType(L::SimpleRecoveryLoadParam)  = 2
 NodeType(L::GridFormingConverter)  = 1
+NodeType(L::GridSideConverterOfDERs) = 2
 
 #note: only loads are treated with voltage depency and are called every iteration
 PowerNodeLoad(S::SlackAlgebraic,U) = 0. #treated as generation
@@ -97,6 +92,30 @@ PowerNodeLoad(L::CSIMinimal,U)  = -U*conj(L.I_r)
 PowerNodeLoad(L::SimpleRecoveryLoad,U)  = L.P0 + 1im*(L.Q0)
 PowerNodeLoad(L::SimpleRecoveryLoadParam,U)  = L.P0 + 1im*(L.Q0)
 PowerNodeLoad(L::GridFormingConverter,U)  = 0. #treated as generation
+function PowerNodeLoad(L::GridSideConverterOfDERs,U)
+    if L.mode == 1
+        return complex(0, -L.q_ref)
+    elseif L.mode == 2
+        return complex(0, -L.q_ref) # muss noch verbessert werden
+    elseif L.mode == 3
+        v = abs(U)
+        if v < L.v1_min                 #Q(v)-characteristic
+            Q = 1
+        elseif v < 1-L.delta_qv/2
+            m = -1/(1-L.delta_qv/2-L.v1_min)
+            b = 1-m*L.v1_min
+            Q = m*v+b
+        elseif v < 1+L.delta_qv/2
+            Q = 0
+        elseif v < L.v1_max
+            m = -1/(L.v1_max-1-L.delta_qv/2)
+            b = -1-m*L.v1_max
+            Q = m*v+b
+        else
+            Q = -1
+        end
+    end
+end
 
 #generation is voltage independent, otherwise it has to be called every iteration
 PowerNodeGeneration(S::SlackAlgebraic) = 0.
@@ -118,6 +137,7 @@ PowerNodeGeneration(L::CSIMinimal)  = 0. #treated as load
 PowerNodeGeneration(L::SimpleRecoveryLoad)  = 0. #treated as load
 PowerNodeGeneration(L::SimpleRecoveryLoadParam)  = 0. #treated as load
 PowerNodeGeneration(L::GridFormingConverter)  = L.p0set #treated as generation
+PowerNodeGeneration(L::GridSideConverterOfDERs) = L.p_ref
 
 function PowerFlowClassic(pg::PowerGrid; ind_sl::Int64 = 0,max_tol::Float64 = 1e-7,iter_max::Int64  = 30,iwamoto::Bool =false, Qmax = -1, Qmin = -1, Qlimit_iter_check::Int64 = 3)
     number_nodes = length(pg.nodes); #convenience
