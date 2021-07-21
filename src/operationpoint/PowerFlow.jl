@@ -174,6 +174,19 @@ function PowerFlowClassic(pg::PowerGrid; ind_sl::Int64 = 0,max_tol::Float64 = 1e
             U[i] = collect(values(pg.nodes))[i].u0set
         end
     end
+    if GridFormingConverterParam ∈ collect(values(pg.nodes)) .|> typeof
+        pv = findall(collect(values(pg.nodes).|> typeof).== GridFormingConverterParam)
+        for i in pv
+            U[i] = collect(values(pg.nodes))[i].u0set
+        end
+    end
+    if GridFormingConverterCSA ∈ collect(values(pg.nodes)) .|> typeof
+        pv = findall(collect(values(pg.nodes).|> typeof).== GridFormingConverterCSA)
+        for i in pv
+            U[i] = collect(values(pg.nodes))[i].u0set
+        end
+    end
+
     δ = CalcδStartValues(pg,Ykk,ind_sl);
 
     Ykk_abs = abs.(Ykk);

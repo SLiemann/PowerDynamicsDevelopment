@@ -1,207 +1,154 @@
 using PowerDynamics
-using OrderedCollections: OrderedDict
+#using OrderedCollections: OrderedDict
 using Plots
-import PowerDynamics: PiModel
+#import PowerDynamics: PiModel
 using DifferentialEquations
-using CSV #read PF DataFrames
-using DataFrames #for CSV
-using Distributed
-@everywhere using IfElse
+#using CSV #read PF DataFrames
+#using DataFrames #for CSV
+#using Distributed
+using JLD
 
-include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/operationpoint/PowerFlow.jl")
-include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/utility/utility_functions.jl")
-include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/operationpoint/InitializeInternals.jl")
-include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/grids/LTVS_Test_System.jl")
-
-@everywhere Ubase = 380e3
-@everywhere Sbase = 100e6
-@everywhere Zbase = (Ubase^2)/Sbase
-
-pg = LTVS_Test_System()
-#Load Flow
-Qmax   = [Inf, Inf, Inf,Inf, Inf,sqrt(1-0.9^2)]
-Qmin   = -Qmax
-U,δ1,ic = PowerFlowClassic(pg,iwamoto = true, Qmax = Qmax, Qmin = Qmin, Qlimit_iter_check = 2,max_tol = 1e-8)
-Ykk = NodalAdmittanceMatrice(pg)
-Uc = U.*exp.(1im*δ1/180*pi)
-I_c = Ykk*Uc
-S = conj(Ykk*Uc).*Uc
-pg, ic0 = InitializeInternalDynamics(pg,I_c,ic)
-
-function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Float64,Float64})
-
-    tfault = [1.0, 1.15]
-    Zfault = 1im*20.0
-    pg_fault = deepcopy(pg)
-    pg_fault.nodes["busv"] = VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=0., B=0.,Y_n = complex(1.0/(Zfault/Zbase)))
-    nodes_postfault = deepcopy(pg.nodes)
-    branches_postfault = deepcopy(pg.lines)
-    delete!(nodes_postfault,"busv")
-    delete!(branches_postfault,"Line_1-v")
-    delete!(branches_postfault,"Line_v-2")
-    pg_postfault = PowerGrid(nodes_postfault,branches_postfault)
-
-    problem = ODEProblem{true}(rhs(pg),ic1,tspan)
-    timer_start = -1.0
-    timer_now   = 0.0
-    branch_oltc = "branch4"
-    tap = pg.lines[branch_oltc].tap_pos
-    OLTC = deepcopy(pg.lines[branch_oltc])
-    postfault_state = false
-    fault_state = false
-    #index_U_oltc = getNodeVoltageSymbolPosition(pg,pg.lines[branch_oltc].to)
-    index_U_oltc = PowerDynamics.variable_index(pg.nodes,pg.lines[branch_oltc].to,:u_r)
-    index_U_load = PowerDynamics.variable_index(pg.nodes,"bus3",:u_r)
-    function TapState(integrator)
-        timer_start = integrator.t
-        sol1 = integrator.sol
-        tap += 1
-        node = StaticPowerTransformer(from=OLTC.from,to=OLTC.to,Srated=OLTC.Srated,
-                                      uk=OLTC.uk,XR_ratio=OLTC.XR_ratio,i0=OLTC.i0,
-                                      Pv0=OLTC.Pv0,Sbase=OLTC.Sbase,
-                                      tap_side = OLTC.tap_side, tap_pos = tap,tap_inc = OLTC.tap_inc)
-        if postfault_state
-            np_pg = deepcopy(pg_postfault)
-        elseif fault_state
-            np_pg = deepcopy(pg_fault)
-        else
-            np_pg = deepcopy(pg)
-        end
-        np_pg.lines[branch_oltc] = node
-        ode = rhs(np_pg)
-        op_prob = ODEProblem(ode, sol1[end], (0.0, 1e-6), nothing, initializealg = BrownFullBasicInit())
-        x2 = solve(op_prob,Rodas4())
-        x2 = x2.u[end]
-
-        integrator.f = ode
-        integrator.cache.tf.f = integrator.f
-        integrator.u = x2#sol1[end]
-    end
-
-    function voltage_deadband(u,t,integrator)
-         0.99 <= sqrt(u[index_U_oltc]*u[index_U_oltc] + u[index_U_oltc+1]*u[index_U_oltc+1]) <= 1.01
-    end
-
-    function timer_off(integrator)
-        timer_start = -1
-    end
-
-    function voltage_outside(u,t,integrator)
-         sqrt(u[index_U_oltc]*u[index_U_oltc] + u[index_U_oltc+1]*u[index_U_oltc+1]) < 0.99
-    end
-
-    function timer_on(integrator)
-        if timer_start == -1
-            timer_start = integrator.t
-        end
-    end
-
-    function timer_hit(u,t,integrator)
-        if timer_start == -1
-            return false
-        else
-            return t-timer_start > 5
-        end
-    end
-
-    function errorState(integrator)
-        sol1 = integrator.sol
-        ode = rhs(pg_fault)
-        op_prob = ODEProblem(ode, sol1[end], (0.0, 1e-6), nothing, initializealg = BrownFullBasicInit())
-        x2 = solve(op_prob,Rodas5())
-        x2 = x2.u[end]
-
-        integrator.f = ode
-        integrator.cache.tf.f = integrator.f
-        integrator.u = x2
-        fault_state = true
-    end
-
-    function regularState(integrator)
-        sol = integrator.sol
-        ode   = rhs(pg_postfault)
-        index = PowerDynamics.variable_index(pg.nodes,"busv",:u_r)
-
-        ic_tmp = deepcopy(integrator.sol.u[indexin(tfault[1],integrator.sol.t)[1]])
-        ic_tmp = getPreFaultVoltages(pg,ic_tmp,deepcopy(sol[end]))
-        deleteat!(ic_tmp,index:index+1)
-        op_prob = ODEProblem(ode, ic_tmp, (0.0, 1e-6), nothing, initializealg = BrownFullBasicInit())
-        x3 = solve(op_prob,Rodas5())
-        x3 = x3.u[end]
-
-        resize!(integrator,18)
-        integrator.f = rhs(pg_postfault)
-        integrator.cache.tf.f = integrator.f
-        integrator.u = x3#sol2[end]
-
-        postfault_state = true
-        fault_state = false
-        index_U_oltc = PowerDynamics.variable_index(pg_postfault.nodes,pg_postfault.lines[branch_oltc].to,:u_r)
-        index_U_load = PowerDynamics.variable_index(pg_postfault.nodes,"bus3",:u_r)
-    end
-
-    function check_voltage(u,t,integrator)
-            sqrt(u[index_U_load]*u[index_U_load] + u[index_U_load+1]*u[index_U_load+1]) < 0.4
-    end
-
-    function stop_integration(integrator)
-        println("Terminated at $(integrator.t)")
-        terminate!(integrator)
-        #necessary, otherwise PowerGridSolution throws error
-        integrator.sol = DiffEqBase.solution_new_retcode(integrator.sol, :Success)
-    end
-
-    cb1 = DiscreteCallback(voltage_deadband, timer_off)
-    cb2 = DiscreteCallback(voltage_outside, timer_on)
-    cb3 = DiscreteCallback(timer_hit, TapState)
-    cb4 = DiscreteCallback(((u,t,integrator) -> t in tfault[1]), errorState)
-    cb5 = DiscreteCallback(((u,t,integrator) -> t in tfault[2]), regularState)
-    cb6 = DiscreteCallback(check_voltage, stop_integration)
-
-    sol = solve(problem, Rodas4(), callback = CallbackSet(cb1,cb2,cb3,cb4,cb5,cb6), tstops=[tfault[1],tfault[2]], dtmax = 1e-3) #
-    sol = AddZerosIntoSolution(pg,pg_postfault,deepcopy(sol))
-
-    return PowerGridSolution(sol, pg)
-end
-
-pgsol = run_LTVS_simulation(pg,ic0,(0.0,120.0));
-plot(pgsol,collect(keys(pg.nodes))[1:end-1],:v,legend = (0.3, 0.3))
-
-nodes_postfault = deepcopy(pg.nodes)
-branches_postfault = deepcopy(pg.lines)
-delete!(nodes_postfault,"busv")
-delete!(branches_postfault,"Line_1-v")
-delete!(branches_postfault,"Line_v-2")
-pg_postfault = PowerGrid(nodes_postfault,branches_postfault)
+Ubase = 380e3
+Sbase = 100e6
+Zbase = (Ubase^2)/Sbase
 
 begin
-    ic2 = deepcopy(ic0)
-    deleteat!(ic2,3:4)
-    f_test = rhs(pg_postfault)
-    ode_test = ODEProblem(f_test,ic2,(0.0,10.0))
-    testsol = solve(ode_test,Rodas4(),dtmax = 1e-3)
-    pgtestsol = PowerGridSolution(testsol, pg_postfault)
-    plot(pgtestsol,collect(keys(pg_postfault.nodes)), :v,size = (1000, 500),legend = (0.6, 0.75))
+    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/include_costum_nodes_lines_utilities.jl")
+    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/grids/LTVS_Test_System.jl")
+    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/sensitivity_analyses/Local_Sensitivity.jl")
+    #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/sensitivity_analyses/LS_old.jl")
+end
+begin
+    pg, ic0 = GetInitializedLTVSSystem(gfc = "gfc_normal")
+    pgsol,evr  = run_LTVS_simulation(pg,ic0,(0.0,150.0))
+    display(plot(pgsol,"bus4",:i_abs, legend = (0.8,0.5)))
+end
+pg= GFC_LTVS_Test_System()
+dimension(pg.nodes["bus3"])
+
+plot(pgsol,"bus4",:i_abs)
+plot(pgsol,collect(keys(pg.nodes)),:v,legend = false)
+plot(pgsol,"bus4",:i_abs, legend = (0.8,0.5))
+plot(pgsol,"bus4",:ω, legend = (0.8,0.1), ylims = (-0.0005,0.0005))
+plot(pgsol,"bus4",:i, legend = (0.8,0.5))
+plot(pgsol,"bus4",:Qout, legend = (0.8,0.5))
+p = ExtractResult(pgsol,"bus4",:Pout)
+q = ExtractResult(pgsol,"bus4",:Qout)
+s = hypot.(p,q)
+plot(pgsol.dqsol.t,s, xlims=(0,2))
+plot(0.0,4,:int,3)
+
+variable_index(pgsol.powergrid.nodes, "bus4", 1)
+
+mtk_normal = GetMTKLTVSSystem(pg_state = "gfc_normal")
+mtk_fault = GetMTKLTVSSystem(pg_state = "gfc_fault")
+mtk_postfault = GetMTKLTVSSystem(pg_state = "gfc_postfault")
+mtk = [mtk_normal; mtk_fault; mtk_postfault]
+
+s = GetTriggCondsLTVS(mtk_normal)
+h = GetStateResFunLTVS(mtk_normal)
+p_pre = GFC_LTVS_params()
+sensis_p = collect(1:15)
+@time toll = CalcHybridTrajectorySensitivity(mtk,pgsol.dqsol,p_pre,evr,s,h,[],[15])
+
+save("C:/Users/liemann/Desktop/Sens_LTVS/sens_kq_1em3_dt_1em2.jld", "sens", toll,"ic0",ic0,"p_pre",p_pre,"evr",evr,"sensis_p",sensis_p)
+
+
+toll = load("C:/Users/liemann/Desktop/Sens_LTVS/sens_kq_1em3_t_90_dt_1em2.jld")
+toll = toll["sens"]
+plot(1:length(toll[1][16,1:end]),toll[1][16,1:end])
+plot!(pgsol.dqsol.t[1:end-1],toll[1][16,1:end])
+xlims!((1,900))
+xlims!((1,20))
+ylims!((0.8,1.005))
+plot!(pgsol,"bus4",:v, label = "Imax = 1.0") #, linestyle = :dash)
+a = [rhs(pg).syms sol.u[end] ic0]
+pgsol = PowerGridSolution(sol,pg)
+collect(1:15)
+
+plot!(pgsol,collect(keys(pg.nodes)),:v,legend = false) #, linestyle = :dash
+xlims!((0,90))#, linestyle = :dash
+plot(pgsol,"bus4",:i_abs, label = "original")
+xlims!((0.9,5.3))
+ylims!((0.99,1.01))
+plot(pgsol,"bus4",:Pout)
+plot!(pgsol,"bus4",:Qout)
+plot(pgsol,"bus4",:v)
+
+labels_p = [
+    "Kp_droop", #1
+    "Kq_droop", #2
+    "ωf_P", #3
+    "ωf_Q", #4
+    "xlf", #5
+    "rf", #6
+    "xcf", #7
+    "Kp_u", #8
+    "Ki_u", #9
+    "Kp_i", #10
+    "Ki_i", #11
+    "imax", #12
+    "Kvi", #13
+    "σXR", #14
+    "K_vq", #15
+    ]
+syms = rhs(pg).syms
+look_on = 16
+plot(pgsol.dqsol.t[1:end-1],toll[1][look_on,1:end], title = "Sensis of $(String(syms[look_on]))",
+    label = labels_p[1],
+    legend = :outertopright,
+    size = (1000,750))
+    #xlims!((1.9,2.3))
+for i in sensis_p[2:end]
+    display(plot!(pgsol.dqsol.t[1:end-1],toll[i][look_on,1:end], label = labels_p[i]))
+    #sleep(3.0)
+end
+xlims!((0,10))
+ylims!((-1 ,2))
+toll = toll_new
+begin
+    indi = 14 #15 ist am interessantesten!!!!
+    display(plot(pgsol.dqsol.t[1:end-1],toll[indi][look_on,1:end], label = labels_p[indi], title = "Sensis of $(String(syms[look_on]))"))
+    #xlims!((0.0,5.0))
 end
 
-begin
-    plot(pgsol,collect(keys(pg_postfault.nodes)),:v,legend = false)
-    test = DataFrame(CSV.File("C:\\Users\\liemann\\Desktop\\u_pf.csv"; header=false, delim=';', type=Float64))
-    plot!(test.Column1,test.Column2,label = "PF-bus1")
-    plot!(test.Column1,test.Column3,label = "PF-bus2")
-    plot!(test.Column1,test.Column4,label = "PF-bus3")
-    plot!(test.Column1,test.Column5,label = "PF-gen")
+#Calculation of approximated solution
+sol_sensi_per = deepcopy(pgsol.dqsol)
+for (ind,val) in enumerate(collect(eachcol(toll[1])))# - 39019
+    sol_sensi_per.u[ind] .+= val*(0.004)
+    #display(val)
 end
-begin
-    plot(pgsol,["bus4"], :ifd,size = (1000, 500),legend = false)
-    test = DataFrame(CSV.File("C:\\Users\\liemann\\Desktop\\u_ifd.csv"; header=false, delim=';', type=Float64))
-    plot!(test.Column1,test.Column2,label = "PF-ifd")
+pgsol_tmp = PowerGridSolution(sol_sensi_per,pg)
+plot!(pgsol_tmp,"bus4",:i_abs, label = "approximated", legend = (0.2,0.5))
+plot!(pgsol,"bus4",:i_abs, label = "real perturbed")
+plot!(pgsol_tmp,collect(keys(pg.nodes)),:v,legend = false, linestyle = :dash) #
+
+
+# Plotting influence on voltage
+sol_sensi_per = deepcopy(pgsol.dqsol)
+for (ind,val) in enumerate(collect(eachcol(toll[1])))# - 39019
+    sol_sensi_per.u[ind] .+= val*(0.009)
+    #display(val)
+end
+pgsol_tmp = PowerGridSolution(sol_sensi_per,pg)
+plot(pgsol_tmp,"bus2",:v, label = labels_p[1], title = "Influence on V2 Betrag", legend = :outertopright, size = (1000,1000))
+plot!(pgsol_tmp,collect(keys(pg.nodes)),:v,legend = false, linestyle = :dash)
+
+for i in 3:length(toll)
+    sol_sensi_per = deepcopy(pgsol.dqsol)
+    for (ind,val) in enumerate(collect(eachcol(toll[i])))# - 39019
+        sol_sensi_per.u[ind] .+= val*(0.01)
+        #display(val)
+    end
+    pgsol_tmp = PowerGridSolution(sol_sensi_per,pg)
+    display(plot!(pgsol_tmp,"bus2",:v, label = labels_p[i]))
 end
 
-begin
-    plot(pgsol,["bus4"], :timer,size = (1000, 500),legend = false)
-    test = DataFrame(CSV.File("C:\\Users\\liemann\\Desktop\\u_timer.csv"; header=false, delim=';', type=Float64))
-    plot!(test.Column1,test.Column2,label = "PF-ifd")
+xlims!((10,90))
+ylims!((0.86 ,0.94))
+ylims!((0.79 ,0.82))
+
+display(plot(pgsol.dqsol.t[1:end-1],toll[1][1,1:end]))
+for i in 2:18
+    display(plot!(pgsol.dqsol.t[1:end-1],toll[1][i,1:end])) #, label = String(rhs(pg).syms[i])
 end
-xlims!((0.0,10.0))
-ylims!((-18.2,-17))

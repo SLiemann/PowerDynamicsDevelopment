@@ -1,27 +1,52 @@
 using Plots
-using DifferentialEquations
+#using PowerDynamics
+#using DifferentialEquations
+#using ModelingToolkit
+using FFTW
+using ModelingToolkit
 
-function test1(du,u,p,t)
-    du[1] = p[1]*(u[2]-u[1])
-    du[2] = u[1]*(p[2]-u[3]) - u[2]
-    du[3] = u[1]*u[2] -1im*p[3]*u[3]
+
+
+f(x;freq=1) = sin(x*2*pi*freq)
+abtast = 1e-3
+t =collect(0:abtast:5)
+signal = f.(t).+f.(t,freq=5) .+0.5*f.(t,freq=3)
+
+function DFT(signal,t)
+    N = length(t)
+    Ts = t[end]/N  #it is assumed that measured point are equally distributed
+    # Fourier Transform of it
+    F = fft(signal) |> fftshift
+    freqs = fftfreq(N, 1.0/Ts) |> fftshift
+    return F, freqs
 end
+tmp_F, tmp_freqs = DFT(signal,t)
+plot(tmp_freqs, abs.(tmp_F), title = "Spectrum", xlim=(0, +10))
 
+@variables x, y, z
+eqs = [y ~ atan(x),
+       z ~ sin(x) + cos(x)]
+expand_derivatives.(Differential(x).(eqs))
+expand_derivatives(Differential(x)(sin(x)+cos(x)))
+xlims!((0.75,1))
+# Number of points
+N = 2^14
+# Sample period
+Ts = 1 / (1.1 * N)
+# Start time
+t0 = 0
+tmax = t0 + N * Ts
+# time coordinate
+t = t0:Ts:tmax
 
-u0 = [1.0;0.0;0.0]
-tspan = (0.0,30.0)
-p = [10.0, 28.0,8/3*1im]
-prob = ODEProblem(test1,u0,tspan,p)
-mtk  = modelingtoolkitize(prob)
+# signal
+signal = sin.(2π * 60 .* t) # sin (2π f t)
 
-sol = solve(prob,dtmax=1e-4, callback = CallbackSet(cb1,cb2,cb3),tstops=[5.0,10.0,15.0])
-plot(sol)
+# Fourier Transform of it
+F = fft(signal) |> fftshift
+freqs = fftfreq(length(t), 1.0/Ts) |> fftshift
 
-@parameters z
-
-function test(a::Union{Complex{Float64},Complex{Num}},b,c::Union{Complex{Float64},Complex{Num}})
-    return a+b+c
-end
-r = test(z*im,2.0,2.0*im);
-
-typeof(1.0+z)
+# plots
+time_domain = plot(t, signal, title = "Signal")
+freq_domain = plot(freqs, abs.(F), title = "Spectrum", xlim=(-100, +100))
+plot(time_domain, freq_domain, layout = 2)

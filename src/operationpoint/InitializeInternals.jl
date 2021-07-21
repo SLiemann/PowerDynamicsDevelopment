@@ -159,23 +159,23 @@ function InitNode(load::Union{SimpleRecoveryLoad,SimpleRecoveryLoadParam},ind::I
    return [v_d_temp,v_q_temp,xd, xq], load
 end
 
-function InitNode(GFC::GridFormingConverter,ind::Int64,I_c::Array{Complex{Float64},2},ic_lf::Array{Float64,1},ind_offset::Int64)
+function InitNode(GFC::Union{GridFormingConverter,GridFormingConverterParam,GridFormingConverterCSA},ind::Int64,I_c::Array{Complex{Float64},2},ic_lf::Array{Float64,1},ind_offset::Int64)
    v_d_temp = ic_lf[ind_offset]
    v_q_temp = ic_lf[ind_offset+1]
    U0 = v_d_temp+1im*v_q_temp
 
-   i1 = I_c[ind] + U0/(-1im*GFC.xcf) / (GFC.Srated/GFC.Sbase)
+   i1 = I_c[ind] / (GFC.Srated/GFC.Sbase) + U0/(-1im*GFC.xcf)  / (GFC.Srated/GFC.Sbase)
    E = U0 + (GFC.rf + 1im*GFC.xlf) * i1
    θ = angle(U0)
    ω = 0.0
 
-   s = U0 * conj(I_c[ind])
+   s = U0 * conj(I_c[ind]) #/ (GFC.Srated/GFC.Sbase)
    p = real(s)
    q = imag(s)
    Q = q
    q0set = q
 
-   idqmeas = 1im*I_c[ind]*(cos(-θ)+1im*sin(-θ))
+   idqmeas = 1im*I_c[ind]*(cos(-θ)+1im*sin(-θ)) / (GFC.Srated/GFC.Sbase)
    idmeas = real(idqmeas)
    iqmeas = imag(idqmeas)
 
@@ -197,26 +197,80 @@ function InitNode(GFC::GridFormingConverter,ind::Int64,I_c::Array{Complex{Float6
    e_ud = (id - idmeas + uqmeas / GFC.xcf) / GFC.Ki_u #hier müsste es ohne idmeas und iqmeas sein
    e_uq = (iq - iqmeas - udmeas / GFC.xcf) / GFC.Ki_u #passt das überhaupt mit dem Srated/Sbase???
 
-   GFC_new = GridFormingConverter(
-      Sbase = GFC.Sbase,
-      Srated = GFC.Srated,
-      p0set = GFC.p0set,
-      q0set = q0set,
-      u0set = GFC.u0set,
-      Kp_droop = GFC.Kp_droop,
-      Kq_droop = GFC.Kq_droop,
-      ωf = GFC.ωf,
-      xlf = GFC.xlf,
-      rf = GFC.rf,
-      xcf = GFC.xcf,
-      Kp_u = GFC.Kp_u,
-      Ki_u = GFC.Ki_u,
-      Kp_i = GFC.Kp_i,
-      Ki_i = GFC.Ki_i,
-      imax = GFC.imax,
-      Kvi = GFC.Kvi,
-      σXR = GFC.σXR
-   )
-
-   return [v_d_temp, v_q_temp,θ,ω,Q,e_ud,e_uq,e_id,e_iq,abs(E),θ/pi*180.0], GFC_new
+   if typeof(GFC) == GridFormingConverterParam
+      GFC_new = GridFormingConverterParam(
+         Sbase = GFC.Sbase,
+         Srated = GFC.Srated,
+         p0set = GFC.p0set,
+         q0set = q0set, #new
+         u0set = GFC.u0set,
+         Kp_droop = GFC.Kp_droop,
+         Kq_droop = GFC.Kq_droop,
+         ωf_P = GFC.ωf_P,
+         ωf_Q = GFC.ωf_Q,
+         xlf = GFC.xlf,
+         rf = GFC.rf,
+         xcf = GFC.xcf,
+         Kp_u = GFC.Kp_u,
+         Ki_u = GFC.Ki_u,
+         Kp_i = GFC.Kp_i,
+         Ki_i = GFC.Ki_i,
+         imax = GFC.imax,
+         Kvi = GFC.Kvi,
+         σXR = GFC.σXR,
+         K_vq = GFC.K_vq,
+         p_ind = GFC.p_ind
+      )
+      #,abs(E0),abs(U0/(-1im*GFC.xcf))/(GFC.Srated*GFC.Sbase),p,q
+      return [v_d_temp, v_q_temp,θ,ω,Q,e_ud,e_uq,e_id,e_iq,abs(idq)], GFC_new
+   elseif typeof(GFC) == GridFormingConverterCSA
+      GFC_new = GridFormingConverterCSA(
+         Sbase = GFC.Sbase,
+         Srated = GFC.Srated,
+         p0set = GFC.p0set,
+         q0set = q0set, #new
+         u0set = GFC.u0set,
+         Kp_droop = GFC.Kp_droop,
+         Kq_droop = GFC.Kq_droop,
+         ωf_P = GFC.ωf_P,
+         ωf_Q = GFC.ωf_Q,
+         xlf = GFC.xlf,
+         rf = GFC.rf,
+         xcf = GFC.xcf,
+         Kp_u = GFC.Kp_u,
+         Ki_u = GFC.Ki_u,
+         Kp_i = GFC.Kp_i,
+         Ki_i = GFC.Ki_i,
+         imax = GFC.imax,
+         Kvi = GFC.Kvi,
+         σXR = GFC.σXR,
+         K_vq = GFC.K_vq,
+         imax_csa = GFC.imax_csa,
+         p_ind = GFC.p_ind
+      )
+      #,abs(E0),abs(U0/(-1im*GFC.xcf))/(GFC.Srated*GFC.Sbase),p,q
+      return [v_d_temp, v_q_temp,θ,ω,Q,e_ud,e_uq,e_id,e_iq,abs(idq),p,q], GFC_new
+   else
+      GFC_new = GridFormingConverter(
+         Sbase = GFC.Sbase,
+         Srated = GFC.Srated,
+         p0set = GFC.p0set,
+         q0set = q0set, #new
+         u0set = GFC.u0set,
+         Kp_droop = GFC.Kp_droop,
+         Kq_droop = GFC.Kq_droop,
+         ωf = GFC.ωf,
+         xlf = GFC.xlf,
+         rf = GFC.rf,
+         xcf = GFC.xcf,
+         Kp_u = GFC.Kp_u,
+         Ki_u = GFC.Ki_u,
+         Kp_i = GFC.Kp_i,
+         Ki_i = GFC.Ki_i,
+         imax = GFC.imax,
+         Kvi = GFC.Kvi,
+         σXR = GFC.σXR,
+      )
+      return [v_d_temp, v_q_temp,θ,ω,Q,e_ud,e_uq,e_id,e_iq,abs(E),θ/pi*180.0], GFC_new
+   end
 end
