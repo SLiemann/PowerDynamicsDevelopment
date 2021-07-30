@@ -8,6 +8,7 @@ PiModel(R::RLLine)      = PiModel(1/(R.R+1im*R.ω0*R.L),0,0,1,1)
 PiModel(T::DynamicPowerTransformer) = PiModelTransformer(T)
 PiModel(T::StaticPowerTransformer) = PiModelTransformer(T)
 PiModel(T::StaticPowerTransformerTapParam) = PiModelTransformer(T)
+
 function PiModelTransformer(T)
     üLV = 1.0
     üHV = 1.0
@@ -70,7 +71,7 @@ NodeType(L::CSIMinimal)  = 2
 NodeType(L::SimpleRecoveryLoad)  = 2
 NodeType(L::SimpleRecoveryLoadParam)  = 2
 NodeType(L::GridFormingConverter)  = 1
-NodeType(L::GridSideConverterOfDERs) = 2
+NodeType(L::GridSideConverter) = 2
 
 #note: only loads are treated with voltage depency and are called every iteration
 PowerNodeLoad(S::SlackAlgebraic,U) = 0. #treated as generation
@@ -92,7 +93,7 @@ PowerNodeLoad(L::CSIMinimal,U)  = -U*conj(L.I_r)
 PowerNodeLoad(L::SimpleRecoveryLoad,U)  = L.P0 + 1im*(L.Q0)
 PowerNodeLoad(L::SimpleRecoveryLoadParam,U)  = L.P0 + 1im*(L.Q0)
 PowerNodeLoad(L::GridFormingConverter,U)  = 0. #treated as generation
-function PowerNodeLoad(L::GridSideConverterOfDERs,U)
+function PowerNodeLoad(L::GridSideConverter,U)
     if L.mode == 1
         return complex(0, -L.q_ref)
     elseif L.mode == 2
@@ -114,6 +115,7 @@ function PowerNodeLoad(L::GridSideConverterOfDERs,U)
         else
             Q = -1
         end
+        return complex(0, Q*L.q_max)
     end
 end
 
@@ -137,7 +139,7 @@ PowerNodeGeneration(L::CSIMinimal)  = 0. #treated as load
 PowerNodeGeneration(L::SimpleRecoveryLoad)  = 0. #treated as load
 PowerNodeGeneration(L::SimpleRecoveryLoadParam)  = 0. #treated as load
 PowerNodeGeneration(L::GridFormingConverter)  = L.p0set #treated as generation
-PowerNodeGeneration(L::GridSideConverterOfDERs) = L.p_ref
+PowerNodeGeneration(L::GridSideConverter) = L.p_ref
 
 function PowerFlowClassic(pg::PowerGrid; ind_sl::Int64 = 0,max_tol::Float64 = 1e-7,iter_max::Int64  = 30,iwamoto::Bool =false, Qmax = -1, Qmin = -1, Qlimit_iter_check::Int64 = 3)
     number_nodes = length(pg.nodes); #convenience
@@ -206,13 +208,20 @@ function PowerFlowClassic(pg::PowerGrid; ind_sl::Int64 = 0,max_tol::Float64 = 1e
             Pn[i] = sum(U[i].*U.*Ykk_abs[:,i].*cos.(δ[i].-δ.-θ[:,i]))
             Qn[i] = sum(U[i].*U.*Ykk_abs[:,i].*sin.(δ[i].-δ.-θ[:,i]))
         end
+        print("Pn[", iter, "]:  ", Pn[1:3], "\n")
+        print("Qn[", iter, "]:  ", Qn[1:3], "\n")
         #update load powers
         for (ind,val) in enumerate(values(pg.nodes)) S_node_load[ind] = PowerNodeLoad(val,U[ind]*exp(1im*δ[ind])) end
 
         S_node = S_node_gen + S_node_load #total power at a node
+        print("S_node_gen[", iter, "]:", S_node_gen[1:3], "\n")
+        print("S_node_load[", iter, "]:", S_node_load[1:3], "\n")
 
         ΔP = real(S_node) - Pn
         ΔQ = imag(S_node) - Qn
+
+        print("ΔP(with slack): ", ΔP[1:3], "\n")
+        print("ΔQ(with slack): ", ΔQ[1:3], "\n")
 
         ΔP = ΔP[1:end .!= ind_sl, :]; #delete slack
         ΔQ = ΔQ[setdiff(1:end, [ind_sl; ind_PV]), :]; #delete slack and PV nodes
@@ -244,13 +253,21 @@ function PowerFlowClassic(pg::PowerGrid; ind_sl::Int64 = 0,max_tol::Float64 = 1e
             res *= iwa
         end
 
+
+
         #split result in angle and magnitude
         Δδ  = res[1:length(ΔP)]
         ΔU  = res[length(ΔP)+1:end]
 
+        #print("δ[", iter, "]: ", δ, "\n")
+        #print("U[", iter, "]: ", U, "\n")
+        print("δ[", iter, "]: ", δ[1:3], "\n")
+        print("U[", iter, "]: ", U[1:3], "\n")
+
         #Update angle and voltage magnitude, where the latter is the square
         δ[1:end .!= ind_sl, :] += Δδ
         U[setdiff(1:end, [ind_sl; ind_PV]), :] = U[setdiff(1:end, [ind_sl; ind_PV]), :] + ΔU.*U[setdiff(1:end, [ind_sl; ind_PV]), :]
+
 
         #Check if reactive power limit is reached; change PV to PQ node
         if Qmax != -1 && Qmin != -1 #Qmax and Qmin are normally vectors with the limits
