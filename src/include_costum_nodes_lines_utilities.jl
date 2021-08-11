@@ -17,7 +17,7 @@ import NetworkDynamics: ODEVertex
 #include("nodes/SixOrderMarconatoMachine.jl")
 #include("nodes/SixOrderMarconatoMachineAVROEL.jl")
 include("nodes/GridFormingConverterCSA.jl")
-
+#include("nodes/GridFormingConverterParam.jl")
 #Operation Point
 include("operationpoint/InitializeInternals.jl")
 include("operationpoint/PowerFlow.jl")

@@ -5,10 +5,10 @@ Ubase = 380e3
 Sbase = 100e6
 Zbase = (Ubase^2) / (Sbase)
 
-zfault() = 0.5*150.0
+yfault() = 0.25*150.0
 tfault_on() = 0.1
 tfault_off() = 0.35
-dt_max() = 1e-2
+dt_max() = 1e-3
 
 function GFC_Test_Grid(;p_new = 0.0,q_new = 0.0,y_new = 0.0)
     buses = OrderedDict(
@@ -42,7 +42,7 @@ function GFC_Test_Grid(;p_new = 0.0,q_new = 0.0,y_new = 0.0)
             Kvi = 0.5, #0.8272172037144201, # 0.677
             σXR = 3.0,
             K_vq = 0.01,
-            imax_csa = 1.20,
+            imax_csa = 100.0,
             p_ind = collect(1:16),
         ),
     )
@@ -85,7 +85,7 @@ end
 
 function simGFC(prob)
     #pg_new = GFC_Test_Grid(p_new = -1.3)
-    pg_new = GFC_Test_Grid(y_new = zfault())
+    pg_new = GFC_Test_Grid(y_new = yfault())
     params = GFC_params()
     tstep = [tfault_on(),tfault_off()]
     event_recorder = Array{Float64,2}(undef,0,4+length(params))
@@ -102,7 +102,8 @@ function simGFC(prob)
     function postfault_state(integrator)
         sol = integrator.sol
         ic_tmp = deepcopy(integrator.sol.u[indexin(tstep[1],integrator.sol.t)[1]])
-        ic_tmp = getPreFaultVoltages(pg_new,ic_tmp,deepcopy(sol[end]))
+        #ic_tmp = getPreFaultVoltages(pg_new,ic_tmp,deepcopy(sol[end]))
+        ic_tmp = getPreFaultAlgebraicStates(pg_new,ic_tmp,deepcopy(sol[end]))
         op_prob = ODEProblem(prob.f, ic_tmp, (0.0, 1e-6),params, initializealg = BrownFullBasicInit())
         ic_new = solve(op_prob,Rodas5())
         integrator.f = prob.f

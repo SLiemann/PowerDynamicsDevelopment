@@ -30,15 +30,17 @@ mtk_fault = GetMTKSystem(GFC_Test_Grid(y_new = zfault()),(0.0,1.0),params)
 mtk = [mtk_normal,mtk_fault]
 s = GetTriggCondsGFCTest(mtk_normal)
 h = GetStateResFunGFCTest(mtk_normal)
-@time sens = CalcHybridTrajectorySensitivity(mtk,pgsol.dqsol,params,evr,s,h,[],collect(1:15))
+@time sens = CalcHybridTrajectorySensitivity(mtk,pgsol.dqsol,params,evr,s,h,[],collect(1:15))#collect(1:15)
 save("C:/Users/liemann/Desktop/Sens_GFC_Test/sens_all_p0set_3_dt_1em2.jld", "sens", sens,"ic0",ic0,"p_pre",params,"evr",evr,"sensis_p",collect(1:15))
 
 plot(pgsol.dqsol.t[1:end-1],sens[1][14,:])
 
-plot!(pgsol,["bus3"],:i_abs, label = "Kvi = " * string(pg.nodes["bus3"].Kvi) * ", K_vq = " *string(pg.nodes["bus3"].K_vq))
+plot(pgsol,["bus3"],:i_abs, label = "Kvi = " * string(pg.nodes["bus3"].Kvi) * ", K_vq = " *string(pg.nodes["bus3"].K_vq))
+plot(pgsol,["bus3"],:i_abs, label = "Strom VSC")
+plot!(pgsol,["bus3"],:i_setabs1, label = "Regelungsstrom VSC")
 ylims!((0.2,1.6))
 xlims!((0.99,2.5))
-plot(pgsol,collect(keys(pg.nodes))[2:end],:v)
+plot!(pgsol,collect(keys(pg.nodes))[3],:v, label = "imax_csa = " * string(pg.nodes["bus3"].imax_csa))
 plot(pgsol,["bus3"],:i_abs, label = "mit CSA, imax = "* string(pg.nodes["bus3"].imax_csa))
 plot(pgsol,["bus3"],:p)
 plot(pgsol,["bus3"],:q)
@@ -58,8 +60,8 @@ plot(freq,abs.(f), xlim=(-10, 10))
 #sol_original = deepcopy(pgsol.dqsol)
 #pgsol_or = deepcopy(pgsol)
 sol_appr = deepcopy(sol_original)
-for (ind,val) in enumerate(collect(eachcol(sens[1])))
-    sol_appr.u[ind] .+= val*-(0.003)
+for (ind,val) in enumerate(collect(eachcol(sens[15])))
+    sol_appr.u[ind] .+= val*(0.01)
 end
 pgsol_tmp = PowerGridSolution(sol_appr,pg)
 plot!(pgsol_tmp,"bus3",:i_abs, label = "approximated")
@@ -87,17 +89,32 @@ labels_p = [
     "K_vq", #15
     ]
 syms = rhs(pg).syms
-look_on = 1
-plot(pgsol.dqsol.t[1:end-1],sens[1][look_on,1:end], title = "Sensis of $(String(syms[look_on]))",
-    label = labels_p[1],
+look_on = 14
+plot!(pgsol.dqsol.t[1:end-1],sens[15][look_on,1:end], title = "Sensis of $(String(syms[look_on]))",
+    label = labels_p[15],
     legend = :outertopright,
     size = (1000,750))
-    #xlims!((1.9,2.3))
-for i in collect(3:15)
+for i in collect(3:14)
     display(plot!(pgsol.dqsol.t[1:end-1],sens[i][look_on,1:end], label = labels_p[i]))
     #sleep(3.0)
 end
 
+
+
+#Calculating "per unit" sensis
+sens_pu = deepcopy(sens)
+for i in collect(1:length(sens))
+    sens_pu[i] = sens_pu[i]*params[i]
+end
+look_on = 14
+plot(pgsol.dqsol.t[1:end-1],sens_pu[2][look_on,1:end], title = "Sensis of $(String(syms[look_on]))",
+    label = labels_p[2],
+    legend = :outertopright,
+    size = (1000,750))
+for i in collect(2:15)
+    display(plot!(pgsol.dqsol.t[1:end-1],sens_pu[i][look_on,1:end], label = labels_p[i]))
+    #sleep(3.0)
+end
 
 #Calculating
 Imax = 1.0

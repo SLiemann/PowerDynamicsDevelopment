@@ -1,9 +1,17 @@
 using ModelingToolkit
+using DifferentialEquations
 using PowerDynamics
 using FFTW
 
 function getPreFaultVoltages(pg::PowerGrid,ic_prefault::Array{Float64,1},ic_endfault::Array{Float64,1})
     ind = getVoltageSymbolPositions(pg)
+    ic_endfault[ind] = ic_prefault[ind]
+    return ic_endfault
+end
+
+function getPreFaultAlgebraicStates(pg::PowerGrid,ic_prefault::Array{Float64,1},ic_endfault::Array{Float64,1})
+    prob = ODEFunction(rhs(pg))
+    ind = findall(x-> iszero(x),diag(problem.mass_matrix))
     ic_endfault[ind] = ic_prefault[ind]
     return ic_endfault
 end
