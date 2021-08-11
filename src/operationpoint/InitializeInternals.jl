@@ -23,7 +23,7 @@ function InitNode(SM::FourthOrderEq,ind::Int64,I_c::Array{Complex{Float64},2},ic
    v_d_temp = ic_lf[ind_offset]
    v_q_temp = ic_lf[ind_offset+1]
    #Rotor angle
-   δ = angle(v_d_temp+1im*v_q_temp+(+1im*SM.X_q)*I_c[ind]
+   δ = angle(v_d_temp+1im*v_q_temp+(+1im*SM.X_q)*I_c[ind])
 
    v   = v_d_temp +1im*v_q_temp
    v   = 1im*v*exp(-1im*δ)
