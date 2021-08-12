@@ -22,27 +22,35 @@ begin
     params = GFC_params()
     prob = ODEProblem(rhs(pg1),ic,(0.0,5.0),params)
     pgsol,evr = simGFC(prob)
+    #display(plot(pgsol,["bus3"],:i_setabs1, label = "imax_csa = " * string(pg.nodes["bus3"].imax_csa), title = "Regelungsstrom (VS)"))
+    #display(plot!(collect(0:1:5),ones(6)*pg.nodes["bus3"].imax_csa,linestyle = :dot, label = "", color = "black"))
 end
 @time pgsol,evr = simGFC(prob)
 
+display(plot(pgsol,["bus3"],:v, title = "Iabs (ohne CSA)"))
+plot(pgsol,collect(keys(pg.nodes))[2:3],:v, title = "Spannung (ohne CSA)")
+
 mtk_normal = GetMTKSystem(pg,(0.0,1.0),params)
-mtk_fault = GetMTKSystem(GFC_Test_Grid(y_new = zfault()),(0.0,1.0),params)
+mtk_fault = GetMTKSystem(GFC_Test_Grid(y_new = yfault()),(0.0,1.0),params)
 mtk = [mtk_normal,mtk_fault]
 s = GetTriggCondsGFCTest(mtk_normal)
 h = GetStateResFunGFCTest(mtk_normal)
-@time sens = CalcHybridTrajectorySensitivity(mtk,pgsol.dqsol,params,evr,s,h,[],collect(1:15))#collect(1:15)
+@time sens = CalcHybridTrajectorySensitivity(mtk,pgsol.dqsol,params,evr,s,h,[],collect(1:15))    #collect(1:15)
 save("C:/Users/liemann/Desktop/Sens_GFC_Test/sens_all_p0set_3_dt_1em2.jld", "sens", sens,"ic0",ic0,"p_pre",params,"evr",evr,"sensis_p",collect(1:15))
 
-plot(pgsol.dqsol.t[1:end-1],sens[1][14,:])
+plot(pgsol.dqsol.t[1:end-1],sens[1][12,:]) #, ylims = (-0.25,1.0)
+rhs(pg).syms[10]
+
 
 plot(pgsol,["bus3"],:i_abs, label = "Kvi = " * string(pg.nodes["bus3"].Kvi) * ", K_vq = " *string(pg.nodes["bus3"].K_vq))
 plot(pgsol,["bus3"],:i_abs, label = "Strom VSC")
 plot!(pgsol,["bus3"],:i_setabs1, label = "Regelungsstrom VSC")
 ylims!((0.2,1.6))
 xlims!((0.99,2.5))
-plot!(pgsol,collect(keys(pg.nodes))[3],:v, label = "imax_csa = " * string(pg.nodes["bus3"].imax_csa))
+plot(pgsol,collect(keys(pg.nodes))[2:3],:v)
+
 plot(pgsol,["bus3"],:i_abs, label = "mit CSA, imax = "* string(pg.nodes["bus3"].imax_csa))
-plot(pgsol,["bus3"],:p)
+plot(pgsol,["bus3"],:p, label = "imax_csa = " * string(pg.nodes["bus3"].imax_csa), title = "P_VSC (AS)")
 plot(pgsol,["bus3"],:q)
 plot!(pgsol,["bus3"],:θ)
 plot(pgsol,["bus3"],:φ)
@@ -51,6 +59,8 @@ plot(pgsol,["bus3"],:Qm)
 xlims!((4.9,5.50))
 plot(pgsol,["bus3"],:e_uq)
 plot(pgsol,["bus3"],:e_ud)
+plot(pgsol,["bus3"],:e_id)
+plot!(pgsol,["bus3"],:e_iq)
 
 sol = ExtractResult(pgsol,:ω_3)
 
@@ -61,11 +71,11 @@ plot(freq,abs.(f), xlim=(-10, 10))
 #pgsol_or = deepcopy(pgsol)
 sol_appr = deepcopy(sol_original)
 for (ind,val) in enumerate(collect(eachcol(sens[15])))
-    sol_appr.u[ind] .+= val*(0.01)
+    sol_appr.u[ind+1] .+= val*(0.01)
 end
 pgsol_tmp = PowerGridSolution(sol_appr,pg)
 plot!(pgsol_tmp,"bus3",:i_abs, label = "approximated")
-plot!(pgsol,"bus3",:i_abs, label = "real perturbed")
+plot!(pgsol,"bus3",:i_abs, label = "real perturbed", xlims = (0.0,1.0))
 plot(pgsol_or,"bus3",:i_abs, label = "Original")
 plot!(pgsol_tmp,collect(keys(pg.nodes)),:v,legend = fals
 
@@ -90,12 +100,12 @@ labels_p = [
     ]
 syms = rhs(pg).syms
 look_on = 14
-plot!(pgsol.dqsol.t[1:end-1],sens[15][look_on,1:end], title = "Sensis of $(String(syms[look_on]))",
-    label = labels_p[15],
+plot(pgsol.dqsol.t[1:end-1],sens[1][look_on,1:end], title = "Sensis of $(String(syms[look_on]))",
+    label = labels_p[1],
     legend = :outertopright,
     size = (1000,750))
-for i in collect(3:14)
-    display(plot!(pgsol.dqsol.t[1:end-1],sens[i][look_on,1:end], label = labels_p[i]))
+for i in collect(1:15)
+    display(plot(pgsol.dqsol.t[1:end-1],sens[i][look_on,1:end], label = labels_p[i]))
     #sleep(3.0)
 end
 
@@ -128,12 +138,13 @@ c = - V0^2/Imax^2
 kp = (-b + sqrt(b^2 - 4.0*a*c))/(2*a)
 
 
-id = 0.95
-iq = 0.4
-iabs = hypot(id,iq)
-ϕ = atan(iq,id)
+plot(ExtractResult(pgsol,"bus2",:u_r))
+plot!(ExtractResult(pgsol,"bus2",:u_i))
 
-iabs = 1
-ids = iabs*cos(ϕ)
-iqs = iabs*sin(ϕ)
-ϕ2 = atan(iqs,ids)
+i = ExtractResult(pgsol,"bus3",:i_abs)
+t = pgsol.dqsol.t
+using CSV
+using DataFrames
+
+time_Series = DataFrame(zeit = t, strom = i)
+CSV.write("C:\\Users\\liemann\\Desktop\\test.csv",time_Series, delim = ";")

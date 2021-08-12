@@ -11,7 +11,7 @@ end
 
 function getPreFaultAlgebraicStates(pg::PowerGrid,ic_prefault::Array{Float64,1},ic_endfault::Array{Float64,1})
     prob = ODEFunction(rhs(pg))
-    ind = findall(x-> iszero(x),diag(problem.mass_matrix))
+    ind = findall(x-> iszero(x),diag(prob.mass_matrix))
     ic_endfault[ind] = ic_prefault[ind]
     return ic_endfault
 end

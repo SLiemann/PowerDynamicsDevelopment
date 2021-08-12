@@ -50,3 +50,11 @@ freqs = fftfreq(length(t), 1.0/Ts) |> fftshift
 time_domain = plot(t, signal, title = "Signal")
 freq_domain = plot(freqs, abs.(F), title = "Spectrum", xlim=(-100, +100))
 plot(time_domain, freq_domain, layout = 2)
+
+idset = -0.4
+iqset = -0.8
+iset_abs = hypot(idset,iqset)
+iset_lim = IfElse.ifelse(iset_abs > 1.0,1.0,iset_abs)
+ϕ1 = atan(iqset,idset)
+idset_csa = iset_lim*cos(ϕ1)
+iqset_csa = iset_lim*sin(ϕ1)

@@ -47,6 +47,7 @@ for i in 1:7
                 linewidth = 1.5,
                 xlabel = "\$x_1\$",
                 labelfontsize = 15,
+                linestyle = :dot,
                 #xlims = (-2.5,2.5),
                 xlims = (-1,1),
                 xtickfont = font(8, "Akkurat"),
@@ -68,3 +69,12 @@ df.t = sol.t
 
 
 savefig(fig2,"C:\\Users\\liemann\\Desktop\\Präsi_DFG\\example_hybrid_trajectory2.svg")
+
+
+styles = filter((s->begin
+                s in Plots.supported_styles()
+            end), [:solid, :dash, :dot, :dashdot, :dashdotdot])
+styles = reshape(styles, 1, length(styles))
+n = length(styles)
+y = cumsum(randn(20, n), dims = 1)
+plot(y, line = (5, styles), label = map(string, styles), legendtitle = "linestyle")

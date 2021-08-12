@@ -260,14 +260,13 @@ function InitTrajectorySensitivity(
   mtsys::ODESystem,
   ic::Array{Float64,1},
   p::Array{Float64,1},
-  sensis_u0_pd::Array{Any,1},
-  sensis_p_pd::Array{Int64,1},
+  sensis_u0_pd::Array{Any,1}, #array of indices
+  sensis_p_pd::Array{Int64,1}, #array of indices
 )
   fulleqs = equations(mtsys)
   sym_states = states(mtsys)
   sym_params = parameters(mtsys)
   eqs, aeqs, D_states, A_states = GetSymbolicEquationsAndStates(fulleqs, sym_states)
-  #it is assumed that state and rhs(powergrid).syms have the same order
   sensis_u0 = sym_states[sensis_u0_pd]
   #sensis_p_pd is here a list with indices of the parameters p
   sensis_p = sym_params[sensis_p_pd]
@@ -299,7 +298,7 @@ function InitTrajectorySensitivity(
   @parameters yx0[1:size(A_states)[1], 1:len_sens] #yx0 are the sensitivities regarding algebraic states
   M,N,O = TrajectorySensitivityMatrices([Fx, Fy, Gx, Gy],Fp,Gp,xx0,yx0,aeqs,A_states,len_sens)
 
-  #Initialisierung: xx0 enthält die Sensis für x0 und p für x
+  #Initialisierung: xx0 enthält die Sensis für x0 und p bezüglich Differentialzustände
   xx0_k = xx0 .=> 0.0
   xx0_f = zeros(size(xx0)[1], len_sens)
   ind = setdiff(indexin(sensis_u0, D_states),[nothing])
@@ -452,7 +451,7 @@ function CalcSensitivityAfterJump(
     xx0_post = hx_star  * xx0_pre - (f_post_float - hx_star * f_pre_float) * τx0
     yx0_post = -inv(gy_post_float) * gx_post_float * xx0_post
 
-    #eturn xx0_pre, yx0_pre
+    #return xx0_pre, yx0_pre
     return xx0_post, yx0_post
 end
 
@@ -474,7 +473,7 @@ function CalcHybridTrajectorySensitivity(mtk::Vector{ODESystem},sol,p_pre,evr,s,
         size(sol)[2] - 1,
       )
     end
-    ind_sol = vcat(1,setdiff(indexin(evr[:,1],sol.t).+1,[nothing]),length(sol.t))
+    ind_sol = vcat(1,setdiff(indexin(evr[:,1],sol.t),[nothing]),length(sol.t))
     #ind_sol = [1]
     #for i in evr[:,1] # DifferentialEquations.jl has multiple time points
     #    ind_sol = vcat(ind_sol,findall(x->x==i,sol.t)[end])
