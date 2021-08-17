@@ -1,7 +1,7 @@
 using PowerDynamics
 using DifferentialEquations
 using Plots
-#using JLD
+using JLD
 #using ModelingToolkit
 #using CSV
 #using DataFrames
@@ -20,12 +20,16 @@ begin
 
     pg1 ,ic = InitializeInternalDynamics(pg,I_c,ic0)
     params = GFC_params()
-    prob = ODEProblem(rhs(pg1),ic,(0.0,5.0),params)
+    prob = ODEProblem(rhs(pg1),ic,(0.0,3.0),params)
     pgsol,evr = simGFC(prob)
-    #display(plot(pgsol,["bus3"],:i_setabs1, label = "imax_csa = " * string(pg.nodes["bus3"].imax_csa), title = "Regelungsstrom (VS)"))
-    #display(plot!(collect(0:1:5),ones(6)*pg.nodes["bus3"].imax_csa,linestyle = :dot, label = "", color = "black"))
 end
-@time pgsol,evr = simGFC(prob)
+
+SaveComparingTrajectoryPlots(pg1,ic,pgsol,sens,labels_p,0.1)
+
+
+
+params = GFC_params()
+params[8] += 0.1*params[8]
 
 display(plot(pgsol,["bus3"],:v, title = "Iabs (ohne CSA)"))
 plot(pgsol,collect(keys(pg.nodes))[2:3],:v, title = "Spannung (ohne CSA)")
@@ -35,12 +39,8 @@ mtk_fault = GetMTKSystem(GFC_Test_Grid(y_new = yfault()),(0.0,1.0),params)
 mtk = [mtk_normal,mtk_fault]
 s = GetTriggCondsGFCTest(mtk_normal)
 h = GetStateResFunGFCTest(mtk_normal)
-@time sens = CalcHybridTrajectorySensitivity(mtk,pgsol.dqsol,params,evr,s,h,[],collect(1:15))    #collect(1:15)
-save("C:/Users/liemann/Desktop/Sens_GFC_Test/sens_all_p0set_3_dt_1em2.jld", "sens", sens,"ic0",ic0,"p_pre",params,"evr",evr,"sensis_p",collect(1:15))
-
-plot(pgsol.dqsol.t[1:end-1],sens[1][12,:]) #, ylims = (-0.25,1.0)
-rhs(pg).syms[10]
-
+@time sens = CalcHybridTrajectorySensitivity(mtk,pgsol.dqsol,params,evr,s,h,[],collect(1:16))    #collect(1:15)
+save("C:/Users/liemann/Desktop/Sens_GFC_Test/sens_all_CSA.jld", "sens", sens,"ic0",ic0,"p_pre",params,"evr",evr,"sensis_p",collect(1:16))
 
 plot(pgsol,["bus3"],:i_abs, label = "Kvi = " * string(pg.nodes["bus3"].Kvi) * ", K_vq = " *string(pg.nodes["bus3"].K_vq))
 plot(pgsol,["bus3"],:i_abs, label = "Strom VSC")
@@ -97,6 +97,7 @@ labels_p = [
     "Kvi", #13
     "σXR", #14
     "K_vq", #15
+    "imax_csa" #16
     ]
 syms = rhs(pg).syms
 look_on = 14
@@ -104,12 +105,10 @@ plot(pgsol.dqsol.t[1:end-1],sens[1][look_on,1:end], title = "Sensis of $(String(
     label = labels_p[1],
     legend = :outertopright,
     size = (1000,750))
-for i in collect(1:15)
-    display(plot(pgsol.dqsol.t[1:end-1],sens[i][look_on,1:end], label = labels_p[i]))
+for i in collect(16:16)
+    display(plot!(pgsol.dqsol.t[1:end-1],sens[i][look_on,1:end], label = labels_p[i]))
     #sleep(3.0)
 end
-
-
 
 #Calculating "per unit" sensis
 sens_pu = deepcopy(sens)
@@ -148,3 +147,32 @@ using DataFrames
 
 time_Series = DataFrame(zeit = t, strom = i)
 CSV.write("C:\\Users\\liemann\\Desktop\\test.csv",time_Series, delim = ";")
+
+function SavePlotApprTrajectories(pg,sol_or,sol_per,sens,par_num,or_value,new_value,labels_p; state_sym = :i_abs)
+    sol_appr = deepcopy(sol_or.dqsol)
+    for (ind,val) in enumerate(collect(eachcol(sens[par_num])))
+        sol_appr.u[ind+1] .+= val*(new_value-or_value)
+    end
+    pgsol_tmp = PowerGridSolution(sol_appr,pg)
+    title_str  = labels_p[par_num] * ": from " * string(or_value) * " to " * string(new_value)
+    plot(sol_or,"bus3",state_sym, label = "Original - " * string(state_sym), title = title_str)
+    plot!(sol_per,"bus3",state_sym, label = "Real perturbed - " * string(state_sym))
+    display(plot!(pgsol_tmp,"bus3",state_sym, label = "Approximated - " * string(state_sym),linestyle = :dash))
+    savefig("C:\\Users\\liemann\\Desktop\\Julia_figures\\"*labels_p[par_num] *".svg")
+end
+
+
+function SaveComparingTrajectoryPlots(pg,ic_or,pgsol_or,sens,labels_p,delta)
+    params = GFC_params()
+    for (ind,val) in enumerate(params)
+        params_new = deepcopy(params)
+        params_new[ind] += delta*params_new[ind]
+        prob = ODEProblem(rhs(pg),ic,(0.0,3.0),params_new)
+        try
+            pgsol,evr = simGFC(prob)
+            SavePlotApprTrajectories(pg,pgsol_or,pgsol,sens,ind,params[ind],params_new[ind],labels_p)
+        catch
+            @warn "Could not calc: " *labels_p[ind]
+        end
+    end
+end
