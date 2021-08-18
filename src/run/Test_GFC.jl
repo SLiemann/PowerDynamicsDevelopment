@@ -13,14 +13,10 @@ begin
 
     pg = GFC_Test_Grid()
     U,δ,ic0 = PowerFlowClassic(pg, iwamoto = true, max_tol = 1e-7)
-    Ykk = NodalAdmittanceMatrice(pg)
-    Uc = U.*exp.(1im*δ/180*pi)
-    I_c = Ykk*Uc
-    S = conj(Ykk*Uc).*Uc
 
-    pg1 ,ic = InitializeInternalDynamics(pg,I_c,ic0)
+    pg1 ,ic = InitializeInternalDynamics(pg,ic0)
     params = GFC_params()
-    prob = ODEProblem(rhs(pg1),ic,(0.0,3.0),params)
+    prob = ODEProblem(rhs(pg1),ic,(0.0,5.0),params)
     pgsol,evr = simGFC(prob)
 end
 
@@ -47,7 +43,11 @@ plot(pgsol,["bus3"],:i_abs, label = "Strom VSC")
 plot!(pgsol,["bus3"],:i_setabs1, label = "Regelungsstrom VSC")
 ylims!((0.2,1.6))
 xlims!((0.99,2.5))
-plot(pgsol,collect(keys(pg.nodes))[2:3],:v)
+plot!(pgsol,collect(keys(pg.nodes))[2],:v, label = "U_3", legend = (0.9,0.8))
+plot!(xlabel = "\$t\$")
+plot!(                grid = true,
+                gridalpha = 0.25,
+                gridstyle = :dash)
 
 plot(pgsol,["bus3"],:i_abs, label = "mit CSA, imax = "* string(pg.nodes["bus3"].imax_csa))
 plot(pgsol,["bus3"],:p, label = "imax_csa = " * string(pg.nodes["bus3"].imax_csa), title = "P_VSC (AS)")

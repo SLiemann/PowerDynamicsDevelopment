@@ -58,3 +58,19 @@ iset_lim = IfElse.ifelse(iset_abs > 1.0,1.0,iset_abs)
 ϕ1 = atan(iqset,idset)
 idset_csa = iset_lim*cos(ϕ1)
 iqset_csa = iset_lim*sin(ϕ1)
+
+
+println("Hello ie3")
+
+function addition(a,b)
+    return a+b
+end
+addition(a,b,c) = a+b+c
+addition(a::Float64,b::Int64) = a+b
+
+solution1 = addition(1,2) #1
+solution2 = addition(1,2,3) #2
+solution3 = addition(0.5,2) # 3
+
+fun = (Γ,Δ) -> Γ * Δ
+fun(10,5) #  = 50
