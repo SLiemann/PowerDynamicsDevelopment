@@ -242,10 +242,7 @@ end
 
 function GetMTKSystem(pg::PowerGrid, time_interval::Tuple{Float64,Float64}, p::Array{Float64,1})
   U,δ,ic0 = PowerFlowClassic(pg,iwamoto = false)
-  Ykk = NodalAdmittanceMatrice(pg)
-  Uc = U.*exp.(1im*δ/180*pi)
-  I_c = Ykk*Uc
-  pg_new, ic =  InitializeInternalDynamics(pg,I_c,ic0)
+  pg_new, ic =  InitializeInternalDynamics(pg,ic0)
   prob = ODEProblem(rhs(pg_new), ic, time_interval, p)
   new_f = ODEFunction(
     prob.f.f,

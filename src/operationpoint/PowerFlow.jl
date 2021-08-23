@@ -75,7 +75,14 @@ NodeType(L::ExponentialRecoveryLoad)  = 2
 NodeType(L::CSIMinimal)  = 2
 NodeType(L::SimpleRecoveryLoad)  = 2
 NodeType(L::SimpleRecoveryLoadParam)  = 2
-NodeType(L::Union{GridFormingConverter,GridFormingConverterParam,GridFormingConverterCSA})  = 1
+NodeType(
+    L::Union{
+        GridFormingConverter,
+        GridFormingConverterParam,
+        GridFormingConverterCSA,
+        GridFormingConverterCSAAntiWindup,
+    },
+) = 1
 
 #note: only loads are treated with voltage depency and are called every iteration
 PowerNodeLoad(S::SlackAlgebraic,U) = 0. #treated as generation
@@ -96,7 +103,14 @@ PowerNodeLoad(L::ExponentialRecoveryLoad,U)  = (L.P0*((abs(U)/L.V0)^L.Nps) + 1im
 PowerNodeLoad(L::CSIMinimal,U)  = -U*conj(L.I_r)
 PowerNodeLoad(L::SimpleRecoveryLoad,U)  = L.P0 + 1im*(L.Q0)
 PowerNodeLoad(L::SimpleRecoveryLoadParam,U)  = L.P0 + 1im*(L.Q0)
-PowerNodeLoad(L::Union{GridFormingConverter,GridFormingConverterParam,GridFormingConverterCSA},U)  = 0. #treated as generation
+PowerNodeLoad(
+    L::Union{
+        GridFormingConverter,
+        GridFormingConverterParam,
+        GridFormingConverterCSA,
+        GridFormingConverterCSAAntiWindup,
+    },U
+) = 0.#treated as generation
 
 #generation is voltage independent, otherwise it has to be called every iteration
 PowerNodeGeneration(S::SlackAlgebraic) = 0.
@@ -117,7 +131,14 @@ PowerNodeGeneration(L::ExponentialRecoveryLoad)  = 0. #treated as load
 PowerNodeGeneration(L::CSIMinimal)  = 0. #treated as load
 PowerNodeGeneration(L::SimpleRecoveryLoad)  = 0. #treated as load
 PowerNodeGeneration(L::SimpleRecoveryLoadParam)  = 0. #treated as load
-PowerNodeGeneration(L::Union{GridFormingConverter,GridFormingConverterParam,GridFormingConverterCSA})  = L.p0set #treated as generation
+PowerNodeGeneration(
+    L::Union{
+        GridFormingConverter,
+        GridFormingConverterParam,
+        GridFormingConverterCSA,
+        GridFormingConverterCSAAntiWindup,
+    },
+)  = L.p0set #treated as generation
 
 function PowerFlowClassic(pg::PowerGrid; ind_sl::Int64 = 0,max_tol::Float64 = 1e-7,iter_max::Int64  = 30,iwamoto::Bool =false, Qmax = -1, Qmin = -1, Qlimit_iter_check::Int64 = 3)
     number_nodes = length(pg.nodes); #convenience
@@ -162,6 +183,12 @@ function PowerFlowClassic(pg::PowerGrid; ind_sl::Int64 = 0,max_tol::Float64 = 1e
     end
     if GridFormingConverterCSA ∈ collect(values(pg.nodes)) .|> typeof
         pv = findall(collect(values(pg.nodes).|> typeof).== GridFormingConverterCSA)
+        for i in pv
+            U[i] = collect(values(pg.nodes))[i].u0set
+        end
+    end
+    if GridFormingConverterCSAAntiWindup ∈ collect(values(pg.nodes)) .|> typeof
+        pv = findall(collect(values(pg.nodes).|> typeof).== GridFormingConverterCSAAntiWindup)
         for i in pv
             U[i] = collect(values(pg.nodes))[i].u0set
         end

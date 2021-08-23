@@ -163,7 +163,7 @@ function InitNode(load::Union{SimpleRecoveryLoad,SimpleRecoveryLoadParam},ind::I
    return [v_d_temp,v_q_temp,xd, xq], load
 end
 
-function InitNode(GFC::Union{GridFormingConverter,GridFormingConverterParam,GridFormingConverterCSA},ind::Int64,I_c::Array{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)
+function InitNode(GFC::Union{GridFormingConverter,GridFormingConverterParam,GridFormingConverterCSA,GridFormingConverterCSAAntiWindup},ind::Int64,I_c::Array{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)
    v_d_temp = ic_lf[ind_offset]
    v_q_temp = ic_lf[ind_offset+1]
    U0 = v_d_temp+1im*v_q_temp
@@ -252,7 +252,34 @@ function InitNode(GFC::Union{GridFormingConverter,GridFormingConverterParam,Grid
          p_ind = GFC.p_ind
       )
       #,abs(E0),abs(U0/(-1im*GFC.xcf))/(GFC.Srated*GFC.Sbase),p,q
-      return [v_d_temp, v_q_temp,θ,ω,Q,e_ud,e_uq,e_id,e_iq,abs(idq),abs(idq)], GFC_new
+      return [v_d_temp, v_q_temp,θ,ω,Q,e_ud,e_uq,e_id,e_iq,abs(idq)], GFC_new
+   elseif typeof(GFC) == GridFormingConverterCSAAntiWindup
+      GFC_new = GridFormingConverterCSAAntiWindup(
+         Sbase = GFC.Sbase,
+         Srated = GFC.Srated,
+         p0set = GFC.p0set,
+         q0set = q0set, #new
+         u0set = GFC.u0set,
+         Kp_droop = GFC.Kp_droop,
+         Kq_droop = GFC.Kq_droop,
+         ωf_P = GFC.ωf_P,
+         ωf_Q = GFC.ωf_Q,
+         xlf = GFC.xlf,
+         rf = GFC.rf,
+         xcf = GFC.xcf,
+         Kp_u = GFC.Kp_u,
+         Ki_u = GFC.Ki_u,
+         Kp_i = GFC.Kp_i,
+         Ki_i = GFC.Ki_i,
+         imax = GFC.imax,
+         Kvi = GFC.Kvi,
+         σXR = GFC.σXR,
+         K_vq = GFC.K_vq,
+         imax_csa = GFC.imax_csa,
+         p_ind = GFC.p_ind
+      )
+      #,abs(E0),abs(U0/(-1im*GFC.xcf))/(GFC.Srated*GFC.Sbase),p,q
+      return [v_d_temp, v_q_temp,θ,ω,Q,e_ud,e_uq,e_id,e_iq,abs(idq)], GFC_new
    else
       GFC_new = GridFormingConverter(
          Sbase = GFC.Sbase,

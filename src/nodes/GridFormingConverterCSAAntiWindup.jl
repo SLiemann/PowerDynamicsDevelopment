@@ -17,7 +17,7 @@ The model has the following internal dynamic variables:
 
 """
 =#
-@DynamicNode GridFormingConverterCSA(Sbase,Srated,p0set,q0set,u0set,Kp_droop,Kq_droop,ωf_P,ωf_Q,xlf,rf,xcf,Kp_u,Ki_u,Kp_i,Ki_i,imax,Kvi,σXR,K_vq,imax_csa,p_ind) begin
+@DynamicNode GridFormingConverterCSAAntiWindup(Sbase,Srated,p0set,q0set,u0set,Kp_droop,Kq_droop,ωf_P,ωf_Q,xlf,rf,xcf,Kp_u,Ki_u,Kp_i,Ki_i,imax,Kvi,σXR,K_vq,imax_csa,p_ind) begin
     MassMatrix(m_int =[true,true,true,true,true,true,true,false])#,false,false,false,false
 end begin
     @assert Sbase > 0 "Base apparent power of the grid in VA, should be >0"
@@ -115,12 +115,10 @@ end [[θ,dθ],[ω,dω],[Qm,dQm],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_
     iqset_csa = iset_lim*sin(ϕ1)
 
     #experimentell
-    #anti_windup = IfElse.ifelse(iset_abs > imax_csa,true,false)
-    #de_ud = IfElse.ifelse(anti_windup,0.0, udset - udmeas)
-    #de_uq = IfElse.ifelse(anti_windup,0.0, uqset - uqmeas)
-    de_ud = udset - udmeas
-    de_uq = uqset - uqmeas
-    
+    anti_windup = IfElse.ifelse(iset_abs > imax_csa,true,false)
+    de_ud = IfElse.ifelse(anti_windup,0.0, udset - udmeas)
+    de_uq = IfElse.ifelse(anti_windup,0.0, uqset - uqmeas)
+
     #Current control
     de_id = idset_csa - id
     de_iq = iqset_csa - iq
@@ -154,4 +152,4 @@ end [[θ,dθ],[ω,dω],[Qm,dQm],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_
     #dQout = Qout - qmeas #for output
 end
 
-export GridFormingConverterCSA
+export GridFormingConverterCSAAntiWindup
