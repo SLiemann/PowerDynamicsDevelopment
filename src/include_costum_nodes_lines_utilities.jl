@@ -1,6 +1,6 @@
 import Base: @__doc__
 import PowerDynamics: AbstractLine
-## those are need for including custom nodes directly instead copying them into PowerDynamics.jö
+## those are needed for including custom nodes directly instead copying them into PowerDynamics.jö
 import PowerDynamics: dimension, symbolsof, construct_vertex
 import NetworkDynamics: ODEVertex
 ##############

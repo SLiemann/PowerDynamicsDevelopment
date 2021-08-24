@@ -7,7 +7,7 @@ Sbase = 100e6
 Zbase = (Ubase^2) / (Sbase)
 
 yfault() = 0.25*150.0
-tfault_on() = 0.001
+tfault_on() = 0.2
 tfault_off() = 0.35
 dt_max() = 1e-2
 

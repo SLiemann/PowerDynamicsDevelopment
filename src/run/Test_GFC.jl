@@ -2,10 +2,10 @@ using PowerDynamics
 using DifferentialEquations
 using Plots
 using DiffEqSensitivity
-#using JLD
-#using ModelingToolkit
-#using CSV
-#using DataFrames
+using JLD
+using ModelingToolkit
+using CSV
+using DataFrames
 
 begin
     include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/include_costum_nodes_lines_utilities.jl")
@@ -20,10 +20,25 @@ begin
     prob = ODEProblem(rhs(pg1),ic,(0.0,0.0011),params)
     pgsol,evr = simGFC(prob)
 end
-prob = ODEForwardSensitivityProblem(rhs(pg1),ic,(0.0,0.0011),params)
-sol = solve(prob, Rodas4(), tstops= tstep,callback = CallbackSet(cb,cb1), dtmax = dt_max(),progress=true, sensealg = ForwardDiffSensitivity())
-x,dp = extract_local_sensitivities(sol)
 
+prob = ODEForwardSensitivityProblem(
+    rhs(pg1),
+    ic,
+    (0.0, 5.0),
+    params,
+    sensealg = ForwardDiffSensitivity(convert_tspan = true),
+) #ODEForwardSensitivityProblem
+sol = solve(
+    prob,
+    Rodas4(),
+    #tstops = tstep,
+    #callback = CallbackSet(cb, cb1),
+    dtmax = dt_max(),
+    progress = true,
+)
+
+x,dp = extract_local_sensitivities(sol)
+pgsol = PowerGridSolution(sol,pg1)
 
 mtk_normal = GetMTKSystem(pg,(0.0,1.0),params)
 mtk_fault = GetMTKSystem(GFC_Test_Grid(y_new = yfault()),(0.0,1.0),params)
@@ -35,7 +50,7 @@ h = GetStateResFunGFCTest(mtk_normal)
 
 tmp = JLD.load("C:/Users/liemann/Desktop/Sens_GFC_Test/sens_all_CSA2.jld")
 
-plot(pgsol,["bus3"],:i_abs, label = "id - saturated")
+plot(pgsol,["bus3"],:i_abs, label = "Iabs")
 plot(pgsol,collect(keys(pg.nodes))[2:3],:v)
 plot(pgsol,["bus3"],:i_abs, label = "mit CSA, imax = "* string(pg.nodes["bus3"].imax_csa))
 plot(pgsol,["bus3"],:p, label = "imax_csa = " * string(pg.nodes["bus3"].imax_csa), title = "P_VSC (AS)")
