@@ -17,28 +17,9 @@ begin
 
     pg1 ,ic = InitializeInternalDynamics(pg,ic0)
     params = GFC_params()
-    prob = ODEProblem(rhs(pg1),ic,(0.0,0.0011),params)
+    prob = ODEProblem(rhs(pg1),ic,(0.0,5.0),params)
     pgsol,evr = simGFC(prob)
 end
-
-prob = ODEForwardSensitivityProblem(
-    rhs(pg1),
-    ic,
-    (0.0, 5.0),
-    params,
-    sensealg = ForwardDiffSensitivity(convert_tspan = true),
-) #ODEForwardSensitivityProblem
-sol = solve(
-    prob,
-    Rodas4(),
-    #tstops = tstep,
-    #callback = CallbackSet(cb, cb1),
-    dtmax = dt_max(),
-    progress = true,
-)
-
-x,dp = extract_local_sensitivities(sol)
-pgsol = PowerGridSolution(sol,pg1)
 
 mtk_normal = GetMTKSystem(pg,(0.0,1.0),params)
 mtk_fault = GetMTKSystem(GFC_Test_Grid(y_new = yfault()),(0.0,1.0),params)

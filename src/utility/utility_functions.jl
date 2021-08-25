@@ -25,7 +25,7 @@ function getComplexBusVoltage(pg::PowerGrid,ic::Array{Float64,1})
         ind = sort(getVoltageSymbolPositions(pg))
         Uc = Complex.(zeros(Int(length(ind)/2)))
         for (i,val) in enumerate(1:2:length(ind))
-            Uc[i] = ic0[val] + 1im*ic0[val+1]
+            Uc[i] = ic[val] + 1im*ic[val+1]
         end
         return Uc
 end
