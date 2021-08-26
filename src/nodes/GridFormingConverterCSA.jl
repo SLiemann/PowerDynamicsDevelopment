@@ -45,7 +45,7 @@ end begin
 end [[θ,dθ],[ω,dω],[Qm,dQm],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_iq],[i_abs,di_abs]] begin
     #,[Um,dUm],[Ixcf,dIxcf],[Pout,dPout],[Qout,dQout] ,[i_setabs1,di_setabs1]
     Kp_droop = p[p_ind[1]]
-    Kp_droop = p[p_ind[2]]
+    Kq_droop = p[p_ind[2]]
     ωf_P = p[p_ind[3]]
     ωf_Q = p[p_ind[4]]
     xlf = p[p_ind[5]]
@@ -78,7 +78,7 @@ end [[θ,dθ],[ω,dω],[Qm,dQm],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_
     #Droop control
     Tp = 1.0/ ωf_P
     dω = ((p0set - pmeas) * Kp_droop - ω) / Tp
-    dθ = (ω - K_vq * uqmeas) * 2.0 * pi * 50.0
+    dθ = (ω + K_vq * uqmeas) * 2.0 * pi * 50.0
 
     Tq = 1.0/ ωf_Q
     dQm = (qmeas - Qm) / Tq
@@ -120,7 +120,7 @@ end [[θ,dθ],[ω,dω],[Qm,dQm],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_
     #de_uq = IfElse.ifelse(anti_windup,0.0, uqset - uqmeas)
     de_ud = udset - udmeas
     de_uq = uqset - uqmeas
-    
+
     #Current control
     de_id = idset_csa - id
     de_iq = iqset_csa - iq

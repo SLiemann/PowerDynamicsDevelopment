@@ -247,7 +247,10 @@ function GetSymbolicFactorizedJacobian(mtsys::ODESystem)
   GetSymbolicFactorizedJacobian(x_eqs, y_eqs, x, y)
 end
 
-function Substitute(syms::Union{Vector{Num},Array{Num}}, subs_args::Vector{Pair{Term{Real, Base.ImmutableDict{DataType, Any}}, Float64}}) #SymbolicUtils.Symbolic{Real} ::Array{Pair{Num,Float64},1}
+function Substitute(syms::Union{Vector{Num},Array{Num}}, subs_args::Matrix{Pair{Num,Float64}})
+  return Symbolics.value.(substitute.(syms, (subs_args,)))
+end
+function Substitute(syms::Union{Vector{Num},Array{Num}}, subs_args::Vector{Pair{Num,Float64}})
   return Symbolics.value.(substitute.(syms, (subs_args,)))
 end
 function Substitute(syms::Union{Vector{Num},Array{Num}}, subs_args::Vector{Pair{SymbolicUtils.Symbolic{Real}, Float64}}) #SymbolicUtils.Symbolic{Real} ::Array{Pair{Num,Float64},1}
@@ -364,8 +367,8 @@ end
 
 function ContinuousSensitivity(
   sol::ODESolution,
-  xx0_k::Vector{Pair{Term{Real, Base.ImmutableDict{DataType, Any}}, Float64}},
-  yx0_k::Vector{Pair{Term{Real, Base.ImmutableDict{DataType, Any}}, Float64}},
+  xx0_k::Matrix{Pair{Num,Float64}},
+  yx0_k::Matrix{Pair{Num,Float64}},
   sym_states::Vector{Term{Real,Base.ImmutableDict{DataType,Any}}},
   A_states::Vector{Term{Real,Base.ImmutableDict{DataType,Any}}},
   D_states::Vector{Term{Real,Base.ImmutableDict{DataType,Any}}},
@@ -410,7 +413,7 @@ function ContinuousSensitivity(
   return sensi, xx0_k, yx0_k
 end
 
-function CalcTriggerAndStateResetJacobians(mtk::ODESystem,s::Vector{Equation},h::Vector{Equation})
+function CalcTriggerAndStateResetJacobians(mtk::ODESystem,s::Vector{Equation},h::Vector{Matrix{Equation}})
     eqs, aeqs, x, y = GetSymbolicEquationsAndStates(mtk)
     hx = Array{Array{Num}}(undef,length(h),1)
     hy = similar(hx)
@@ -430,18 +433,18 @@ end
 function CalcSensitivityAfterJump(
     sym_states::Vector{Term{Real,Base.ImmutableDict{DataType,Any}}},
     sym_params::Vector{Sym{Real,Base.ImmutableDict{DataType,Any}}},
-    xx0_pre::Vector{Float64},
-    yx0_pre::Vector{Float64},
-    x0_pre::Vector{Float64},
-    x0_post::Vector{Float64},
-    p_pre::Vector{Float64},
-    p_post::Vector{Float64},
-    f_pre::Vector{Equation},
-    f_post::Vector{Equation},
-    g_pre::Vector{Equation},
-    g_post::Vector{Equation},
-    J_pre::Matrix{Num},
-    J_post::Matrix{Num},
+    xx0_pre::VecOrMat{Float64},
+    yx0_pre::VecOrMat{Float64},
+    x0_pre::VecOrMat{Float64},
+    x0_post::VecOrMat{Float64},
+    p_pre::VecOrMat{Float64},
+    p_post::VecOrMat{Float64},
+    f_pre::VecOrMat{Num},
+    f_post::VecOrMat{Num},
+    g_pre::VecOrMat{Num},
+    g_post::VecOrMat{Num},
+    J_pre::NTuple{4,Matrix{Num}},
+    J_post::NTuple{4,Matrix{Num}},
     hx::Matrix{Num},
     hy::Matrix{Num},
     sx::Matrix{Num},
@@ -496,8 +499,8 @@ function CalcHybridTrajectorySensitivity(
   p_pre::Vector{Float64},
   evr::Matrix{Float64},
   s::Vector{Equation},
-  h::Vector{Equation},
-  u0_sensi::Vector{Int64},
+  h::Vector{Matrix{Equation}},
+  u0_sensi::Vector{Union{Int64,Any}},
   p_sensi::Vector{Int64},
 )
     mtk0 = mtk[1] # it is assumed that the first element is the initial system
@@ -617,7 +620,7 @@ function CalcHybridTrajectorySensitivity(
     end
 end
 
-function GetEqsJacobianSensMatrices(mtk::Vector{ODESystem},xx0::Matrix{Num},yx0::Matrix{Num},u0_sens::Vector{Int64},p_sens::Vector{Int64})
+function GetEqsJacobianSensMatrices(mtk::Vector{ODESystem},xx0::Matrix{Num},yx0::Matrix{Num},u0_sens::Vector{Union{Int64,Any}},p_sens::Vector{Int64})
     f = Vector{Array{Num,1}}(undef,length(mtk))
     g = similar(f)
 

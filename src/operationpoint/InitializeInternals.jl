@@ -225,7 +225,7 @@ function InitNode(GFC::Union{GridFormingConverter,GridFormingConverterParam,Grid
          K_vq = GFC.K_vq,
          p_ind = GFC.p_ind
       )
-      return [v_d_temp, v_q_temp,θ,ω,Q,e_ud,e_uq,e_id,e_iq,abs(idq)], GFC_new
+      return [v_d_temp, v_q_temp,θ,ω,Q,e_ud,e_uq,e_id,e_iq,abs(idq),p], GFC_new
    elseif typeof(GFC) == GridFormingConverterCSA
       GFC_new = GridFormingConverterCSA(
          Sbase = GFC.Sbase,

@@ -6,9 +6,9 @@ Ubase = 380e3
 Sbase = 100e6
 Zbase = (Ubase^2) / (Sbase)
 
-yfault() = 0.25*150.0
+yfault() = 0.35*150.0
 tfault_on() = 0.2
-tfault_off() = 0.35
+tfault_off() = 0.46
 dt_max() = 1e-2
 
 function GFC_Test_Grid(;p_new = 0.0,q_new = 0.0,y_new = 0.0)
@@ -22,13 +22,13 @@ function GFC_Test_Grid(;p_new = 0.0,q_new = 0.0,y_new = 0.0)
             B = 0.0,
             Y_n = y_new,
         ),
-        "bus3" => GridFormingConverterCSAAntiWindup(
+        "bus3" => GridFormingConverterCSA(
             Sbase = Sbase,
             Srated = 6*Sbase,
             p0set = 3.0, # based on Sbase!
             q0set = 0.01,
             u0set = 1.00,
-            Kp_droop = 0.02,
+            Kp_droop = 0.01,
             Kq_droop = 0.001,
             ωf_P = 10.0 * 2 * pi,
             ωf_Q = 5.0 * 2 * pi,
