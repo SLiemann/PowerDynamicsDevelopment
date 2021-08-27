@@ -8,7 +8,7 @@ Zbase = (Ubase^2) / (Sbase)
 
 yfault() = 0.35*150.0
 tfault_on() = 0.2
-tfault_off() = 0.46
+tfault_off() = 0.45
 dt_max() = 1e-2
 
 function GFC_Test_Grid(;p_new = 0.0,q_new = 0.0,y_new = 0.0)

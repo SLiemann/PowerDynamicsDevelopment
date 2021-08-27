@@ -8,9 +8,9 @@ using Plots
 #using DataFrames
 
 begin
-    #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/include_costum_nodes_lines_utilities.jl")
+    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/include_costum_nodes_lines_utilities.jl")
     include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/grids/GFC_Test_Grid.jl")
-    #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/sensitivity_analyses/Local_Sensitivity.jl")
+    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/sensitivity_analyses/Local_Sensitivity.jl")
 
     pg = GFC_Test_Grid()
     U,δ,ic0 = PowerFlowClassic(pg, iwamoto = true, max_tol = 1e-7)
@@ -21,7 +21,7 @@ begin
     pgsol,evr = simGFC(prob)
 end
 
-mtk_normal = GetMTKSystem(pg,(0.0,1.0),params)
+mtk_normal = GetMTKSystem(pg1,(0.0,1.0),params)
 mtk_fault = GetMTKSystem(GFC_Test_Grid(y_new = yfault()),(0.0,1.0),params)
 mtk = [mtk_normal,mtk_fault]
 s = GetTriggCondsGFCTest(mtk_normal)
@@ -36,7 +36,7 @@ h = GetStateResFunGFCTest(mtk_normal)
     [],
     collect(1:15),
 )
-save("C:/Users/liemann/Desktop/Sens_GFC_Test/sens_CSAParam_Pdelta.jld", "sens", sens,"ic0",ic0,"p_pre",params,"evr",evr,"sensis_p",collect(1:15))
+save("C:/Users/liemann/Desktop/Sens_GFC_Test/sens_REAL_Param.jld", "sens", sens,"ic0",ic0,"p_pre",params,"evr",evr,"sensis_p",collect(1:15))
 #tmp = JLD.load("C:/Users/liemann/Desktop/Sens_GFC_Test/sens_all_CSA2.jld")
 
 plot(pgsol,["bus3"],:i_abs, label = "Iabs")
@@ -69,6 +69,15 @@ plot(pgsol,["bus3"],:e_uq)
 plot(pgsol,["bus3"],:e_ud)
 plot(pgsol,["bus3"],:e_id)
 plot!(pgsol,["bus3"],:e_iq)
+
+plot(pgsol,collect(keys(pg.nodes))[3],:v, label = "Spannung VSC", legend = (0.6,0.85))
+plot!([0.0,0.2],[0.9,0.9], linestyle = :dash, color = "red", label= "FRT- Limiting curve")
+plot!([0.2,0.2],[0.9,0.05], linestyle = :dash, color = "red", label= nothing)
+plot!([0.2,0.45],[0.05,0.05], linestyle = :dash, color = "red", label= nothing)
+plot!([0.45,0.65],[0.05,0.60], linestyle = :dash, color = "red", label= nothing)
+plot!([0.65,3.0],[0.60,0.9], linestyle = :dash, color = "red", label= nothing)
+plot!([3.0,5.0],[0.90,0.9], linestyle = :dash, color = "red", label= nothing)
+
 
 uqmeas3 = ExtractResult(pgsol,:u_r_3)
 plot(pgsol.dqsol.t,uqmeas3)
