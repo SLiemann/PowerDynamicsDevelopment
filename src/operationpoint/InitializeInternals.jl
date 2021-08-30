@@ -279,7 +279,7 @@ function InitNode(GFC::Union{GridFormingConverter,GridFormingConverterParam,Grid
          p_ind = GFC.p_ind
       )
       #,abs(E0),abs(U0/(-1im*GFC.xcf))/(GFC.Srated*GFC.Sbase),p,q
-      return [v_d_temp, v_q_temp,θ,ω,Q,e_ud,e_uq,e_id,e_iq,abs(idq)], GFC_new
+      return [v_d_temp, v_q_temp,θ,ω,Q,e_ud,e_uq,e_id,e_iq,abs(idq),p], GFC_new
    else
       GFC_new = GridFormingConverter(
          Sbase = GFC.Sbase,

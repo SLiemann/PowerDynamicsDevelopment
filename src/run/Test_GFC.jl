@@ -8,16 +8,16 @@ using Plots
 #using DataFrames
 
 begin
-    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/include_costum_nodes_lines_utilities.jl")
+    #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/include_costum_nodes_lines_utilities.jl")
     include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/grids/GFC_Test_Grid.jl")
-    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/sensitivity_analyses/Local_Sensitivity.jl")
+    #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/sensitivity_analyses/Local_Sensitivity.jl")
 
     pg = GFC_Test_Grid()
     U,δ,ic0 = PowerFlowClassic(pg, iwamoto = true, max_tol = 1e-7)
 
     pg1 ,ic = InitializeInternalDynamics(pg,ic0)
     params = GFC_params()
-    prob = ODEProblem(rhs(pg1),ic,(0.0,5.0),params)
+    prob = ODEProblem(rhs(pg1),ic,(0.0,0.1),params)
     pgsol,evr = simGFC(prob)
 end
 
@@ -34,14 +34,16 @@ h = GetStateResFunGFCTest(mtk_normal)
     s,
     h,
     [],
-    collect(1:15),
+    collect(1:16),
 )
 save("C:/Users/liemann/Desktop/Sens_GFC_Test/sens_REAL_Param.jld", "sens", sens,"ic0",ic0,"p_pre",params,"evr",evr,"sensis_p",collect(1:15))
 #tmp = JLD.load("C:/Users/liemann/Desktop/Sens_GFC_Test/sens_all_CSA2.jld")
 
-plot(pgsol,["bus3"],:i_abs, label = "Iabs")
+plot(pgsol,["bus3"],:i_abs, label = "Iabs", ylims=(0.0,1.4))
 plot(pgsol,collect(keys(pg.nodes))[3],:v, label = "Spannung VSC", legend = (0.8,0.75))
-plot(pgsol,["bus3"],:θ, label ="Droop-Winkel VSC")
+plot(pgsol,["bus3"],:θ, label ="Droop-Winkel VSC",xlims=(0.0,0.5))
+plot(pgsol,["bus3"],:p)
+plot!(pgsol,["bus3"],:Pout)
 plot(pgsol,collect(keys(pg.nodes))[2:3],:φ)
 
 theta = plot(pgsol,["bus3"],:θ)[1][1][:y]
