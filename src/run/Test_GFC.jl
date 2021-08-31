@@ -166,12 +166,12 @@ using DataFrames
 time_Series = DataFrame(zeit = t, strom = i)
 CSV.write("C:\\Users\\liemann\\Desktop\\test.csv",time_Series, delim = ";")
 
-function SavePlotApprTrajectories(pg,sol_or,sol_per,sens,par_num,or_value,new_value,labels_p; state_sym = :i_abs)
+function SavePlotApprTrajectories(pg_tmp,sol_or,sol_per,sens,par_num,or_value,new_value,labels_p; state_sym = :i_abs)
     sol_appr = deepcopy(sol_or.dqsol)
     for (ind,val) in enumerate(collect(eachcol(sens[par_num])))
         sol_appr.u[ind+1] .+= val*(new_value-or_value)
     end
-    pgsol_tmp = PowerGridSolution(sol_appr,pg)
+    pgsol_tmp = PowerGridSolution(sol_appr,pg_tmp)
     title_str  = labels_p[par_num] * ": from " * string(or_value) * " to " * string(new_value)
     plot(sol_or,"bus3",state_sym, label = "Original - " * string(state_sym), title = title_str)
     plot!(sol_per,"bus3",state_sym, label = "Real perturbed - " * string(state_sym))
@@ -180,15 +180,15 @@ function SavePlotApprTrajectories(pg,sol_or,sol_per,sens,par_num,or_value,new_va
 end
 
 
-function SaveComparingTrajectoryPlots(pg,ic_or,pgsol_or,sens,labels_p,delta)
-    params = GFC_params()
-    for (ind,val) in enumerate(params)
-        params_new = deepcopy(params)
+function SaveComparingTrajectoryPlots(pg_tmp,ic_or,pgsol_or,sens,labels_p,delta)
+    params_tmp = GFC_params()
+    for (ind,val) in enumerate(params_tmp)
+        params_new = deepcopy(params_tmp)
         params_new[ind] += delta*params_new[ind]
-        prob = ODEProblem(rhs(pg),ic,(0.0,3.0),params_new)
+        prob_tmp = ODEProblem(rhs(pg_tmp),ic_or,(0.0,3.0),params_new)
         try
-            pgsol,evr = simGFC(prob)
-            SavePlotApprTrajectories(pg,pgsol_or,pgsol,sens,ind,params[ind],params_new[ind],labels_p)
+            pgsol_per,evr = simGFC(prob_tmp)
+            SavePlotApprTrajectories(pg_tmp,pgsol_or,pgsol_per,sens,ind,params[ind],params_new[ind],labels_p)
         catch
             @warn "Could not calc: " *labels_p[ind]
         end

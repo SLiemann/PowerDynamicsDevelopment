@@ -87,12 +87,11 @@ end
 function simGFC(prob)
     #pg_new = GFC_Test_Grid(p_new = -1.3)
     pg_new = GFC_Test_Grid(y_new = yfault())
-    params = GFC_params()
     tstep = [tfault_on(),tfault_off()]
-    event_recorder = Array{Float64,2}(undef,0,4+length(params))
+    event_recorder = Array{Float64,2}(undef,0,4+length(GFC_params()))
     function fault_state(integrator)
         new_f = rhs(pg_new)
-        op_prob = ODEProblem(new_f, integrator.sol[end], (0.0, 1e-6),params, initializealg = BrownFullBasicInit())
+        op_prob = ODEProblem(new_f, integrator.sol[end], (0.0, 1e-6),integrator.p, initializealg = BrownFullBasicInit())
         ic_new = solve(op_prob,Rodas5())
         integrator.f = new_f
         integrator.cache.tf.f = integrator.f
@@ -105,7 +104,7 @@ function simGFC(prob)
         ic_tmp = deepcopy(integrator.sol.u[indexin(tstep[1],integrator.sol.t)[1]])
         ic_tmp = getPreFaultVoltages(pg_new,ic_tmp,deepcopy(sol[end]))
         #ic_tmp = getPreFaultAlgebraicStates(pg_new,ic_tmp,deepcopy(sol[end]))
-        op_prob = ODEProblem(prob.f, ic_tmp, (0.0, 1e-6),params, initializealg = BrownFullBasicInit())
+        op_prob = ODEProblem(prob.f, ic_tmp, (0.0, 1e-6),integrator.p, initializealg = BrownFullBasicInit())
         ic_new = solve(op_prob,Rodas5())
         integrator.f = prob.f
         integrator.cache.tf.f = integrator.f
