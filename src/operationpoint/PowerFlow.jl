@@ -208,20 +208,20 @@ function PowerFlowClassic(pg::PowerGrid; ind_sl::Int64 = 0,max_tol::Float64 = 1e
             Pn[i] = sum(U[i].*U.*Ykk_abs[:,i].*cos.(δ[i].-δ.-θ[:,i]))
             Qn[i] = sum(U[i].*U.*Ykk_abs[:,i].*sin.(δ[i].-δ.-θ[:,i]))
         end
-        print("Pn[", iter, "]:  ", Pn[1:3], "\n")
-        print("Qn[", iter, "]:  ", Qn[1:3], "\n")
+        #print("Pn[", iter, "]:  ", Pn[1:3], "\n")
+        #print("Qn[", iter, "]:  ", Qn[1:3], "\n")
         #update load powers
         for (ind,val) in enumerate(values(pg.nodes)) S_node_load[ind] = PowerNodeLoad(val,U[ind]*exp(1im*δ[ind])) end
 
         S_node = S_node_gen + S_node_load #total power at a node
-        print("S_node_gen[", iter, "]:", S_node_gen[1:3], "\n")
-        print("S_node_load[", iter, "]:", S_node_load[1:3], "\n")
+        #print("S_node_gen[", iter, "]:", S_node_gen[1:3], "\n")
+        #print("S_node_load[", iter, "]:", S_node_load[1:3], "\n")
 
         ΔP = real(S_node) - Pn
         ΔQ = imag(S_node) - Qn
 
-        print("ΔP(with slack): ", ΔP[1:3], "\n")
-        print("ΔQ(with slack): ", ΔQ[1:3], "\n")
+        #print("ΔP(with slack): ", ΔP[1:3], "\n")
+        #print("ΔQ(with slack): ", ΔQ[1:3], "\n")
 
         ΔP = ΔP[1:end .!= ind_sl, :]; #delete slack
         ΔQ = ΔQ[setdiff(1:end, [ind_sl; ind_PV]), :]; #delete slack and PV nodes

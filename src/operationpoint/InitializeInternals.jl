@@ -23,13 +23,13 @@ function InitNode(SM::FourthOrderEq,ind::Int64,I_c::Array{Complex{Float64},2},ic
    v_d_temp = ic_lf[ind_offset]
    v_q_temp = ic_lf[ind_offset+1]
    #Rotor angle
-   δ = angle(v_d_temp+1im*v_q_temp+(+1im*SM.X_q)*I_c[ind]/(SM.S_r/Sbase))
+   δ = angle(v_d_temp+1im*v_q_temp+(+1im*SM.X_q)*I_c[ind])   #/(SM.S_r/Sbase))
 
    v   = v_d_temp +1im*v_q_temp
    v   = 1im*v*exp(-1im*δ)
    v_d = real(v)
    v_q = imag(v)
-   i   = 1im*I_c[ind]*exp(-1im*δ)/(SM.S_r/Sbase)
+   i   = 1im*I_c[ind]*exp(-1im*δ)   #/(SM.S_r/Sbase)
    i_d = real(i)
    i_q = imag(i)
 
@@ -90,6 +90,37 @@ function InitNodeSM(SM::SixOrderMarconatoMachine,ind::Int64,I_c::Array{Complex{F
 
    # Structure from node: u_r, u_i, θ, ω, e_ds, e_qs, e_dss,e_qss
    return [v_d_temp, v_q_temp, δ, 0., e_ds, e_qs, e_dss, e_qss], node_temp
+end
+
+function InitNode(DG::GridSideConverter,ind::Int64,I_c::Array{Complex{Float64},2},ic_lf::Array{Float64,1},ind_offset::Int64)
+   v_d_temp = ic_lf[ind_offset]
+   v_q_temp = ic_lf[ind_offset+1]
+   u0 = v_d_temp+1im*v_q_temp
+   i0 = I_c[ind]
+
+   idq = i0*exp(-1im*angle(u0))
+   id_temp = real(idq)
+   iq_temp = imag(idq)
+
+   # x,y and z are only initialized the right way,
+   # if the dynamic limiter is not limiting the output at the stationary point
+   # Other cases has to be added later on
+
+   id0 = id_temp/DG.Kgsc
+   x_st_temp = id0*DG.Tp
+   print("x_temp: ", x_st_temp, "\n")
+   iq0 = iq_temp/DG.Kgsc
+   y_st_temp = iq0*DG.Tq
+   z_st_temp = iq0*DG.Tv
+
+   node_temp = GridSideConverter(mode=DG.mode, p_ref=DG.p_ref, q_ref=DG.q_ref, v_ref=DG.v_ref,
+        idmax=DG.idmax, iqmax=DG.iqmax, imax=DG.imax,
+        Kp=DG.Kp, Tp=DG.Tp, Kq=DG.Kq, Tq=DG.Tq,
+        Kv=DG.Kv, Tv=DG.Tv, Kgsc=DG.Kgsc, Tgsc=DG.Tgsc,
+        delta_qv=DG.delta_qv, v1_max=DG.v1_max, v1_min=DG.v1_min, q_max=DG.q_max);
+
+   # Structure from node: x, y, z, id, iq]
+   return [v_d_temp, v_q_temp, x_st_temp, y_st_temp, z_st_temp, id_temp, iq_temp], node_temp
 end
 
 function InitNode(SM::SixOrderMarconatoMachineAVROEL,ind::Int64,I_c::Array{Complex{Float64},2},ic_lf::Array{Float64,1},ind_offset::Int64)

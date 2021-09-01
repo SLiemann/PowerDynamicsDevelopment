@@ -26,19 +26,30 @@ Qmin   = -Qmax
 
 U,δ1,ic = PowerFlowClassic(powergrid2, iwamoto = false, Qmax = Qmax, Qmin = Qmin, Qlimit_iter_check = 2,max_tol = 1e-8)
 
-Ykk = NodalAdmittanceMatrice(powergrid)
+# simulating a tripped line between node 1 and 5
+#fault2 = LineFailure(line_name="branch2", tspan_fault=(1.,5.))
+#solution2 = simulate(fault2, powergrid, operationpoint, timespan)
+#plot2 = create_plot(solution2)
+
+Ykk = NodalAdmittanceMatrice(powergrid2)
 Uc = U.*exp.(1im*δ1/180*pi)
 I_c = Ykk*Uc
 S = conj(Ykk*Uc).*Uc
-pg, ic0 = InitializeInternalDynamics(powergrid,I_c,ic)
-
-
-problem = ODEProblem{true}(rhs(pg),ic1,tspan)
+pg, ic0 = InitializeInternalDynamics(powergrid2,I_c,ic)
 
 timespan= (0.0,10.0)
 # simulating a tripped line between node 1 and 2
-fault2 = LineFailure(line_name="Line_1-2", tspan_fault=(1.,5.))
+fault2 = LineFailure(line_name="branch4", tspan_fault=(1.,5.))
+
+
+problem = ODEProblem{true}(rhs(pg), ic0, timespan)
+sol = solve(problem, Rodas4())
+
 solution2 = simulate(fault2, pg, ic0, timespan)
 plot2 = create_plot(solution2)
 savefig(plot2, "/Dokumente/GridSideConverter.pdf")
 display(plot2)
+
+simulate(no::AbstractPerturbation, powergrid, ic0, timespan)
+
+solve(problem, ic0, timespan)

@@ -8,9 +8,9 @@ The modulation is based on the paper "Impact of Varying Shares of Distributed En
 on Voltage Stability in Electric Power Systems" by S. Liemann, L. Robitzky and C. Rehtanz.
 
 The model has the following internal dynamic variables:
-* ``x`` state of the Integrator for active power control
-* ``y`` state of the Integrator for reactive power control (Mode 1 & 3)
-* ``z`` state of the Integrator for reactive power control (Mode 2)
+* ``x_st`` state of the Integrator for active power control
+* ``y_st`` state of the Integrator for reactive power control (Mode 1 & 3)
+* ``z_st`` state of the Integrator for reactive power control (Mode 2)
 * ``id`` state of the first order time delay (P-T1) of id0
 * ``iq`` state of the first order time delay (P-T1) of iq0
 
@@ -49,31 +49,40 @@ end begin
     @assert iqmax > 0 "Upper current limit has to be >0"
     @assert idmax > 0 "Upper current limit has to be >0"
     @assert delta_qv >0 "Width of the dead band of the Q(V)-curve"
-end [[dx, x], [dy, y], [dz, z], [did, id], [diq, iq]] begin
+end [[dx_st, x_st], [dy_st, y_st], [dz_st, z_st], [did, id], [diq, iq]] begin
 
     p = real(u * conj(i))
     Δp = p_ref - p
-    dx = ΔP
-    id0 = x/Tp + Kp*ΔP
+    #print("Δp: ", Δp, "\n")
+    dx_st = Δp
+    #print("Tp: ", Tp, "\n")
+    #print("x_st: ", x_st, "\n")
+    #print("x_st/TP: ", x_st/Tp, "\n")
+    #print("Kp*Δp: ", Kp*Δp, "\n")
+    id0 = x_st/Tp + Kp*Δp
+
+    print("id0: ", id0, "\n")
+    print("idmax: ", idmax, "\n")
+    print("id0 > idmax: ", id0>idmax, "\n")
 
     if id0 > idmax
         id0 = idmax
-        dx = 0                  #Anti-Reset-Windup
+        dx_st = 0                  #Anti-Reset-Windup
     elseif id0 < -idmax
         id0 = -idmax
-        dx = 0                  #Anti-Reset-Windup
+        dx_st = 0                  #Anti-Reset-Windup
     end
     if mode == 1                    #a fix q-value is used to control the reactive power
         q = imag(u * conj(i))
         Δq = q - q_ref
-        dy = Δq
-        dz = 0
-        iq0 = Kq*Δq + y/Tq
+        dy_st = Δq
+        dz_st = 0
+        iq0 = Kq*Δq + y_st/Tq
     elseif mode == 2                #local voltage control determines the setpoint for reactive power
         Δu = u - v_ref 
-        dz = Δu
-        dy = 0
-        iq0 = Kv*Δu + z/Tv
+        dz_st = Δu
+        dy_st = 0
+        iq0 = Kv*Δu + z_st/Tv
     elseif mode == 3                #Q(v)-curve to control reactive power
         q = imag(u * conj(i))
         v = abs(u)
@@ -93,19 +102,19 @@ end [[dx, x], [dy, y], [dz, z], [did, id], [diq, iq]] begin
             Q = -1
         end
         Δq = q+Q*q_max
-        dy = Δq
-        dz = 0
-        iq0 = Kq*Δq + y/Tq
+        dy_st = Δq
+        dz_st = 0
+        iq0 = Kq*Δq + y_st/Tq
     end
 
     if iq0 > iqmax
         iq0 = iqmax
-        dy = 0                      #Anti-Reset-Windup
-        dz = 0                      #Anti-Reset-Windup
+        dy_st = 0                      #Anti-Reset-Windup
+        dz_st = 0                      #Anti-Reset-Windup
     elseif iq0 < -iqmax
         iq0 = -iqmax
-        dy = 0                      #Anti-Reset-Windup
-        dz = 0                      #Anti-Reset-Windup
+        dy_st = 0                      #Anti-Reset-Windup
+        dz_st = 0                      #Anti-Reset-Windup
     end
 
 
