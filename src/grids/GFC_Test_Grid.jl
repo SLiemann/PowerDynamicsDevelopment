@@ -1,13 +1,14 @@
 using PowerDynamics
 using OrderedCollections: OrderedDict
+using DiffEqSensitivity
 
 Ubase = 380e3
 Sbase = 100e6
 Zbase = (Ubase^2) / (Sbase)
 
-zfault() = 0.5*150.0
-tfault_on() = 0.1
-tfault_off() = 0.35
+yfault() = 0.1*150.0
+tfault_on() = 0.001
+tfault_off() = 0.30
 dt_max() = 1e-2
 
 function GFC_Test_Grid(;p_new = 0.0,q_new = 0.0,y_new = 0.0)
@@ -21,13 +22,13 @@ function GFC_Test_Grid(;p_new = 0.0,q_new = 0.0,y_new = 0.0)
             B = 0.0,
             Y_n = y_new,
         ),
-        "bus3" => GridFormingConverterCSA(
+        "bus3" => GridFormingConverterCSAAntiWindup(
             Sbase = Sbase,
             Srated = 6*Sbase,
             p0set = 3.0, # based on Sbase!
             q0set = 0.01,
             u0set = 1.00,
-            Kp_droop = 0.02,
+            Kp_droop = 0.01,
             Kq_droop = 0.001,
             ωf_P = 10.0 * 2 * pi,
             ωf_Q = 5.0 * 2 * pi,
@@ -42,7 +43,7 @@ function GFC_Test_Grid(;p_new = 0.0,q_new = 0.0,y_new = 0.0)
             Kvi = 0.5, #0.8272172037144201, # 0.677
             σXR = 3.0,
             K_vq = 0.01,
-            imax_csa = 1.20,
+            imax_csa = 1.2,
             p_ind = collect(1:16),
         ),
     )
@@ -85,13 +86,12 @@ end
 
 function simGFC(prob)
     #pg_new = GFC_Test_Grid(p_new = -1.3)
-    pg_new = GFC_Test_Grid(y_new = zfault())
-    params = GFC_params()
+    pg_new = GFC_Test_Grid(y_new = yfault())
     tstep = [tfault_on(),tfault_off()]
-    event_recorder = Array{Float64,2}(undef,0,4+length(params))
+    event_recorder = Array{Float64,2}(undef,0,4+length(GFC_params()))
     function fault_state(integrator)
         new_f = rhs(pg_new)
-        op_prob = ODEProblem(new_f, integrator.sol[end], (0.0, 1e-6),params, initializealg = BrownFullBasicInit())
+        op_prob = ODEProblem(new_f, integrator.sol[end], (0.0, 1e-6),integrator.p, initializealg = BrownFullBasicInit())
         ic_new = solve(op_prob,Rodas5())
         integrator.f = new_f
         integrator.cache.tf.f = integrator.f
@@ -103,7 +103,8 @@ function simGFC(prob)
         sol = integrator.sol
         ic_tmp = deepcopy(integrator.sol.u[indexin(tstep[1],integrator.sol.t)[1]])
         ic_tmp = getPreFaultVoltages(pg_new,ic_tmp,deepcopy(sol[end]))
-        op_prob = ODEProblem(prob.f, ic_tmp, (0.0, 1e-6),params, initializealg = BrownFullBasicInit())
+        #ic_tmp = getPreFaultAlgebraicStates(pg_new,ic_tmp,deepcopy(sol[end]))
+        op_prob = ODEProblem(prob.f, ic_tmp, (0.0, 1e-6),integrator.p, initializealg = BrownFullBasicInit())
         ic_new = solve(op_prob,Rodas5())
         integrator.f = prob.f
         integrator.cache.tf.f = integrator.f

@@ -1,4 +1,5 @@
 using ModelingToolkit
+using DifferentialEquations
 using PowerDynamics
 using FFTW
 
@@ -8,10 +9,27 @@ function getPreFaultVoltages(pg::PowerGrid,ic_prefault::Array{Float64,1},ic_endf
     return ic_endfault
 end
 
+function getPreFaultAlgebraicStates(pg::PowerGrid,ic_prefault::Array{Float64,1},ic_endfault::Array{Float64,1})
+    prob = ODEFunction(rhs(pg))
+    ind = findall(x-> iszero(x),diag(prob.mass_matrix))
+    ic_endfault[ind] = ic_prefault[ind]
+    return ic_endfault
+end
+
 function getVoltageSymbolPositions(pg::PowerGrid)
     n = map(x->PowerDynamics.variable_index(pg.nodes,x,:u_r),collect(keys(pg.nodes)))
     append!(n,map(x->PowerDynamics.variable_index(pg.nodes,x,:u_i),collect(keys(pg.nodes))))
 end
+
+function getComplexBusVoltage(pg::PowerGrid,ic::Array{Float64,1})
+        ind = sort(getVoltageSymbolPositions(pg))
+        Uc = Complex.(zeros(Int(length(ind)/2)))
+        for (i,val) in enumerate(1:2:length(ind))
+            Uc[i] = ic[val] + 1im*ic[val+1]
+        end
+        return Uc
+end
+
 
 function getSymbolPosition(pg::PowerGrid,syms::Array{Symbol,1})
     return sort(indexin(syms,rhs(pg).syms))

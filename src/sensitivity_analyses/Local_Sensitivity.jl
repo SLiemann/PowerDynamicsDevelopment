@@ -18,15 +18,29 @@ function my_lhs(x::Equation)
    x.lhs
 end
 
-function TimeDomainSensitivies(pg::PowerGrid,time_interval,ic,p,sensis_u0_pd,sensis_p_pd)
+function TimeDomainSensitivies(
+    pg::PowerGrid,
+    time_interval ::Tuple{Float64,Float64},
+    ic::Array{Float64,1},
+    p::Array{Float64,1},
+    sensis_u0_pd::Array{Int64,1},
+    sensis_p_pd::Array{Int64,1},
+  )
     prob = ODEProblem(rhs(pg),ic,time_interval,p)
     sol  = solve(prob,Rodas4())
     TimeDomainSensitivies(pg,time_interval,ic,p,sensis_u0_pd,sensis_p_pd,sol)
 end
 
-function TimeDomainSensitivies(pg::PowerGrid,time_interval,ic,p,sensis_u0_pd,sensis_p_pd,sol)
+function TimeDomainSensitivies(
+  pg::PowerGrid,
+  time_interval::Tuple{Float64,Float64},
+  ic::Array{Float64,1},
+  p::Array{Float64,1},
+  sensis_u0_pd::Array{Int64,1},
+  sensis_p_pd::Array{Int64,1},
+  sol::ODESolution,
+)
   mtsys   = GetMTKSystem(pg,time_interval,ic,p)
-
   TimeDomainSensitivies(mtsys,time_interval,ic,p,sensis_u0_pd,sensis_p_pd,sol)
 end
 
@@ -143,12 +157,12 @@ GetSymbolicEquationsAndStates(mtsys::ODESystem) =
   GetSymbolicEquationsAndStates(equations(mtsys), states(mtsys))
 function GetSymbolicEquationsAndStates(
   fulleqs::Array{Equation,1},
-  state::Vector{Term{Real,Nothing}},
+  state::Vector{Term{Real, Base.ImmutableDict{DataType, Any}}},
 )
   aeqs = Vector{Equation}()
   eqs = Vector{Equation}()
-  A_states = Vector{Term{Real,Nothing}}()
-  D_states = Vector{Term{Real,Nothing}}()
+  A_states = similar(state,0)
+  D_states = similar(state,0)
   for (index, value) in enumerate(fulleqs)
     if my_lhs(value) !== 0
       push!(eqs, value)
@@ -166,10 +180,10 @@ end
 GetSymbolicStates(mtsys::ODESystem) = GetSymbolicStates(equations(mtsys), states(mtsys))
 function GetSymbolicStates(
   fulleqs::Array{Equation,1},
-  state::Vector{Term{Real,Nothing}},
+  state::Vector{Term{Real, Base.ImmutableDict{DataType, Any}}},
   )
-  A_states = Vector{Term{Real,Nothing}}()
-  D_states = Vector{Term{Real,Nothing}}()
+  A_states = similar(state,0)
+  D_states = similar(state,0)
   for (index, value) in enumerate(fulleqs)
     if my_lhs(value) !== 0
       push!(D_states, state[index])
@@ -182,11 +196,8 @@ function GetSymbolicStates(
   return D_states, A_states
 end
 
-GetSymbolicEquations(mtsys::ODESystem) = GetSymbolicEquations(equations(mtsys), states(mtsys))
-function GetSymbolicEquations(
-  fulleqs::Array{Equation,1},
-  state::Vector{Term{Real,Nothing}},
-  )
+GetSymbolicEquations(mtsys::ODESystem) = GetSymbolicEquations(equations(mtsys))
+function GetSymbolicEquations(fulleqs::Array{Equation,1})
   aeqs = Vector{Equation}()
   eqs = Vector{Equation}()
 
@@ -204,7 +215,7 @@ end
 
 function GetJacobian(
   eqs::Array{Equation},
-  states::Array{Term{Real,Nothing},1},
+  states::Vector{Term{Real, Base.ImmutableDict{DataType, Any}}},
 )
     Fx = Array{Num}(undef, size(eqs)[1], size(states)[1])
     Diff_states = Differential.(states)
@@ -217,8 +228,8 @@ end
 function GetSymbolicFactorizedJacobian(
   eqs::Array{Equation,1},
   aeqs::Array{Equation,1},
-  D_states::Array{Term{Real,Nothing},1},
-  A_states::Array{Term{Real,Nothing},1},
+  D_states::Vector{Term{Real, Base.ImmutableDict{DataType, Any}}},
+  A_states::Vector{Term{Real, Base.ImmutableDict{DataType, Any}}},
 )
   Fx = GetJacobian(eqs,D_states)
   Fy = GetJacobian(eqs,A_states)
@@ -236,16 +247,19 @@ function GetSymbolicFactorizedJacobian(mtsys::ODESystem)
   GetSymbolicFactorizedJacobian(x_eqs, y_eqs, x, y)
 end
 
-function Substitute(syms::Array{Num}, subs_args) #SymbolicUtils.Symbolic{Real} ::Array{Pair{Num,Float64},1}
+function Substitute(syms::Union{Vector{Num},Array{Num}}, subs_args::Matrix{Pair{Num,Float64}})
+  return Symbolics.value.(substitute.(syms, (subs_args,)))
+end
+function Substitute(syms::Union{Vector{Num},Array{Num}}, subs_args::Vector{Pair{Num,Float64}})
+  return Symbolics.value.(substitute.(syms, (subs_args,)))
+end
+function Substitute(syms::Union{Vector{Num},Array{Num}}, subs_args::Vector{Pair{SymbolicUtils.Symbolic{Real}, Float64}}) #SymbolicUtils.Symbolic{Real} ::Array{Pair{Num,Float64},1}
   return Symbolics.value.(substitute.(syms, (subs_args,)))
 end
 
 function GetMTKSystem(pg::PowerGrid, time_interval::Tuple{Float64,Float64}, p::Array{Float64,1})
   U,δ,ic0 = PowerFlowClassic(pg,iwamoto = false)
-  Ykk = NodalAdmittanceMatrice(pg)
-  Uc = U.*exp.(1im*δ/180*pi)
-  I_c = Ykk*Uc
-  pg_new, ic =  InitializeInternalDynamics(pg,I_c,ic0)
+  pg_new, ic =  InitializeInternalDynamics(pg,ic0)
   prob = ODEProblem(rhs(pg_new), ic, time_interval, p)
   new_f = ODEFunction(
     prob.f.f,
@@ -260,14 +274,13 @@ function InitTrajectorySensitivity(
   mtsys::ODESystem,
   ic::Array{Float64,1},
   p::Array{Float64,1},
-  sensis_u0_pd::Array{Any,1},
-  sensis_p_pd::Array{Int64,1},
+  sensis_u0_pd::Array{Any,1}, #array of indices
+  sensis_p_pd::Array{Int64,1}, #array of indices
 )
   fulleqs = equations(mtsys)
   sym_states = states(mtsys)
   sym_params = parameters(mtsys)
   eqs, aeqs, D_states, A_states = GetSymbolicEquationsAndStates(fulleqs, sym_states)
-  #it is assumed that state and rhs(powergrid).syms have the same order
   sensis_u0 = sym_states[sensis_u0_pd]
   #sensis_p_pd is here a list with indices of the parameters p
   sensis_p = sym_params[sensis_p_pd]
@@ -297,9 +310,11 @@ function InitTrajectorySensitivity(
   @parameters Δt
   @parameters xx0[1:size(D_states)[1], 1:len_sens] #xx0 are the sensitivities regarding differential states
   @parameters yx0[1:size(A_states)[1], 1:len_sens] #yx0 are the sensitivities regarding algebraic states
+  xx0 = Symbolics.scalarize(xx0)
+  yx0 = Symbolics.scalarize(yx0)
   M,N,O = TrajectorySensitivityMatrices([Fx, Fy, Gx, Gy],Fp,Gp,xx0,yx0,aeqs,A_states,len_sens)
 
-  #Initialisierung: xx0 enthält die Sensis für x0 und p für x
+  #Initialisierung: xx0 enthält die Sensis für x0 und p bezüglich Differentialzustände
   xx0_k = xx0 .=> 0.0
   xx0_f = zeros(size(xx0)[1], len_sens)
   ind = setdiff(indexin(sensis_u0, D_states),[nothing])
@@ -321,7 +336,16 @@ function InitTrajectorySensitivity(
   return xx0_k,yx0_k,sym_states,sym_params,A_states,D_states,M,N,O,symp,Δt,len_sens, eqs,aeqs,(Fx,Fy,Gx,Gy)
 end
 
-function TrajectorySensitivityMatrices(J,Fp,Gp,xx0,yx0,aeqs,A_states,len_sens)
+function TrajectorySensitivityMatrices(
+  J::Vector{Matrix{Num}},
+  Fp::Matrix{Num},
+  Gp::Matrix{Num},
+  xx0::Matrix{Num},
+  yx0::Matrix{Num},
+  aeqs::Vector{Equation},
+  A_states::Vector{Term{Real,Base.ImmutableDict{DataType,Any}}},
+  len_sens::Int64,
+)
     @parameters Δt
     Fx,Fy,Gx,Gy = J
     M = [
@@ -341,7 +365,20 @@ function TrajectorySensitivityMatrices(J,Fp,Gp,xx0,yx0,aeqs,A_states,len_sens)
    return M,N,O
 end
 
-function ContinuousSensitivity(sol,xx0_k,yx0_k,sym_states,A_states,D_states,M,N,O,symp,Δt,len_sens)
+function ContinuousSensitivity(
+  sol::ODESolution,
+  xx0_k::Matrix{Pair{Num,Float64}},
+  yx0_k::Matrix{Pair{Num,Float64}},
+  sym_states::Vector{Term{Real,Base.ImmutableDict{DataType,Any}}},
+  A_states::Vector{Term{Real,Base.ImmutableDict{DataType,Any}}},
+  D_states::Vector{Term{Real,Base.ImmutableDict{DataType,Any}}},
+  M::Matrix{Num},
+  N::Matrix{Num},
+  O::Matrix{Num},
+  symp::Vector{Pair{Sym{Real, Base.ImmutableDict{DataType, Any}}, Float64}},
+  Δt::Num,
+  len_sens::Int64,
+)
   sensi = Vector{Array{Float64}}(undef, len_sens)
   for i = 1:length(sensi)
     sensi[i] = Array{Float64}(
@@ -376,7 +413,7 @@ function ContinuousSensitivity(sol,xx0_k,yx0_k,sym_states,A_states,D_states,M,N,
   return sensi, xx0_k, yx0_k
 end
 
-function CalcTriggerAndStateResetJacobians(mtk::ODESystem,s,h)
+function CalcTriggerAndStateResetJacobians(mtk::ODESystem,s::Vector{Equation},h::Vector{Matrix{Equation}})
     eqs, aeqs, x, y = GetSymbolicEquationsAndStates(mtk)
     hx = Array{Array{Num}}(undef,length(h),1)
     hy = similar(hx)
@@ -394,24 +431,24 @@ function CalcTriggerAndStateResetJacobians(mtk::ODESystem,s,h)
 end
 
 function CalcSensitivityAfterJump(
-    sym_states,
-    sym_params,
-    xx0_pre,
-    yx0_pre,
-    x0_pre,
-    x0_post,
-    p_pre,
-    p_post,
-    f_pre,
-    f_post,
-    g_pre,
-    g_post,
-    J_pre,
-    J_post,
-    hx,
-    hy,
-    sx,
-    sy,
+    sym_states::Vector{Term{Real,Base.ImmutableDict{DataType,Any}}},
+    sym_params::Vector{Sym{Real,Base.ImmutableDict{DataType,Any}}},
+    xx0_pre::VecOrMat{Float64},
+    yx0_pre::VecOrMat{Float64},
+    x0_pre::VecOrMat{Float64},
+    x0_post::VecOrMat{Float64},
+    p_pre::VecOrMat{Float64},
+    p_post::VecOrMat{Float64},
+    f_pre::VecOrMat{Num},
+    f_post::VecOrMat{Num},
+    g_pre::VecOrMat{Num},
+    g_post::VecOrMat{Num},
+    J_pre::NTuple{4,Matrix{Num}},
+    J_post::NTuple{4,Matrix{Num}},
+    hx::Matrix{Num},
+    hy::Matrix{Num},
+    sx::Matrix{Num},
+    sy::Matrix{Num},
 )
     fx_pre, fy_pre, gx_pre, gy_pre = J_pre
     fx_post, fy_post, gx_post, gy_post = J_post
@@ -452,11 +489,20 @@ function CalcSensitivityAfterJump(
     xx0_post = hx_star  * xx0_pre - (f_post_float - hx_star * f_pre_float) * τx0
     yx0_post = -inv(gy_post_float) * gx_post_float * xx0_post
 
-    #eturn xx0_pre, yx0_pre
+    #return xx0_pre, yx0_pre
     return xx0_post, yx0_post
 end
 
-function CalcHybridTrajectorySensitivity(mtk::Vector{ODESystem},sol,p_pre,evr,s,h,u0_sensi,p_sensi)
+function CalcHybridTrajectorySensitivity(
+  mtk::Vector{ODESystem},
+  sol::ODESolution,
+  p_pre::Vector{Float64},
+  evr::Matrix{Float64},
+  s::Vector{Equation},
+  h::Vector{Matrix{Equation}},
+  u0_sensi::Vector{Union{Int64,Any}},
+  p_sensi::Vector{Int64},
+)
     mtk0 = mtk[1] # it is assumed that the first element is the initial system
     ic = sol.prob.u0
     xx0_k, yx0_k, sym_states,sym_params, A_states, D_states, M, N, O, symp, Δt,len_sens, f, g, J =
@@ -474,7 +520,7 @@ function CalcHybridTrajectorySensitivity(mtk::Vector{ODESystem},sol,p_pre,evr,s,
         size(sol)[2] - 1,
       )
     end
-    ind_sol = vcat(1,setdiff(indexin(evr[:,1],sol.t).+1,[nothing]),length(sol.t))
+    ind_sol = vcat(1,setdiff(indexin(evr[:,1],sol.t),[nothing]),length(sol.t))
     #ind_sol = [1]
     #for i in evr[:,1] # DifferentialEquations.jl has multiple time points
     #    ind_sol = vcat(ind_sol,findall(x->x==i,sol.t)[end])
@@ -574,7 +620,7 @@ function CalcHybridTrajectorySensitivity(mtk::Vector{ODESystem},sol,p_pre,evr,s,
     end
 end
 
-function GetEqsJacobianSensMatrices(mtk::Vector{ODESystem},xx0,yx0,u0_sens,p_sens)
+function GetEqsJacobianSensMatrices(mtk::Vector{ODESystem},xx0::Matrix{Num},yx0::Matrix{Num},u0_sens::Vector{Union{Int64,Any}},p_sens::Vector{Int64})
     f = Vector{Array{Num,1}}(undef,length(mtk))
     g = similar(f)
 

@@ -128,11 +128,7 @@ function GetInitializedLTVSSystem(pg::PowerGrid)
     Qmax   = [Inf, Inf, Inf,Inf, Inf,sqrt(1-0.95^2)]
     Qmin   = -Qmax
     U,δ,ic0 = PowerFlowClassic(pg,iwamoto = true, Qmax = Qmax, Qmin = Qmin, Qlimit_iter_check = 2,max_tol = 1e-6)
-    Ykk = NodalAdmittanceMatrice(pg)
-    Uc = U.*exp.(1im*δ/180*pi)
-    I_c = Ykk*Uc
-    S = conj(Ykk*Uc).*Uc
-    return InitializeInternalDynamics(pg,I_c,ic0)
+    return InitializeInternalDynamics(pg,ic0)
 end
 
 function GetMTKLTVSSystem(;pg_state = "gfc_normal")
@@ -298,9 +294,9 @@ function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Fl
     cb4 = DiscreteCallback(((u,t,integrator) -> t in tfault[1]), errorState)
     cb5 = DiscreteCallback(((u,t,integrator) -> t in tfault[2]), regularState)
     cb6 = DiscreteCallback(check_voltage, stop_integration)
-    cb7 = DiscreteCallback(((u,t,integrator) -> t in 60.0), deactivate_droop)
+    #cb7 = DiscreteCallback(((u,t,integrator) -> t in 60.0), deactivate_droop)
 
-    sol = solve(problem, Rodas4(), callback = CallbackSet(cb1,cb2,cb3,cb4,cb5,cb6,cb7), tstops=[tfault[1],tfault[2],60.0], dtmax = dt_max(),progress =true) #
+    sol = solve(problem, Rodas4(), callback = CallbackSet(cb1,cb2,cb3,cb4,cb5,cb6), tstops=[tfault[1],tfault[2],60.0], dtmax = dt_max(),progress =true) #
     #sol = AddNaNsIntoSolution(pg,pg_postfault,deepcopy(sol))
 
     return PowerGridSolution(sol, pg), event_recorder
