@@ -35,6 +35,16 @@ function AddNaNsIntoSolution(pg1::PowerGrid,pg2::PowerGrid,sol)
     return sol
 end
 
+# The following PiModel function is copied from the actual PowerDynamics package, Michael
+function PiModel(y, y_shunt_km, y_shunt_mk, t_km, t_mk)
+    Π = zeros(Complex{Float64}, 2, 2)
+    Π[1, 1] = - abs2(t_km) * (y + y_shunt_km) # Our sign convention is opposite for the source of the edge
+    Π[1, 2] = conj(t_km) * t_mk * y # Our sign convention is opposite for the source of the edge
+    Π[2, 1] = - conj(t_mk) * t_km * y
+    Π[2, 2] = abs2(t_mk) * (y + y_shunt_mk)
+    Π
+end
+
 function PiModel(y::Complex{Num}, y_shunt_km, y_shunt_mk, t_km, t_mk)
     Π = Array{Union{Complex{Float64},Complex{Num}}}(undef,2,2)
     Π[1, 1] = - abs2(t_km) * (y + y_shunt_km) # Our sign convention is opposite for the source of the edge
