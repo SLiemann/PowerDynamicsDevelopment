@@ -8,8 +8,7 @@ function GetTestGrid(;y_new = 0.0)
     buses = OrderedDict(
         "bus1" => SlackAlgebraic(U = 1.0),
         "bus2" => VoltageDependentLoad(P=-0.50,Q=0.1,U=1.0,A=0.0,B=0.0,Y_n = 0.0),
-        "bus3" => VoltageDependentLoad(P=-0.25,Q=0.0,U=1.0,A=0.0,B=0.0,Y_n = y_new),
-        "bus4" => FourthOrderEq(
+        "bus3" => FourthOrderEq(
                     H = 3,
                     P = 1.0,
                     D = 0.15*0,
@@ -21,7 +20,8 @@ function GetTestGrid(;y_new = 0.0)
                     X_d_dash = 0.2,
                     X_d = 1.3,
                     X_q = 1.3,
-                )
+                ),
+        "bus4" => VoltageDependentLoad(P=-0.25,Q=0.0,U=1.0,A=0.0,B=0.0,Y_n = y_new),
     )
     branches = OrderedDict(
         "branch12" => PiModelLine(from="bus1",to="bus2",y=1.0/(1im*0.1),y_shunt_km=0.0,y_shunt_mk=0.0),

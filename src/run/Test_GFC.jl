@@ -8,9 +8,9 @@ using Plots
 #using DataFrames
 
 begin
-    #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/include_costum_nodes_lines_utilities.jl")
+    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/include_costum_nodes_lines_utilities.jl")
     include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/grids/GFC_Test_Grid.jl")
-    #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/sensitivity_analyses/Local_Sensitivity.jl")
+    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/sensitivity_analyses/Local_Sensitivity.jl")
 
     pg = GFC_Test_Grid()
     U,δ,ic0 = PowerFlowClassic(pg, iwamoto = true, max_tol = 1e-7)
@@ -18,8 +18,11 @@ begin
     pg1 ,ic = InitializeInternalDynamics(pg,ic0)
     params = GFC_params()
     prob = ODEProblem(rhs(pg1),ic,(0.0,0.1),params)
-    pgsol,evr = simGFC(prob)
+    prob_new = ODEForwardSensitivityProblem(rhs(pg1),ic,(0.0,0.1),params)
+    #pgsol,evr = simGFC(prob)
 end
+sol_try, evr = simGFC(prob_new)
+x,dp = extract_local_sensitivities(sol_try)
 
 mtk_normal = GetMTKSystem(pg1,(0.0,1.0),params)
 mtk_fault = GetMTKSystem(GFC_Test_Grid(y_new = yfault()),(0.0,1.0),params)

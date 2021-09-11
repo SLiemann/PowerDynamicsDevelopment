@@ -116,7 +116,8 @@ function simGFC(prob)
     cb1 = DiscreteCallback(((u,t,integrator) -> t in tstep[2]), postfault_state)
 
     sol = solve(prob, Rodas4(), tstops= tstep,callback = CallbackSet(cb,cb1), dtmax = dt_max(),progress=true)
-    return PowerGridSolution(sol,pg_new), event_recorder
+    return sol, event_recorder
+    #return PowerGridSolution(sol,pg_new), event_recorder
 end
 
 function GetTriggCondsGFCTest(mtk::ODESystem)
