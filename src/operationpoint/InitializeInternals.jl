@@ -4,14 +4,10 @@ using NLsolve: nlsolve, converged
 using IfElse
 include("PowerFlow.jl") # for NodalAdmittanceMatrice
 
-function InitializeInternalDynamics(pg::PowerGrid,ic_lf::Array{Float64,1} ,I_c::Matrix{Complex{Float64}})
-   #Ykk = NodalAdmittanceMatrice(pg)
-   #Uc  = getComplexBusVoltage(pg,ic_lf)
-   #print("Uc am beginn von InitializeInternalDynamics: \n", Uc)
-   #I_c = Ykk*Uc
-   #print("\n Uc: ", Uc, "\n")
-   #print("\n \n I_c at the beginning of InitializeInternalDynamics: \n", I_c, "\n")
-   #print("\n ic_lf: ", ic_lf, "\n")
+function InitializeInternalDynamics(pg::PowerGrid,ic_lf::Array{Float64,1}) # ,I_c::Matrix{Complex{Float64}})
+   Ykk = NodalAdmittanceMatrice(pg)
+   Uc  = getComplexBusVoltage(pg,ic_lf)
+   I_c = Ykk*Uc
 
    ind_offset = 1
    pg_new = deepcopy(pg)
@@ -27,7 +23,7 @@ function InitializeInternalDynamics(pg::PowerGrid,ic_lf::Array{Float64,1} ,I_c::
    return pg_new,ic0
 end
 
-function InitNode(SM::FourthOrderEq,ind::Int64,I_c::Matrix{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)
+function InitNode(SM::FourthOrderEq,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)
    v_d_temp = ic_lf[ind_offset]
    v_q_temp = ic_lf[ind_offset+1]
    #Rotor angle
@@ -47,7 +43,7 @@ function InitNode(SM::FourthOrderEq,ind::Int64,I_c::Matrix{Complex{Float64}},ic_
    return [v_d_temp, v_q_temp, δ, 0.], node_temp
 end
 
-function InitNodeSM(SM::SixOrderMarconatoMachine,ind::Int64,I_c::Matrix{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)
+function InitNodeSM(SM::SixOrderMarconatoMachine,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)
    v_d_temp = ic_lf[ind_offset]
    v_q_temp = ic_lf[ind_offset+1]
    #Rotor angle
@@ -101,7 +97,7 @@ function InitNodeSM(SM::SixOrderMarconatoMachine,ind::Int64,I_c::Matrix{Complex{
 end
 
 #function InitNode(DG::GridSideConverter,ind::Int64,I_c::Array{Complex{Float64},2},ic_lf::Array{Float64,1},ind_offset::Int64)
-function InitNode(DG::GridSideConverter,ind::Int64,I_c::Matrix{ComplexF64},ic_lf::Array{Float64,1},ind_offset::Int64)
+function InitNode(DG::GridSideConverter,ind::Int64,I_c::Vector{ComplexF64},ic_lf::Array{Float64,1},ind_offset::Int64)
    v_d_temp = ic_lf[ind_offset]
    v_q_temp = ic_lf[ind_offset+1]
    u0 = v_d_temp+1im*v_q_temp
@@ -131,7 +127,7 @@ function InitNode(DG::GridSideConverter,ind::Int64,I_c::Matrix{ComplexF64},ic_lf
    return [v_d_temp, v_q_temp, x_st_temp, y_st_temp, z_st_temp, id_temp, iq_temp], node_temp
 end
 
-function InitNode(SM::SixOrderMarconatoMachineAVROEL,ind::Int64,I_c::Matrix{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)
+function InitNode(SM::SixOrderMarconatoMachineAVROEL,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)
    v_d_temp = ic_lf[ind_offset]
    v_q_temp = ic_lf[ind_offset+1]#*15/380
    #Rotor angle
@@ -189,7 +185,7 @@ function InitNode(SM::SixOrderMarconatoMachineAVROEL,ind::Int64,I_c::Matrix{Comp
    return [v_d_temp, v_q_temp, δ, 0., e_ds, e_qs, e_dss, e_qss,ifd,SM.L1,v_f,v_f], node_temp
 end
 
-function InitNode(load::Union{SimpleRecoveryLoad,SimpleRecoveryLoadParam},ind::Int64,I_c::Matrix{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)
+function InitNode(load::Union{SimpleRecoveryLoad,SimpleRecoveryLoadParam},ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)
    v_d_temp = ic_lf[ind_offset]
    v_q_temp = ic_lf[ind_offset+1]
    v = sqrt(v_d_temp^2 + v_q_temp^2)
@@ -198,7 +194,7 @@ function InitNode(load::Union{SimpleRecoveryLoad,SimpleRecoveryLoadParam},ind::I
    return [v_d_temp,v_q_temp,xd, xq], load
 end
 
-function InitNode(GFC::Union{GridFormingConverter,GridFormingConverterParam,GridFormingConverterCSA,GridFormingConverterCSAAntiWindup},ind::Int64,I_c::Matrix{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)
+function InitNode(GFC::Union{GridFormingConverter,GridFormingConverterParam,GridFormingConverterCSA,GridFormingConverterCSAAntiWindup},ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)
    v_d_temp = ic_lf[ind_offset]
    v_q_temp = ic_lf[ind_offset+1]
    U0 = v_d_temp+1im*v_q_temp
