@@ -1,6 +1,6 @@
 @doc """
 ```Julia
-GridSideConverterOfDERs(mode, p_ref, q_ref, v_ref, idmax, iqmax, imax, Kp, Tp, Kq, Tq, Kv, Tv, Kgsc, Tgsc, delta_qv, v1_max, v1_min)
+GridSideConverterOfDERs(mode, p_ref, q_ref, v_ref, idmax, iqmax, imax, Kp, Tp, Kq, Tq, Kv, Tv, Kgsc, Tgsc, δqv, v1_max, v1_min)
 ```
 
 A node that represents the power control structure of the grid-side converter of distributed energy resources.
@@ -32,13 +32,13 @@ The model has the following internal dynamic variables:
 - `Tv`: parameter for reactive power PI-controller (Mode 2)
 - `Kgsc`: parameter for first order time dealy (P-T1) of idq
 - `Tgsc`: parameter for first order time dealy (P-T1) of idq
-- `delta_qv`: width of the dead band of the Q(V)-curve
+- `δqv`: width of the dead band of the Q(V)-curve
 - `v1_max`: voltage at which max inductive power is induced by the Q(V)-curve
 - `v1_min`: voltage at which max capacitive power is induced by the Q(V)-curve
 
 """
 
-@DynamicNode GridSideConverter(mode, p_ref, q_ref, v_ref, idmax, iqmax, imax, Kp, Tp, Kq, Tq, Kv, Tv, Kgsc, Tgsc, delta_qv, v1_max, v1_min, q_max) begin
+@DynamicNode GridSideConverter(mode, p_ref, q_ref, v_ref, idmax, iqmax, imax, Kp, Tp, Kq, Tq, Kv, Tv, Kgsc, Tgsc, δqv, v1_max, v1_min, q_max) begin
     MassMatrix(m_u = false, m_int =[true,true,true,true,true])
 end begin
     @assert Tp > 0 "Time has to be >0"
@@ -48,22 +48,13 @@ end begin
     @assert idmax > 0 "Upper current limit has to be >0"
     @assert iqmax > 0 "Upper current limit has to be >0"
     @assert idmax > 0 "Upper current limit has to be >0"
-    @assert delta_qv >0 "Width of the dead band of the Q(V)-curve"
-end [[dx_st, x_st], [dy_st, y_st], [dz_st, z_st], [did, id], [diq, iq]] begin
+    @assert δqv >0 "Width of the dead band of the Q(V)-curve"
+end [[x_st, dx_st], [y_st, dy_st], [z_st, dz_st], [id, did], [iq, diq]] begin
 
     p = real(u * conj(i))
     Δp = p_ref - p
-    #print("Δp: ", Δp, "\n")
     dx_st = Δp
-    #print("Tp: ", Tp, "\n")
-    #print("x_st: ", x_st, "\n")
-    #print("x_st/TP: ", x_st/Tp, "\n")
-    #print("Kp*Δp: ", Kp*Δp, "\n")
     id0 = x_st/Tp + Kp*Δp
-
-    print("id0: ", id0, "\n")
-    print("idmax: ", idmax, "\n")
-    print("id0 > idmax: ", id0>idmax, "\n")
 
     if id0 > idmax
         id0 = idmax
@@ -86,22 +77,23 @@ end [[dx_st, x_st], [dy_st, y_st], [dz_st, z_st], [did, id], [diq, iq]] begin
     elseif mode == 3                #Q(v)-curve to control reactive power
         q = imag(u * conj(i))
         v = abs(u)
-        if v < v1_min                 #Q(v)-characteristic
-            Q = 1
-        elseif v < 1-delta_qv/2
-            m = -1/(1-delta_qv/2-v1_min)
-            b = 1-m*v1_min
-            Q = m*v+b
-        elseif v < 1+delta_qv/2
-            Q = 0
-        elseif v < v1_max
-            m = -1/(v1_max-1-delta_qv/2)
-            b = -1-m*v1_max
-            Q = m*v+b
-        else
-            Q = -1
-        end
-        Δq = q+Q*q_max
+
+        #### Following implementation of a smooth Q(V)-curve is from "Integration of Voltage Dependent Power Injections of Distributed Generators into
+        #### the Power Flow by using a Damped Newton Method"
+
+        # Hilfsvariablen
+        # v1_min = 0.95; v1_max = 1.05; δqv = 0.01; v = 1.02
+        k = 600 # dieser Wert bestimmt wie nah die smooth function der sich der nicht-stetigen anpasst. Wert 600 ist aus dem Paper übernommen
+        V1 = v1_min; V2 = 1.0 - δqv/2; V3 = 1.0 + δqv/2; V4 = v1_max;
+        y1 = 1.0; y2 = 0.0; y3 = -1.0;
+        γ1 = (y2-y1)/(V2 - V1) # Steigung erster Abschnitt
+        γ2 = (y3-y2)/(V4 - V3) # Steigung zweiter Abschnitt
+
+        # Q(V)-Funktion
+        Q(v) = y1 + γ1/k*(log(1+exp(k*(v-V1))) - log(1+exp(k*(v-V2)))) + γ2/k*(log(1+exp(k*(v-V3))) - log(1+exp(k*(v-V4))))
+
+        #Δq = q+Q(v)*q_max # Hier muss wahrscheinlich ein minus hin! Ausprobieren!
+        Δq = q-Q(v)*q_max 
         dy_st = Δq
         dz_st = 0
         iq0 = Kq*Δq + y_st/Tq
@@ -119,7 +111,9 @@ end [[dx_st, x_st], [dy_st, y_st], [dz_st, z_st], [did, id], [diq, iq]] begin
 
 
     idq0 = id0+1im*iq0
-    if abs(idq0) > imax                        #dynamic limiter
+    if (abs(id0) > imax || abs(iq0) > imax)
+        id0 = imax; iq0 = 0;                   # Dieser Fall sollte eig nie auftreten. Zur Sicherheit hinzugefügt
+    elseif abs(idq0) > imax                    #dynamic limiter
         if (abs(u) < 1.1) && (abs(u) > 0.9)    #normal case
             if iq0 <= 0
                 iq0 = -sqrt(imax^2 - id0^2)
@@ -134,6 +128,6 @@ end [[dx_st, x_st], [dy_st, y_st], [dz_st, z_st], [did, id], [diq, iq]] begin
     did = id0*Kgsc/Tgsc - id/Tgsc
     diq = iq0*Kgsc/Tgsc - iq/Tgsc
     idq = id + 1im*iq
-    du = i - i_dq*exp(1im*angle(u))
+    du = i - idq*exp(1im*angle(u))
 end
 export GridSideConverter

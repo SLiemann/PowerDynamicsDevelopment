@@ -70,6 +70,7 @@ NodeType(L::ExponentialRecoveryLoad)  = 2
 NodeType(L::CSIMinimal)  = 2
 NodeType(L::SimpleRecoveryLoad)  = 2
 NodeType(L::SimpleRecoveryLoadParam)  = 2
+NodeType(L::GridSideConverter) = 1
 NodeType(
     L::Union{
         GridFormingConverter,
@@ -102,25 +103,20 @@ function PowerNodeLoad(L::GridSideConverter,U)
     if L.mode == 1
         return complex(0, -L.q_ref)
     elseif L.mode == 2
-        return complex(0, -L.q_ref) # muss noch verbessert werden
+        return complex(0, -L.q_ref) # Dieser Mode muss noch verbessert werden. Umsetzung in der Theorie noch nicht verstanden.
+        # Für dei Umsetzung muss eine Funktion Q(v) definiert werden können??
     elseif L.mode == 3
         v = abs(U)
-        if v < L.v1_min                 #Q(v)-characteristic
-            Q = 1
-        elseif v < 1-L.delta_qv/2
-            m = -1/(1-L.delta_qv/2-L.v1_min)
-            b = 1-m*L.v1_min
-            Q = m*v+b
-        elseif v < 1+L.delta_qv/2
-            Q = 0
-        elseif v < L.v1_max
-            m = -1/(L.v1_max-1-L.delta_qv/2)
-            b = -1-m*L.v1_max
-            Q = m*v+b
-        else
-            Q = -1
-        end
-        return complex(0, Q*L.q_max)
+    
+        k = 600 # dieser Wert bestimmt wie nah die smooth function der sich der nicht-stetigen anpasst. Wert 600 ist aus dem Paper übernommen
+        V1 = L.v1_min; V2 = 1.0 - L.δqv/2; V3 = 1.0 + L.δqv/2; V4 = L.v1_max;
+        y1 = 1.0; y2 = 0.0; y3 = -1.0;
+        γ1 = (y2-y1)/(V2 - V1) # Steigung erster Abschnitt
+        γ2 = (y3-y2)/(V4 - V3) # Steigung zweiter Abschnitt
+
+        # Q(V)-Funktion
+        Q(v) = y1 + γ1/k*(log(1+exp(k*(v-V1))) - log(1+exp(k*(v-V2)))) + γ2/k*(log(1+exp(k*(v-V3))) - log(1+exp(k*(v-V4))))
+        return complex(0, Q(v)*L.q_max)
     end
 end
 PowerNodeLoad(
