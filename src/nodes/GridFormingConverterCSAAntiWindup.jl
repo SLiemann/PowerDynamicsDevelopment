@@ -18,7 +18,7 @@ The model has the following internal dynamic variables:
 """
 =#
 @DynamicNode GridFormingConverterCSAAntiWindup(Sbase,Srated,p0set,q0set,u0set,Kp_droop,Kq_droop,ωf_P,ωf_Q,xlf,rf,xcf,Kp_u,Ki_u,Kp_i,Ki_i,imax,Kvi,σXR,K_vq,imax_csa,p_ind) begin
-    MassMatrix(m_int =[true,true,true,true,true,true,true,false,false])#,false,false,false,false
+    MassMatrix(m_int =[true,true,true,true,true,true,true,false,false,false])#,false,false,false,false
 end begin
     @assert Sbase > 0 "Base apparent power of the grid in VA, should be >0"
     @assert Srated > 0 "Rated apperent power of the machine in VA, should be >0"
@@ -42,7 +42,7 @@ end begin
     @assert K_vq >= 0 "Gain for intrusion of Vq for P-droop in p.u., should be >=0"
     @assert imax_csa >= 0 "max. current for current saturation algorithm (CSA) in p.u., should be >=0"
 
-end [[θ,dθ],[ω,dω],[Qm,dQm],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_iq],[i_abs,di_abs],[Pout,dPout]] begin
+end [[θ,dθ],[ω,dω],[Qm,dQm],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_iq],[i_abs,di_abs],[Pout,dPout],[UQmeas,dUQmeas]] begin
     #,[Um,dUm],[Ixcf,dIxcf],[Pout,dPout],[Qout,dQout] ,[i_setabs1,di_setabs1]
     Kp_droop = p[p_ind[1]]
     Kq_droop = p[p_ind[2]]
@@ -150,6 +150,7 @@ end [[θ,dθ],[ω,dω],[Qm,dQm],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_
     #dIxcf= Ixcf - abs(u / (-1im * xcf)) / (Srated/Sbase) #for output
     dPout = Pout - pmeas #for output
     #dQout = Qout - qmeas #for output
+    dUQmeas = UQmeas - uqmeas
 end
 
 export GridFormingConverterCSAAntiWindup

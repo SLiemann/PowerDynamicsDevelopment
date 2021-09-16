@@ -1,3 +1,8 @@
+using LightGraphs: incidence_matrix
+using Roots: find_zero
+using PowerDynamics: guess
+import PowerDynamics: PiModel
+using LinearAlgebra: norm
 
 #Pi models for nodal admittance matrice
 PiModel(L::PiModelLine) = PiModel(L.y,L.y_shunt_km,L.y_shunt_mk,1,1)
@@ -107,7 +112,7 @@ function PowerNodeLoad(L::GridSideConverter,U)
         # Für dei Umsetzung muss eine Funktion Q(v) definiert werden können??
     elseif L.mode == 3
         v = abs(U)
-    
+
         k = 600 # dieser Wert bestimmt wie nah die smooth function der sich der nicht-stetigen anpasst. Wert 600 ist aus dem Paper übernommen
         V1 = L.v1_min; V2 = 1.0 - L.δqv/2; V3 = 1.0 + L.δqv/2; V4 = L.v1_max;
         y1 = 1.0; y2 = 0.0; y3 = -1.0;
@@ -230,20 +235,13 @@ function PowerFlowClassic(pg::PowerGrid; ind_sl::Int64 = 0,max_tol::Float64 = 1e
             Pn[i] = sum(U[i].*U.*Ykk_abs[:,i].*cos.(δ[i].-δ.-θ[:,i]))
             Qn[i] = sum(U[i].*U.*Ykk_abs[:,i].*sin.(δ[i].-δ.-θ[:,i]))
         end
-        #print("Pn[", iter, "]:  ", Pn[1:3], "\n")
-        #print("Qn[", iter, "]:  ", Qn[1:3], "\n")
         #update load powers
         for (ind,val) in enumerate(values(pg.nodes)) S_node_load[ind] = PowerNodeLoad(val,U[ind]*exp(1im*δ[ind])) end
 
         S_node = S_node_gen + S_node_load #total power at a node
-        #print("S_node_gen[", iter, "]:", S_node_gen[1:3], "\n")
-        #print("S_node_load[", iter, "]:", S_node_load[1:3], "\n")
 
         ΔP = real(S_node) - Pn
         ΔQ = imag(S_node) - Qn
-
-        #print("ΔP(with slack): ", ΔP[1:3], "\n")
-        #print("ΔQ(with slack): ", ΔQ[1:3], "\n")
 
         ΔP = ΔP[1:end .!= ind_sl, :]; #delete slack
         ΔQ = ΔQ[setdiff(1:end, [ind_sl; ind_PV]), :]; #delete slack and PV nodes
@@ -275,21 +273,13 @@ function PowerFlowClassic(pg::PowerGrid; ind_sl::Int64 = 0,max_tol::Float64 = 1e
             res *= iwa
         end
 
-
-
         #split result in angle and magnitude
         Δδ  = res[1:length(ΔP)]
         ΔU  = res[length(ΔP)+1:end]
 
-        #print("δ[", iter, "]: ", δ, "\n")
-        #print("U[", iter, "]: ", U, "\n")
-        print("δ[", iter, "]: ", δ[1:3], "\n")
-        print("U[", iter, "]: ", U[1:3], "\n")
-
         #Update angle and voltage magnitude, where the latter is the square
         δ[1:end .!= ind_sl, :] += Δδ
         U[setdiff(1:end, [ind_sl; ind_PV]), :] = U[setdiff(1:end, [ind_sl; ind_PV]), :] + ΔU.*U[setdiff(1:end, [ind_sl; ind_PV]), :]
-
 
         #Check if reactive power limit is reached; change PV to PQ node
         if Qmax != -1 && Qmin != -1 #Qmax and Qmin are normally vectors with the limits

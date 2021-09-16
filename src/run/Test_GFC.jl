@@ -1,6 +1,7 @@
 using PowerDynamics
 using DifferentialEquations
 using Plots
+using MAT
 #using DiffEqSensitivity
 #using JLD
 #using ModelingToolkit
@@ -8,19 +9,36 @@ using Plots
 #using DataFrames
 
 begin
-    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/include_costum_nodes_lines_utilities.jl")
+    #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/include_costum_nodes_lines_utilities.jl")
     include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/grids/GFC_Test_Grid.jl")
-    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/sensitivity_analyses/Local_Sensitivity.jl")
+    #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/sensitivity_analyses/Local_Sensitivity.jl")
 
     pg = GFC_Test_Grid()
     U,δ,ic0 = PowerFlowClassic(pg, iwamoto = true, max_tol = 1e-7)
-
+end
+Ykk = NodalAdmittanceMatrice(pg)
+Uc = U.*exp.(1im*δ/180*pi)
+I_c = Ykk*Uc
+S = conj(Ykk*Uc).*Uc
+begin
     pg1 ,ic = InitializeInternalDynamics(pg,ic0)
     params = GFC_params()
-    prob = ODEProblem(rhs(pg1),ic,(0.0,0.1),params)
-    prob_new = ODEForwardSensitivityProblem(rhs(pg1),ic,(0.0,0.1),params)
-    #pgsol,evr = simGFC(prob)
+    prob = ODEProblem(rhs(pg1),ic,(0.0,1.5),params)
+    #prob_new = ODEForwardSensitivityProblem(rhs(pg1),ic,(0.0,0.1),params)
+    pgsol,evr = simGFC(prob)
 end
+plot!(pgsol,collect(keys(pg.nodes))[3],:v, label = "PD - Ucf", legend = (0.8,0.75))
+plot(pgsol,["bus3"],:i_abs, label = "Iabs")
+plot(pgsol,["bus3"],:θ, label ="Droop-Winkel VSC",xlims=(0.0,0.5))
+plot(pgsol,["bus3"],:Pout)
+plot(pgsol,["bus3"],:UQmeas)
+
+file = matopen("C:\\Users\\liemann\\Desktop\\ucf.mat")
+tmp2 = read(file, "ucf")'
+close(file)
+ucf = tmp2'[:,2:3]
+plot(ucf[:,1],ucf[:,2],label = "MATLAB - Ucf")
+
 sol_try, evr = simGFC(prob_new)
 x,dp = extract_local_sensitivities(sol_try)
 
@@ -46,7 +64,7 @@ plot(pgsol,["bus3"],:i_abs, label = "Iabs", ylims=(0.0,1.4))
 plot(pgsol,collect(keys(pg.nodes))[3],:v, label = "Spannung VSC", legend = (0.8,0.75))
 plot(pgsol,["bus3"],:θ, label ="Droop-Winkel VSC",xlims=(0.0,0.5))
 plot(pgsol,["bus3"],:p)
-plot!(pgsol,["bus3"],:Pout)
+plot(pgsol,["bus3"],:Pout)
 plot(pgsol,collect(keys(pg.nodes))[2:3],:φ)
 
 theta = plot(pgsol,["bus3"],:θ)[1][1][:y]

@@ -21,6 +21,8 @@ include("nodes/GridFormingConverter.jl")
 include("nodes/GridFormingConverterCSA.jl")
 include("nodes/GridFormingConverterCSAAntiWindup.jl")
 include("nodes/GridFormingConverterParam.jl")
+include("nodes/GridSideConverter.jl")
+
 #Operation Point
 include("operationpoint/InitializeInternals.jl")
 include("operationpoint/PowerFlow.jl")
