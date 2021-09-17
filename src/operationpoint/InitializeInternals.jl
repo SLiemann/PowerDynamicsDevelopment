@@ -210,11 +210,11 @@ function InitNode(GFC::Union{GridFormingConverter,GridFormingConverterParam,Grid
    Q = q
    q0set = q
 
-   idqmeas = 1im*I_c[ind]*(cos(-θ)+1im*sin(-θ)) / (GFC.Srated/GFC.Sbase)
+   idqmeas = I_c[ind]*(cos(-θ)+1im*sin(-θ)) / (GFC.Srated/GFC.Sbase) #1im*
    idmeas = real(idqmeas)
    iqmeas = imag(idqmeas)
 
-   idq = 1im*i1*(cos(-θ)+1im*sin(-θ))
+   idq = i1*(cos(-θ)+1im*sin(-θ)) #1im*
    id = real(idq)
    iq = imag(idq)
 
@@ -226,11 +226,11 @@ function InitNode(GFC::Union{GridFormingConverter,GridFormingConverterParam,Grid
    umd = real(E0)
    umq = imag(E0)
 
-   e_id = (umd - udmeas + iq * GFC.xlf) / GFC.Ki_i
-   e_iq = (umq - uqmeas - id * GFC.xlf) / GFC.Ki_i
+   e_id = (umd - udmeas + iq * GFC.xlf) #/ GFC.Ki_i
+   e_iq = (umq - uqmeas - id * GFC.xlf) #/ GFC.Ki_i
 
-   e_ud = (id - idmeas + uqmeas / GFC.xcf) / GFC.Ki_u #hier müsste es ohne idmeas und iqmeas sein
-   e_uq = (iq - iqmeas - udmeas / GFC.xcf) / GFC.Ki_u #passt das überhaupt mit dem Srated/Sbase???
+   e_ud = (id - idmeas + uqmeas / GFC.xcf) #/ GFC.Ki_u #hier müsste es ohne idmeas und iqmeas sein
+   e_uq = (iq - iqmeas - udmeas / GFC.xcf) #/ GFC.Ki_u #passt das überhaupt mit dem Srated/Sbase???
 
    if typeof(GFC) == GridFormingConverterParam
       GFC_new = GridFormingConverterParam(

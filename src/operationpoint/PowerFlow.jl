@@ -1,7 +1,7 @@
 using LightGraphs: incidence_matrix
 using Roots: find_zero
 using PowerDynamics: guess
-import PowerDynamics: PiModel
+#import PowerDynamics: PiModel
 using LinearAlgebra: norm
 
 #Pi models for nodal admittance matrice

@@ -61,24 +61,30 @@ end [[θ,dθ],[ω,dω],[Qm,dQm],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_
     K_vq = p[p_ind[15]]
     imax_csa = p[p_ind[16]]
 
+    #after filter
     umeas = u*(cos(-θ)+1im*sin(-θ))
     udmeas = real(umeas)
     uqmeas = imag(umeas)
-    imeas = 1im*i*(cos(-θ)+1im*sin(-θ))/(Srated/Sbase)
+    imeas = i*(cos(-θ)+1im*sin(-θ))/(Srated/Sbase) #1im*
     idmeas = real(imeas)
     iqmeas = imag(imeas)
     pmeas = real(u * conj(i))
     qmeas = imag(u * conj(i))
 
+    #for filter
     idq = i / (Srated/Sbase) + u / (-1im * xcf) / (Srated/Sbase)
-    idq = 1im*idq*(cos(-θ)+1im*sin(-θ))
+    idq = idq*(cos(-θ)+1im*sin(-θ)) #1im*
     id  = real(idq)
     iq  = imag(idq)
+
+    uvsc = u + (rf + 1im*xlf) * idq
+    uvscd  = real(uvsc)
+    uvscq  = imag(uvsc)
 
     #Droop control
     Tp = 1.0/ ωf_P
     dω = ((p0set - pmeas) * Kp_droop - ω) / Tp
-    dθ = (ω + K_vq * uqmeas) * 2.0 * pi * 50.0
+    dθ = (ω + K_vq * uvscq) * 2.0 * pi * 50.0
 
     Tq = 1.0/ ωf_Q
     dQm = (qmeas - Qm) / Tq
@@ -86,26 +92,26 @@ end [[θ,dθ],[ω,dω],[Qm,dQm],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_
 
     #Virtual Impedance
     I_abs = hypot(id,iq)
-    Δi = -(I_abs - imax)
+    Δi = (I_abs - imax)
     x_vi = Δi * σXR * Kvi
     r_vi = x_vi / σXR
 
     #integrator from Dominik: Problem: state reset if u raises again, need callback
     #dϵ_vi = IfElse.ifelse(abs(umeas) < u0_vi_low, K_i_vi * (I_abs - I_ref),0.0)
 
-    Δud_vi = IfElse.ifelse(I_abs >= imax,r_vi * id - x_vi * iq,0.0)
-    Δuq_vi = IfElse.ifelse(I_abs >= imax,r_vi * iq + x_vi * id,0.0)
+    Δud_vi = IfElse.ifelse(I_abs > imax,r_vi * id - x_vi * iq,0.0)
+    Δuq_vi = IfElse.ifelse(I_abs > imax,r_vi * iq + x_vi * id,0.0)
 
     #Building voltage reference
     udset = Uset - Δud_vi #real(Uset * (cos(θ) + 1im * sin(θ)))
     uqset = 0.0 - Δuq_vi #imag(Uset * (cos(θ) + 1im * sin(θ)))
 
     #Voltage control
-    de_ud = udset - udmeas
-    de_uq = uqset - uqmeas
+    #de_ud = (udset - udmeas) * Ki_u
+    #de_uq = (uqset - uqmeas) * Ki_u
 
-    idset = idmeas - uqmeas / xcf + Kp_u * de_ud + Ki_u * e_ud
-    iqset = iqmeas + udmeas / xcf + Kp_u * de_uq + Ki_u * e_uq
+    idset = idmeas - uqmeas / xcf + Kp_u * (udset - udmeas) + e_ud
+    iqset = iqmeas + udmeas / xcf + Kp_u * (uqset - uqmeas) + e_uq
 
     #Current saturation algorithm
     iset_abs = hypot(idset,iqset)
@@ -116,15 +122,15 @@ end [[θ,dθ],[ω,dω],[Qm,dQm],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_
 
     #experimentell
     anti_windup = IfElse.ifelse(iset_abs > imax_csa,true,false)
-    de_ud = IfElse.ifelse(anti_windup,0.0, udset - udmeas)
-    de_uq = IfElse.ifelse(anti_windup,0.0, uqset - uqmeas)
+    de_ud = IfElse.ifelse(anti_windup,0.0, (udset - udmeas) * Ki_u)
+    de_uq = IfElse.ifelse(anti_windup,0.0, (uqset - uqmeas) * Ki_u)
 
     #Current control
-    de_id = idset_csa - id
-    de_iq = iqset_csa - iq
+    de_id = (idset_csa - id) * Ki_i
+    de_iq = (iqset_csa - iq) * Ki_i
 
-    umd = udmeas - iq * xlf + Kp_i * de_id + Ki_i * e_id
-    umq = uqmeas + id * xlf + Kp_i * de_iq + Ki_i * e_iq
+    umd = udmeas - iq * xlf + Kp_i * (idset_csa - id) + e_id
+    umq = uqmeas + id * xlf + Kp_i * (iqset_csa - iq) + e_iq
 
     #Back transformation to global reference systems
     um = umd + 1im * umq
@@ -133,7 +139,7 @@ end [[θ,dθ],[ω,dω],[Qm,dQm],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_
     umq = imag(um)
 
     idq = id + 1im*iq
-    idq = -1im*idq*(cos(θ)+1im*sin(θ))
+    idq = idq*(cos(θ)+1im*sin(θ)) #-1im*
     id = real(idq) #* (Srated/Sbase)
     iq = imag(idq) #* (Srated/Sbase)
 
