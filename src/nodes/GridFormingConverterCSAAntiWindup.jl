@@ -77,14 +77,10 @@ end [[θ,dθ],[ω,dω],[Qm,dQm],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_
     id  = real(idq)
     iq  = imag(idq)
 
-    uvsc = u + (rf + 1im*xlf) * idq
-    uvscd  = real(uvsc)
-    uvscq  = imag(uvsc)
-
     #Droop control
     Tp = 1.0/ ωf_P
     dω = ((p0set - pmeas) * Kp_droop - ω) / Tp
-    dθ = (ω + K_vq * uvscq) * 2.0 * pi * 50.0
+    dθ = (ω + K_vq * uqmeas) * 2.0 * pi * 50.0
 
     Tq = 1.0/ ωf_Q
     dQm = (qmeas - Qm) / Tq

@@ -9,8 +9,8 @@ using MAT
 #using DataFrames
 
 begin
-    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/include_costum_nodes_lines_utilities.jl")
-    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/operationpoint/InitializeInternals.jl")
+    #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/include_costum_nodes_lines_utilities.jl")
+    #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/operationpoint/InitializeInternals.jl")
     include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/grids/GFC_Test_Grid.jl")
     #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/sensitivity_analyses/Local_Sensitivity.jl")
 end
@@ -19,13 +19,14 @@ begin
     U,δ,ic0 = PowerFlowClassic(pg, iwamoto = true, max_tol = 1e-7)
     pg1 ,ic = InitializeInternalDynamics(pg,ic0)
     params = GFC_params()
-    prob = ODEProblem(rhs(pg1),ic,(0.0,3.0),params, initializealg = BrownFullBasicInit())
+    prob = ODEProblem(rhs(pg1),ic,(-5.0,2.0),params, initializealg = BrownFullBasicInit())
     #prob_new = ODEForwardSensitivityProblem(rhs(pg1),ic,(0.0,0.1),params)
     pgsol,evr = simGFC(prob)
 end
 plot(pgsol,collect(keys(pg.nodes))[3],:v, label = "PD - Ucf")
-plot(pgsol,["bus3"],:i_abs, label = "Iabs", ylims=(1.1,1.4))
+plot(pgsol_sepfc,["bus3"],:i_abs, label = "Iabs")#, ylims=(1.1,1.4)
 plot(pgsol,["bus3"],:θ, label ="Droop-Winkel VSC")
+theta = ExtractResult(pgsol,:θ_3)*180/pi
 plot(pgsol,["bus3"],:ω)
 plot(pgsol,["bus3"],:Pout)
 plot(pgsol,["bus3"],:UQmeas)
@@ -35,9 +36,9 @@ tmp2 = read(file, "ucf")'
 close(file)
 ucf = tmp2
 plot(ucf[:,1],ucf[:,2],label = "MATLAB - Ucf")
-plot!(pgsol,collect(keys(pg.nodes))[3],:v, label = "PD - Ucf", legend = (0.8,0.75))
+plot!(pgsol,collect(keys(pg.nodes))[3],:v, label = "PD - Ucf", legend = (0.8,0.75) , xlims =(5.0,5.5))
 plot(ucf[:,1],ucf[:,3],label = "MATLAB - Iabs")
-plot!(pgsol,["bus3"],:i_abs, label = "PD - Iabs", legend = (0.8,0.5))
+plot!(pgsol,["bus3"],:i_abs, label = "PD - Iabs", legend = (0.8,0.5),ylims=(0.85,0.91)) #, xlims =(5.0,5.5)
 
 sol_try, evr = simGFC(prob_new)
 x,dp = extract_local_sensitivities(sol_try)
