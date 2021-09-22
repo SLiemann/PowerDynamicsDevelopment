@@ -11,7 +11,7 @@ Zbase = Ubase^2/Sbase
 
 zfault() = 40.0/Zbase
 tfault_on() = 1.0
-tfault_off() = 1.15
+tfault_off() = 1.1
 dt_max() = 1e-2
 
 function LTVS_Test_System()
@@ -40,7 +40,7 @@ function LTVS_Test_System()
         return PowerGrid(buses, branches)
 end
 
-function GFC_LTVS_Test_System()
+function GFC_LTVS_Test_System(;nTap = 0.0)
     Sbase = 100e6
     Ubase = 380e3
     Ibase = Sbase/Ubase/sqrt(3)
@@ -50,28 +50,28 @@ function GFC_LTVS_Test_System()
         "bus1" => SlackAlgebraic(U=1.0),
         "bus2" => VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=0., B=0.,Y_n = complex(0.0)),
         "bus3" => VoltageDependentLoad(P=-9.6, Q = -2.8, U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),
-        "bus4" => GridFormingConverterCSA(
+        "bus4" => GridFormingConverterCSAAntiWindup(
             Sbase = Sbase,
-            Srated = 6*Sbase,
-            p0set = 5.7, # based on Sbase!
-            q0set = 0.001,
+            Srated = 5.5*Sbase,
+            p0set = 5.0, # based on Sbase!
+            q0set = 0.001*0,
             u0set = 1.00,
             Kp_droop = 0.02,
             Kq_droop = 0.001,
-            ωf_P = 10.0 * 2 * pi,
-            ωf_Q = 5.0 * 2 * pi,
-            xlf = 0.0177*(380/320)^2, #0.01257,     #0.15*(320/380)^2,  *(380/320)^2
-            rf =  0.00059095*(380/320)^2, #0.00042,     #0.005*(320/380)^2,
-            xcf = 1.7908*(380/320)^2,#1.26990*2,1.7908   # 15.51,# 15.51*(320/380)^2, #1.0/(2.0*pi*50.0*1.231e-6)/Zbase, #
+            ωf_P = 62.8,
+            ωf_Q = 62.8,
+            xlf = 0.15, #0.01257,     #0.15*(320/380)^2,  *(380/320)^2
+            rf =  0.005, #0.00042,     #0.005*(320/380)^2,
+            xcf = 15.1515151515,#1.26990*2,1.7908   # 15.51,# 15.51*(320/380)^2, #1.0/(2.0*pi*50.0*1.231e-6)/Zbase, #
             Kp_u = 0.52, #1.0
             Ki_u = 1.161022,
             Kp_i = 0.738891, # 0.73
             Ki_i = 1.19,
             imax = 1.0,
-            Kvi = 0.05, #0.8272172037144201, # 0.677
+            Kvi = 0.055, #0.8272172037144201, # 0.677
             σXR = 10.0,
-            K_vq = 0.001*0,
-            imax_csa = 1.1,
+            K_vq = 0.1,
+            imax_csa = 1.10,
             p_ind = collect(1:16),
         ),
         "busv" => VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=0., B=0.,Y_n = complex(0.0)))
@@ -85,7 +85,7 @@ function GFC_LTVS_Test_System()
         "branch3"=> StaticPowerTransformer(from="bus2",to="bus4",Sbase=Sbase,Srated=600e6,uk=0.15,XR_ratio=Inf,
                                            i0=0.0,Pv0=0.0,tap_side = "HV",tap_pos = 0,tap_inc = 1.0),
         "branch4"=> StaticPowerTransformer(from="bus2",to="bus3",Sbase=Sbase,Srated=1200e6,uk=0.15,XR_ratio=Inf,
-                                           i0=0.0,Pv0=0.0,tap_side = "LV",tap_pos = 0,tap_inc = 1.2))
+                                           i0=0.0,Pv0=0.0,tap_side = "LV",tap_pos = nTap,tap_inc = 1.2))
         return PowerGrid(buses, branches)
 end
 
@@ -112,20 +112,17 @@ function GFC_LTVS_params()
     ]
 end
 
-function GetInitializedLTVSSystem(;gfc = "gfc_normal")
-    if gfc == "gfc_normal"
-        pg = GFC_LTVS_Test_System()
-    else
+function GetInitializedLTVSSystem(;sm = false)
+    if sm == true
         pg = LTVS_Test_System()
+    else
+        pg = GFC_LTVS_Test_System()
     end
     return GetInitializedLTVSSystem(pg)
 end
 
 function GetInitializedLTVSSystem(pg::PowerGrid)
-    #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/operationpoint/PowerFlow.jl")
-    #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/utility/utility_functions.jl")
-    #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/operationpoint/InitializeInternals.jl")
-    Qmax   = [Inf, Inf, Inf,Inf, Inf,sqrt(1-0.95^2)]
+    Qmax   = [Inf, Inf, Inf,Inf, Inf,Inf*sqrt(1-0.95^2)]
     Qmin   = -Qmax
     U,δ,ic0 = PowerFlowClassic(pg,iwamoto = true, Qmax = Qmax, Qmin = Qmin, Qlimit_iter_check = 2,max_tol = 1e-6)
     return InitializeInternalDynamics(pg,ic0)
@@ -150,7 +147,7 @@ function GetMTKLTVSSystem(;pg_state = "gfc_normal")
     return modelingtoolkitize(ODEProb)
 end
 
-function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Float64,Float64})
+function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Float64,Float64};t_stop_droop = Inf)
     tfault = [tfault_on(), tfault_off()]
 
     pg_fault = GetFaultLTVSPG(pg)
@@ -227,7 +224,7 @@ function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Fl
         if timer_start == -1
             return false
         else
-            return t-timer_start > 5
+            return t-timer_start > 5.0
         end
     end
 
@@ -251,9 +248,9 @@ function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Fl
         ode   = rhs(pg_postfault)
         index = PowerDynamics.variable_index(pg.nodes,"busv",:u_r)
 
-        #ic_tmp = deepcopy(integrator.sol.u[indexin(tfault[1],integrator.sol.t)[1]])
-        ic_tmp = sol[end]
-        #ic_tmp = getPreFaultVoltages(pg,ic_tmp,deepcopy(sol[end]))
+        ic_tmp = deepcopy(integrator.sol.u[indexin(tfault[1],integrator.sol.t)[1]])
+        #ic_tmp = sol[end]
+        ic_tmp = getPreFaultVoltages(pg,ic_tmp,deepcopy(sol[end]))
         #deleteat!(ic_tmp,index:index+1)
         op_prob = ODEProblem(ode, ic_tmp, (0.0, 1e-6), params, initializealg = BrownFullBasicInit())
         x3 = solve(op_prob,Rodas5())
@@ -273,7 +270,7 @@ function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Fl
     end
 
     function check_voltage(u,t,integrator)
-            sqrt(u[index_U_load]*u[index_U_load] + u[index_U_load+1]*u[index_U_load+1]) < 0.4
+            sqrt(u[index_U_load]*u[index_U_load] + u[index_U_load+1]*u[index_U_load+1]) < 0.65
     end
 
     function stop_integration(integrator)
@@ -285,6 +282,7 @@ function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Fl
 
     function deactivate_droop(integrator)
         integrator.p[3] = 0.0
+        integrator.p[15] = 0.0
         integrator.u[10] = 0.0
     end
 
@@ -294,9 +292,9 @@ function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Fl
     cb4 = DiscreteCallback(((u,t,integrator) -> t in tfault[1]), errorState)
     cb5 = DiscreteCallback(((u,t,integrator) -> t in tfault[2]), regularState)
     cb6 = DiscreteCallback(check_voltage, stop_integration)
-    #cb7 = DiscreteCallback(((u,t,integrator) -> t in 60.0), deactivate_droop)
+    cb7 = DiscreteCallback(((u,t,integrator) -> t in t_stop_droop), deactivate_droop)
 
-    sol = solve(problem, Rodas4(), callback = CallbackSet(cb1,cb2,cb3,cb4,cb5,cb6), tstops=[tfault[1],tfault[2],60.0], dtmax = dt_max(),progress =true) #
+    sol = solve(problem, Rodas4(), callback = CallbackSet(cb1,cb2,cb3,cb4,cb5,cb6,cb7), tstops=[tfault[1],tfault[2],t_stop_droop], dtmax = dt_max(),progress =true) #
     #sol = AddNaNsIntoSolution(pg,pg_postfault,deepcopy(sol))
 
     return PowerGridSolution(sol, pg), event_recorder

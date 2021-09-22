@@ -9,7 +9,7 @@ using MAT
 #using DataFrames
 
 begin
-    #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/include_costum_nodes_lines_utilities.jl")
+    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/include_costum_nodes_lines_utilities.jl")
     #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/operationpoint/InitializeInternals.jl")
     include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/grids/GFC_Test_Grid.jl")
     #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/sensitivity_analyses/Local_Sensitivity.jl")
@@ -24,7 +24,7 @@ begin
     pgsol,evr = simGFC(prob)
 end
 plot(pgsol,collect(keys(pg.nodes))[3],:v, label = "PD - Ucf")
-plot(pgsol_sepfc,["bus3"],:i_abs, label = "Iabs")#, ylims=(1.1,1.4)
+plot(pgsol,["bus3"],:i_abs, label = "Iabs", legend = false)#, ylims=(1.1,1.4)
 plot(pgsol,["bus3"],:θ, label ="Droop-Winkel VSC")
 theta = ExtractResult(pgsol,:θ_3)*180/pi
 plot(pgsol,["bus3"],:ω)
@@ -36,9 +36,12 @@ tmp2 = read(file, "ucf")'
 close(file)
 ucf = tmp2
 plot(ucf[:,1],ucf[:,2],label = "MATLAB - Ucf")
-plot!(pgsol,collect(keys(pg.nodes))[3],:v, label = "PD - Ucf", legend = (0.8,0.75) , xlims =(5.0,5.5))
+plot!(pgsol,collect(keys(pg.nodes))[3],:v, label = "PD - Ucf", legend = false,xlims=(0.0,1.5))
 plot(ucf[:,1],ucf[:,3],label = "MATLAB - Iabs")
-plot!(pgsol,["bus3"],:i_abs, label = "PD - Iabs", legend = (0.8,0.5),ylims=(0.85,0.91)) #, xlims =(5.0,5.5)
+plot!(pgsol,["bus3"],:i_abs, label = "PD - Iabs", legend = (0.8,0.5),xlims=(0.0,1.5)) #, xlims =(5.0,5.5)
+plot(ucf[:,1],ucf[:,4].+ic[7],label = "MATLAB - θ")
+plot!(pgsol,["bus3"],:θ, label = "PD - θ", legend = (0.8,0.5),xlims=(0.6,1.0),ylims=(6.1,7))
+
 
 sol_try, evr = simGFC(prob_new)
 x,dp = extract_local_sensitivities(sol_try)

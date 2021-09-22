@@ -13,25 +13,35 @@ Sbase = 100e6
 Zbase = (Ubase^2)/Sbase
 
 begin
-    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/include_costum_nodes_lines_utilities.jl")
+    #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/include_costum_nodes_lines_utilities.jl")
     include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/grids/LTVS_Test_System.jl")
-    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/sensitivity_analyses/Local_Sensitivity.jl")
-    #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/sensitivity_analyses/LS_old.jl")
+    #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/sensitivity_analyses/Local_Sensitivity.jl")
 end
 begin
-    pg, ic0 = GetInitializedLTVSSystem(gfc = "no")
-    pgsol,evr  = run_LTVS_simulation(pg,ic0,(0.0,80.0))
-    plot(pgsol,collect(keys(pg.nodes))[2:end],:v,legend = false)
+    pg = GFC_LTVS_Test_System(nTap = 5)
+    Qmax   = [Inf, Inf, Inf,Inf, Inf,Inf*sqrt(1-0.95^2)]
+    Qmin   = -Qmax
+    U,δ,ic0 = PowerFlowClassic(pg,iwamoto = true, Qmax = Qmax, Qmin = Qmin, Qlimit_iter_check = 2,max_tol = 1e-6)
+    Uc = U.*exp.(1im*δ/180*pi)
+    Ykk = NodalAdmittanceMatrice(pg)
+    Ic = abs.(Ykk*Uc./5.5)
+    S  = round.(Uc.*(conj.(Ykk)*conj.(Uc)),digits=3)
+    pg, ic0 = InitializeInternalDynamics(pg,ic0)
+
+    #pg, ic0 = GetInitializedLTVSSystem()
+    pgsol,evr  = run_LTVS_simulation(pg,ic0,(0.0,120.0))
+    display(plot(pgsol,collect(keys(pg.nodes))[2:end],:v, legend =false))
 end
 pg= GFC_LTVS_Test_System()
 dimension(pg.nodes["bus3"])
+rhs(pg).syms[10]
 
 plot(pgsol,"bus4",:i_abs)
-plot(pgsol,collect(keys(pg.nodes)),:v,legend = false)
-plot(pgsol,"bus4",:i_abs, legend = (0.8,0.5))
-plot(pgsol,"bus4",:ω, legend = (0.8,0.1), ylims = (-0.0005,0.0005))
-plot(pgsol,"bus4",:i, legend = (0.8,0.5))
-plot(pgsol,"bus4",:Qout, legend = (0.8,0.5))
+plo!t(pgsol,collect(keys(pg.nodes)),:v,legend = false,xlim=(60.0,110.0))
+plot!(pgsol,"bus4",:i_abs, legend = false)
+plot(pgsol,"bus4",:ω, legend = (0.8,0.1))
+plot(pgsol,"bus4",:θ, legend = (0.8,0.1))
+plot(pgsol,"bus4",:Pout, legend = (0.8,0.5))
 p = ExtractResult(pgsol,"bus4",:Pout)
 q = ExtractResult(pgsol,"bus4",:Qout)
 s = hypot.(p,q)
