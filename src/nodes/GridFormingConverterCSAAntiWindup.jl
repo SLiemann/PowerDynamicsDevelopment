@@ -146,7 +146,7 @@ end [[θ,dθ],[ω,dω],[Qm,dQm],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_
 
     du = u - u0 #algebraic constraint
 
-    di_abs = i_abs - iset_abs #for output
+    di_abs = i_abs - I_abs #for output
     #di_absq = i_absq - 0 #for output
     #di_setabs1 = i_setabs1 - iset_abs #for output
     #dUm = Um - abs(um) #for output
