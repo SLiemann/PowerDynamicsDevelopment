@@ -10,7 +10,7 @@ using MAT
 
 begin
     include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/include_costum_nodes_lines_utilities.jl")
-    #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/operationpoint/InitializeInternals.jl")
+    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/operationpoint/InitializeInternals.jl")
     include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/grids/GFC_Test_Grid.jl")
     #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/sensitivity_analyses/Local_Sensitivity.jl")
 end
@@ -42,7 +42,29 @@ plot!(pgsol,["bus3"],:i_abs, label = "PD - Iabs", legend = (0.8,0.5),xlims=(0.0,
 plot(ucf[:,1],ucf[:,4].+ic[7],label = "MATLAB - θ")
 plot!(pgsol,["bus3"],:θ, label = "PD - θ", legend = (0.8,0.5),xlims=(0.6,1.0),ylims=(6.1,7))
 
+plot(ucf[:,1],ucf[:,5],label = "MATLAB - id")
+plot!(pgsol,["bus3"],:i_abs, label = "PD - id", legend = (0.8,0.5),xlims=(-5,0.0))
 
+plot(ucf[:,1],ucf[:,6],label = "MATLAB - iq")
+plot!(pgsol,["bus3"],:i_absq, label = "PD - iq", legend = (0.8,0.5))
+
+
+file2 = matopen("C:\\Users\\liemann\\Desktop\\ibf.mat")
+tmp3 = read(file2, "ibf")'
+close(file2)
+ibf = tmp3
+plot(ibf[:,1],ibf[:,2],label = "MATLAB - id (global)")
+plot!(pgsol,["bus3"],:i_absd, label = "PD - id", legend = (0.8,0.5))
+
+plot(ibf[:,1],ibf[:,3],label = "MATLAB - iq(global)")
+plot!(pgsol,["bus3"],:i_absd, label = "PD - iq", legend = (0.3,0.2),xlims=(0.6,1.2))
+
+id_tmp = ExtractResult(pgsol,:i_absd_3)
+plot(id_tmp)
+plot(iq_tmp)
+iq_tmp = ExtractResult(pgsol,:i_absd_3)
+plot(sqrt.(id_tmp[1:end-1].^2+iq_tmp.^2))
+plot(pgsol.dqsol.t,abs.(id_tmp[1:end-1].^2+iq_tmp.^2))
 sol_try, evr = simGFC(prob_new)
 x,dp = extract_local_sensitivities(sol_try)
 

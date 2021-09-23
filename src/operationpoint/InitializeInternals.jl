@@ -199,7 +199,8 @@ function InitNode(GFC::Union{GridFormingConverter,GridFormingConverterParam,Grid
    v_q_temp = ic_lf[ind_offset+1]
    U0 = v_d_temp+1im*v_q_temp
 
-   i1 = I_c[ind] / (GFC.Srated/GFC.Sbase) + U0/(-1im*GFC.xcf)  / (GFC.Srated/GFC.Sbase)
+   #Does the current of the capacitor have to be related?
+   i1 = I_c[ind] / (GFC.Srated/GFC.Sbase) + U0/(-1im*GFC.xcf) # / (GFC.Srated/GFC.Sbase)
    E = U0 + (GFC.rf + 1im*GFC.xlf) * i1
    θ = angle(U0)
    ω = 0.0
@@ -310,7 +311,7 @@ function InitNode(GFC::Union{GridFormingConverter,GridFormingConverterParam,Grid
          p_ind = GFC.p_ind
       )
       #,abs(E0),abs(U0/(-1im*GFC.xcf))/(GFC.Srated*GFC.Sbase),p,q
-      return [v_d_temp, v_q_temp,θ,ω,Q,e_ud,e_uq,e_id,e_iq,abs(idq),p,uqmeas], GFC_new
+      return [v_d_temp, v_q_temp,θ,ω,Q,e_ud,e_uq,e_id,e_iq,abs(idq),p], GFC_new
    else
       GFC_new = GridFormingConverter(
          Sbase = GFC.Sbase,
