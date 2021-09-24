@@ -4,17 +4,16 @@ using Distributed
 @everywhere using IfElse
 using ModelingToolkit
 
-Sbase = 100e6
-Ubase = 380e3
-Ibase = Sbase/Ubase/sqrt(3)
-Zbase = Ubase^2/Sbase
-
-zfault() = 40.0/Zbase
+zfault() = 40.0/1444.0
 tfault_on() = 1.0
 tfault_off() = 1.1
 dt_max() = 1e-2
 
 function LTVS_Test_System()
+    Sbase = 100e6
+    Ubase = 380e3
+    Ibase = Sbase/Ubase/sqrt(3)
+    Zbase = Ubase^2/Sbase
     buses=OrderedDict(
         "bus1" => SlackAlgebraic(U=1.0),
         "bus2" => VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=0., B=0.,Y_n = complex(0.0)),
@@ -338,6 +337,6 @@ function GetTriggCondsLTVS(mtk::ODESystem)
 end
 
 function GetStateResFunLTVS(mtk::ODESystem)
-    eqs, aeqs, D_states, A_states = GetSymbolicEquationsAndStates(mtk)
+    eqs, aeqs, D_states, A_states = Main.MyLocalSensi.GetSymbolicEquationsAndStates(mtk)
     return [zeros(length(D_states),1) .~ D_states]
 end

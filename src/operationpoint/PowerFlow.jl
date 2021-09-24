@@ -5,11 +5,11 @@ using PowerDynamics: guess
 using LinearAlgebra: norm
 
 #Pi models for nodal admittance matrice
-PiModel(L::PiModelLine) = PiModel(L.y,L.y_shunt_km,L.y_shunt_mk,1,1)
-PiModel(L::PiModelLineParam) = PiModel(L.y,L.y_shunt_km,L.y_shunt_mk,1,1)
-PiModel(T::Transformer) = PiModel(T.y,0,0,T.t_ratio,1)
-PiModel(S::StaticLine)  = PiModel(S.Y,0,0,1,1)
-PiModel(R::RLLine)      = PiModel(1/(R.R+1im*R.ω0*R.L),0,0,1,1)
+PiModel(L::PiModelLine) = PowerDynamics.PiModel(L.y,L.y_shunt_km,L.y_shunt_mk,1,1)
+PiModel(L::PiModelLineParam) = PowerDynamics.PiModel(L.y,L.y_shunt_km,L.y_shunt_mk,1,1)
+PiModel(T::Transformer) = PowerDynamics.PiModel(T.y,0,0,T.t_ratio,1)
+PiModel(S::StaticLine)  = PowerDynamics.PiModel(S.Y,0,0,1,1)
+PiModel(R::RLLine)      = PowerDynamics.PiModel(1/(R.R+1im*R.ω0*R.L),0,0,1,1)
 PiModel(T::DynamicPowerTransformer) = PiModelTransformer(T)
 PiModel(T::StaticPowerTransformer) = PiModelTransformer(T)
 PiModel(T::StaticPowerTransformerTapParam) = PiModelTransformer(T)
@@ -52,7 +52,7 @@ function PiModelTransformer(T)
 
     Ybase = T.Sbase/T.Srated #1.0/(T.Ubase^2/T.Sbase) this could be changed, if global base values are available
     Y     = 1.0/(Ya+Ybs+Ym)./Ybase
-    Y = Y.*PiModel(Ya*Ybs, Ya*Ym, Ybs*Ym,üHV,üLV)
+    Y = Y.*PowerDynamics.PiModel(Ya*Ybs, Ya*Ym, Ybs*Ym,üHV,üLV)
     return Y
 end
 
