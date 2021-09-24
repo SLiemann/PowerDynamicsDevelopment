@@ -30,17 +30,20 @@ begin
 
     #pg, ic0 = GetInitializedLTVSSystem()
     pgsol,evr  = run_LTVS_simulation(pg,ic0,(0.0,120.0))
-    display(plot(pgsol,collect(keys(pg.nodes))[2:end],:v, legend =false))
+    display(plot(pgsol,collect(keys(pg.nodes))[2:end-1],:v,legend = false))
 end
+display(plot!(pgsol,collect(keys(pg.nodes))[2:end-1],:v,ylims=(0.7,1.01),xlims=(0.0,90), label =false))
+vline!([67.5],linestyle = :dash,color = "black",label =false)
 pg= GFC_LTVS_Test_System()
 dimension(pg.nodes["bus3"])
 rhs(pg).syms[10]
 
 plot(pgsol,"bus4",:i_abs)
 plo!t(pgsol,collect(keys(pg.nodes)),:v,legend = false,xlim=(60.0,110.0))
-plot!(pgsol,"bus4",:i_abs, legend = false)
+plot(pgsol,"bus4",:i_abs, legend = false, ylims =(0.95,1.1))
 plot(pgsol,"bus4",:ω, legend = (0.8,0.1))
-plot(pgsol,"bus4",:θ, legend = (0.8,0.1))
+plot(pgsol,"bus4",:θ, legend = (0.8,0.8),ylims=(-0.1,0.15))
+plot!(pgsol_droop,"bus4",:θ, legend = (0.8,0.8),ylims=(-0.05,0.05))
 plot(pgsol,"bus4",:Pout, legend = (0.8,0.5))
 p = ExtractResult(pgsol,"bus4",:Pout)
 q = ExtractResult(pgsol,"bus4",:Qout)
@@ -58,10 +61,10 @@ mtk = [mtk_normal; mtk_fault; mtk_postfault]
 s = GetTriggCondsLTVS(mtk_normal)
 h = GetStateResFunLTVS(mtk_normal)
 p_pre = GFC_LTVS_params()
-sensis_p = collect(1:15)
-@time toll = CalcHybridTrajectorySensitivity(mtk,pgsol.dqsol,p_pre,evr,s,h,[],[15])
+sensis_p = collect(1:16)
+@time toll = CalcHybridTrajectorySensitivity(mtk,pgsol.dqsol,p_pre,evr,s,h,[],sensis_p)
 
-save("C:/Users/liemann/Desktop/Sens_LTVS/sens_kq_1em3_dt_1em2.jld", "sens", toll,"ic0",ic0,"p_pre",p_pre,"evr",evr,"sensis_p",sensis_p)
+save("C:/Users/liemann/Desktop/Sens_LTVS/sens_pscc_kq_1em1_dt_1em2.jld", "sens", toll,"ic0",ic0,"p_pre",p_pre,"evr",evr,"sensis_p",sensis_p)
 
 
 toll = load("C:/Users/liemann/Desktop/Sens_LTVS/sens_kq_1em3_t_90_dt_1em2.jld")

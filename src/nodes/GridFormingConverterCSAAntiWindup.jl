@@ -72,7 +72,8 @@ end [[θ,dθ],[ω,dω],[Qm,dQm],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_
     qmeas = imag(u * conj(i))
 
     #befor filter
-    idq =  imeas + umeas / (-1im * xcf) #/ (Srated/Sbase) i / (Srated/Sbase)
+    #The current of the capacitor has to be related, since rf,xlf and xcf are related to Sbase!!!
+    idq =  imeas + umeas / (-1im * xcf) / (Srated/Sbase)
     #idq = idq*(cos(-θ)+1im*sin(-θ)) #1im*
     id  = real(idq)
     iq  = imag(idq)
