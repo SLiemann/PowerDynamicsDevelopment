@@ -13,7 +13,7 @@ function test()
     return nothing
 end
 
-function CalcLTVSSensis(;time = 2e-6,n=2)
+function CalcLTVSSensis(;time = 2e-6,range = 15:16)
     pg = GFC_LTVS_Test_System(nTap = 5)
     Qmax   = [Inf, Inf, Inf,Inf, Inf,Inf*sqrt(1-0.95^2)]
     Qmin   = -Qmax
@@ -30,9 +30,12 @@ function CalcLTVSSensis(;time = 2e-6,n=2)
     s = GetTriggCondsLTVS(mtk_normal)
     h = GetStateResFunLTVS(mtk_normal)
     p_pre = GFC_LTVS_params()
-    sensis_p = collect(1:n)
-    #@time toll = Main.MyLocalSensi.CalcHybridTrajectorySensitivity(mtk,pgsol.dqsol,p_pre,evr,s,h,[],sensis_p)
-    @time InitCalcHybrid(mtk,pgsol.dqsol,p_pre,evr,s,h,[],sensis_p)
+    for n = range # slow: K_pi,(K_ii), K_vi, σXR, imax_csa but Fp,Gp are fast!!!
+        sensis_p = [n]#collect(1:n)
+        display(n)
+        #@time toll = Main.MyLocalSensi.CalcHybridTrajectorySensitivity(mtk,pgsol.dqsol,p_pre,evr,s,h,[],sensis_p)
+        @time InitCalcHybrid(mtk,pgsol.dqsol,p_pre,evr,s,h,[],sensis_p)
+    end
 end
 
 function InitCalcHybrid(
