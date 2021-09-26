@@ -104,18 +104,25 @@ labels_p = [
     "Kvi", #13
     "σXR", #14
     "K_vq", #15
+    "imax_csa",#16
     ]
 syms = rhs(pg).syms
 look_on = 16
+t_cut = 1200*0
+t_cut2 = 300*0
 plot(pgsol.dqsol.t[1:end-1],toll[1][look_on,1:end], title = "Sensis of $(String(syms[look_on]))",
     label = labels_p[1],
     legend = :outertopright,
-    size = (1000,750))
-    #xlims!((1.9,2.3))
+    size = (1000,750),
+    #xlims = (1.5,65.0),
+    xlims = (0.8,1.5),
+    ylims = (-20,100))
+    #ylims = (-1.5,1.5))
 for i in sensis_p[2:end]
     display(plot!(pgsol.dqsol.t[1:end-1],toll[i][look_on,1:end], label = labels_p[i]))
     #sleep(3.0)
 end
+
 xlims!((0,10))
 ylims!((-1 ,2))
 toll = toll_new
