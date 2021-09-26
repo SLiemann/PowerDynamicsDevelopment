@@ -14,11 +14,12 @@ Zbase = (Ubase^2)/Sbase
 
 begin
     #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/include_costum_nodes_lines_utilities.jl")
-    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/grids/LTVS_Test_System.jl")
+    #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/grids/LTVS_Test_System.jl")
+    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/grids/LTVS_Test_System_TapParam.jl")
     #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/sensitivity_analyses/Local_Sensitivity.jl")
 end
 begin
-    pg = GFC_LTVS_Test_System(nTap = 5)
+    pg = GFC_LTVS_Test_SystemTapParam(nTap = 5)
     Qmax   = [Inf, Inf, Inf,Inf, Inf,Inf*sqrt(1-0.95^2)]
     Qmin   = -Qmax
     U,δ,ic0 = PowerFlowClassic(pg,iwamoto = true, Qmax = Qmax, Qmin = Qmin, Qlimit_iter_check = 2,max_tol = 1e-6)
@@ -29,8 +30,8 @@ begin
     pg, ic0 = InitializeInternalDynamics(pg,ic0)
 
     #pg, ic0 = GetInitializedLTVSSystem()
-    pgsol,evr  = run_LTVS_simulation(pg,ic0,(0.0,120.0))
-    display(plot(pgsol,collect(keys(pg.nodes))[2:end-1],:v,legend = false))
+    pgsol,evr  = run_LTVS_simulationTapParam(pg,ic0,(0.0,120.0))
+    display(plot!(pgsol,collect(keys(pg.nodes))[2:end-1],:v,legend = false, linestyle = :dash))
 end
 display(plot!(pgsol,collect(keys(pg.nodes))[2:end-1],:v,ylims=(0.7,1.01),xlims=(0.0,90), label =false))
 vline!([67.5],linestyle = :dash,color = "black",label =false)
@@ -53,18 +54,18 @@ plot(0.0,4,:int,3)
 
 variable_index(pgsol.powergrid.nodes, "bus4", 1)
 
-mtk_normal = GetMTKLTVSSystem(pg_state = "gfc_normal")
-mtk_fault = GetMTKLTVSSystem(pg_state = "gfc_fault")
-mtk_postfault = GetMTKLTVSSystem(pg_state = "gfc_postfault")
+mtk_normal = GetMTKLTVSSystemTapParam(pg_state = "gfc_normal")
+mtk_fault = GetMTKLTVSSystemTapParam(pg_state = "gfc_fault")
+mtk_postfault = GetMTKLTVSSystemTapParam(pg_state = "gfc_postfault")
 mtk = [mtk_normal; mtk_fault; mtk_postfault]
 
 s = GetTriggCondsLTVS(mtk_normal)
 h = GetStateResFunLTVS(mtk_normal)
-p_pre = GFC_LTVS_params()
+p_pre = GFC_LTVS_params_TapParam()
 sensis_p = collect(1:16)
-@time toll = CalcHybridTrajectorySensitivity(mtk,pgsol.dqsol,p_pre,evr,s,h,[],sensis_p)
+@time toll_tap = CalcHybridTrajectorySensitivity(mtk,pgsol.dqsol,p_pre,evr,s,h,[],sensis_p)
 
-save("C:/Users/liemann/Desktop/Sens_LTVS/sens_pscc_kq_1em1_dt_1em2.jld", "sens", toll,"ic0",ic0,"p_pre",p_pre,"evr",evr,"sensis_p",sensis_p)
+save("C:/Users/liemann/Desktop/Sens_LTVS/sens_pscc_kq_1em1_dt_1em2_tap_param.jld", "sens", toll_tap,"ic0",ic0,"p_pre",p_pre,"evr",evr,"sensis_p",sensis_p)
 
 
 toll = load("C:/Users/liemann/Desktop/Sens_LTVS/sens_kq_1em3_t_90_dt_1em2.jld")

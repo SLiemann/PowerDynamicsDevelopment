@@ -59,7 +59,7 @@ function GFC_LTVS_Test_SystemTapParam(;nTap = 0.0)
         "branch3"=> StaticPowerTransformer(from="bus2",to="bus4",Sbase=Sbase,Srated=600e6,uk=0.15,XR_ratio=Inf,
                                            i0=0.0,Pv0=0.0,tap_side = "HV",tap_pos = 0,tap_inc = 1.0),
         "branch4"=> StaticPowerTransformerTapParam(from="bus2",to="bus3",Sbase=Sbase,Srated=1200e6,uk=0.15,XR_ratio=Inf,
-                                           i0=0.0,Pv0=0.0,tap_side = "LV",tap_pos = nTap,tap_inc = 1.2,tap_max = 20,tap_min = 0,p_ind=[17]))
+                                           i0=0.0,Pv0=0.0,tap_side = "LV",tap_pos = nTap,tap_inc = 1.2,tap_max = 20,tap_min = 0,p_ind=17))
         return PowerGrid(buses, branches)
 end
 
@@ -146,6 +146,8 @@ function run_LTVS_simulationTapParam(pg::PowerGrid,ic1::Array{Float64,1},tspan::
             op_prob = ODEProblem(integrator.f, ic_tmp, (0.0, 1e-6), p_tmp, initializealg = BrownFullBasicInit())
             ic_new = solve(op_prob,Rodas5())
             integrator.u = ic_new.u[end]
+
+            active_pg = GetActivePG(fault_state,postfault_state)
             event_recorder = vcat(event_recorder,[integrator.t active_pg integrator.p' 3 1])
         end
     end
