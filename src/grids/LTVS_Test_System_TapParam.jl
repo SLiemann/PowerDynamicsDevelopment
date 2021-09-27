@@ -12,7 +12,7 @@ Zbase = Ubase^2/Sbase
 zfault() = 40.0/Zbase
 tfault_on() = 1.0
 tfault_off() = 1.1
-dt_max() = 1e-2
+dt_max() = 1e-3
 
 function GFC_LTVS_Test_SystemTapParam(;nTap = 0.0)
     Sbase = 100e6
@@ -44,7 +44,7 @@ function GFC_LTVS_Test_SystemTapParam(;nTap = 0.0)
             imax = 1.0,
             Kvi = 0.055, #0.8272172037144201, # 0.677
             σXR = 10.0,
-            K_vq = 0.1,
+            K_vq = 0.10,
             imax_csa = 1.10,
             p_ind = collect(1:16),
         ),
@@ -120,7 +120,7 @@ function run_LTVS_simulationTapParam(pg::PowerGrid,ic1::Array{Float64,1},tspan::
     pg_fault = GetFaultLTVSPG(pg)
     pg_postfault = GetPostFaultLTVSPG(pg)
 
-    params = GFC_LTVS_params()
+    params = GFC_LTVS_params_TapParam()
     problem = ODEProblem{true}(rhs(pg),ic1,tspan,params)
     timer_start = -1.0
     timer_now   = 0.0

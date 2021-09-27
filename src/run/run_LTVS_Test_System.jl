@@ -8,15 +8,16 @@ using DifferentialEquations
 #using Distributed
 using JLD
 
-Ubase = 380e3
-Sbase = 100e6
-Zbase = (Ubase^2)/Sbase
+#Ubase = 380e3
+#Sbase = 100e6
+#Zbase = (Ubase^2)/Sbase
 
 begin
-    #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/include_costum_nodes_lines_utilities.jl")
+    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/include_costum_nodes_lines_utilities.jl")
     #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/grids/LTVS_Test_System.jl")
     include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/grids/LTVS_Test_System_TapParam.jl")
-    #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/sensitivity_analyses/Local_Sensitivity.jl")
+    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/sensitivity_analyses/Local_Sensitivity.jl")
+    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/utility/utility_functions.jl")
 end
 begin
     pg = GFC_LTVS_Test_SystemTapParam(nTap = 5)
@@ -30,9 +31,21 @@ begin
     pg, ic0 = InitializeInternalDynamics(pg,ic0)
 
     #pg, ic0 = GetInitializedLTVSSystem()
-    pgsol,evr  = run_LTVS_simulationTapParam(pg,ic0,(0.0,120.0))
-    display(plot!(pgsol,collect(keys(pg.nodes))[2:end-1],:v,legend = false, linestyle = :dash))
+    pgsol,evr  = run_LTVS_simulationTapParam(pg,ic0,(0.9,1.5))
+    display(plot(pgsol,collect(keys(pg.nodes))[2:end-1],:v,legend = false))
 end
+plot(pgsol,"bus4",:v,ylims=(0.75,1.05))
+plot!(pgsol_per,"bus4",:v,ylims=(0.75,1.05))
+
+sensi = load("C:/Users/liemann/Desktop/Sens_LTVS/sens_pscc_kq_1em1_dt_1em2.jld")
+PlotApproTrajectories(pg,pgsol,pgsol_per,sensi["sens"],15,0.1,0.15,labels_p,:i_abs)
+ylims!(0.95,0.99)
+xlims!(5,65)
+xlims!(0,3)
+ylims!(0.7,2.3)
+
+
+
 display(plot!(pgsol,collect(keys(pg.nodes))[2:end-1],:v,ylims=(0.7,1.01),xlims=(0.0,90), label =false))
 vline!([67.5],linestyle = :dash,color = "black",label =false)
 pg= GFC_LTVS_Test_System()
@@ -65,7 +78,7 @@ p_pre = GFC_LTVS_params_TapParam()
 sensis_p = collect(1:16)
 @time toll_tap = CalcHybridTrajectorySensitivity(mtk,pgsol.dqsol,p_pre,evr,s,h,[],sensis_p)
 
-save("C:/Users/liemann/Desktop/Sens_LTVS/sens_pscc_kq_1em1_dt_1em2_tap_param.jld", "sens", toll_tap,"ic0",ic0,"p_pre",p_pre,"evr",evr,"sensis_p",sensis_p)
+save("C:/Users/liemann/Desktop/Sens_LTVS/sens_short_pscc_kq_1em1_dt_1em3_tap_param.jld", "sens", toll_tap,"ic0",ic0,"p_pre",p_pre,"evr",evr,"sensis_p",sensis_p)
 
 
 toll = load("C:/Users/liemann/Desktop/Sens_LTVS/sens_kq_1em3_t_90_dt_1em2.jld")
@@ -111,7 +124,7 @@ syms = rhs(pg).syms
 look_on = 16
 t_cut = 1200*0
 t_cut2 = 300*0
-plot(pgsol.dqsol.t[1:end-1],toll[1][look_on,1:end], title = "Sensis of $(String(syms[look_on]))",
+plot(pgsol.dqsol.t[1:end-1],toll_tap[1][look_on,1:end], title = "Sensis of $(String(syms[look_on]))",
     label = labels_p[1],
     legend = :outertopright,
     size = (1000,750),
@@ -120,7 +133,7 @@ plot(pgsol.dqsol.t[1:end-1],toll[1][look_on,1:end], title = "Sensis of $(String(
     ylims = (-20,100))
     #ylims = (-1.5,1.5))
 for i in sensis_p[2:end]
-    display(plot!(pgsol.dqsol.t[1:end-1],toll[i][look_on,1:end], label = labels_p[i]))
+    display(plot!(pgsol.dqsol.t[1:end-1],toll_tap[i][look_on,1:end], label = labels_p[i]))
     #sleep(3.0)
 end
 

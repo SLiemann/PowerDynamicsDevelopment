@@ -153,3 +153,58 @@ function ExtractResult(pgsol::PowerGridSolution, bus::String, sym::Symbol)
         return ExtractResult(pgsol,sym)
     end
 end
+
+function SavePlotApprTrajectories(pg_tmp,sol_or,sol_per,sens,par_num,or_value,new_value,labels_p; state_sym = :i_abs)
+    sol_appr = deepcopy(sol_or.dqsol)
+    for (ind,val) in enumerate(collect(eachcol(sens[par_num])))
+        sol_appr.u[ind+1] .+= val*(new_value-or_value)
+    end
+    pgsol_tmp = PowerGridSolution(sol_appr,pg_tmp)
+    title_str  = labels_p[par_num] * ": from " * string(or_value) * " to " * string(new_value)
+    plot(sol_or,"bus3",state_sym, label = "Original - " * string(state_sym), title = title_str)
+    plot!(sol_per,"bus3",state_sym, label = "Real perturbed - " * string(state_sym))
+    display(plot!(pgsol_tmp,"bus3",state_sym, label = "Approximated - " * string(state_sym),linestyle = :dash))
+    savefig("C:\\Users\\liemann\\Desktop\\Julia_figures\\"*labels_p[par_num] *".svg")
+end
+
+function PlotApproTrajectories(
+        pg::PowerGrid,
+        sol_or::PowerGridSolution,
+        sol_per::PowerGridSolution,
+        sensis::Vector{Array{Float64}},
+        par_num::Int64,
+        or_value::Float64,
+        new_value::Float64,
+        labels_p::Vector{String},
+        state::Symbol;
+        bus = "bus4"
+    )
+    sol_appr = CalcApprSolution(sol_or,sensis,par_num,or_value,new_value)
+    title_str  = labels_p[par_num] * ": from " * string(or_value) * " to " * string(new_value)
+    plot(sol_or,bus,state, label = "Original - " * string(state), title = title_str)
+    plot!(sol_per,bus,state, label = "Real perturbed - " * string(state))
+    display(plot!(sol_appr,bus,state, label = "Approximated - " * string(state),linestyle = :dash))
+end
+
+function CalcApprSolution(sol_or::PowerGridSolution,sensis::Vector{Array{Float64}},par_num::Int64,or_value::Float64,new_value::Float64)
+    sol_appr = deepcopy(sol_or)
+    for (ind,val) in enumerate(collect(eachcol(sensis[par_num])))
+        sol_appr.dqsol.u[ind+1] .+= val*(new_value-or_value)
+    end
+    return sol_appr
+end
+
+function SaveComparingTrajectoryPlots(pg_tmp,ic_or,pgsol_or,sens,labels_p,delta)
+    params_tmp = GFC_params()
+    for (ind,val) in enumerate(params_tmp)
+        params_new = deepcopy(params_tmp)
+        params_new[ind] += delta*params_new[ind]
+        prob_tmp = ODEProblem(rhs(pg_tmp),ic_or,(0.0,3.0),params_new)
+        try
+            pgsol_per,evr = simGFC(prob_tmp)
+            SavePlotApprTrajectories(pg_tmp,pgsol_or,pgsol_per,sens,ind,params[ind],params_new[ind],labels_p)
+        catch
+            @warn "Could not calc: " *labels_p[ind]
+        end
+    end
+end
