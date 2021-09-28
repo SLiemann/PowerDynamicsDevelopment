@@ -208,3 +208,55 @@ function SaveComparingTrajectoryPlots(pg_tmp,ic_or,pgsol_or,sens,labels_p,delta)
         end
     end
 end
+
+function GetVoltageSensis(sensis,ind_ur_state,ind_ui_state)
+    sensi_ur = Array{Float64}(undef,size(sensis[1])[2],length(sensis));
+    sensi_ui = Array{Float64}(undef,size(sensis[1])[2],length(sensis));
+
+    for (ind,val) in enumerate(sensis)
+        sensi_ur[:,ind] = val[ind_ur_state,:]
+        sensi_ui[:,ind] = val[ind_ui_state,:]
+    end
+    return sensi_ur, sensi_ui
+end
+
+function GetAbsVoltageSensis(pg_sol::PowerGridSolution,ur::Symbol,ui::Symbol,sensis::Vector{Array{Float64}},param::Vector{Int64},Δp::Vector{Float64})
+    #Idea is: |U_appr| = |U_or| + Z   with |U_or| = sqrt(Ur_or^2 + Ui_or^2)
+    #         U_r_appr = Ur_or  + xx0*Δp (same for U_i_appr)
+    #         |U_appr| = sqrt(U_r_appr^2 + U_r_appr^2)
+    #next    |U_appr|^2 = (|U_or| + Z)^2 solve for Z
+
+    ur_or = ExtractResult(pg_sol,ur)[1:end-1]
+    ui_or = ExtractResult(pg_sol,ui)[1:end-1]
+
+    ind = indexin([ur,ui],rhs(pg_sol.powergrid).syms)
+    sens_ur,sens_ui = GetVoltageSensis(toll_tap,ind[1],ind[2])
+    z1 = Array{Float64}(undef,length(pg_sol.dqsol.t[1:end-1]),length(param))
+    z2 = Array{Float64}(undef,length(pg_sol.dqsol.t[1:end-1]),length(param))
+    for (ind,val) in enumerate(param)
+        z1[:,ind],z2[:,ind] = CalcAbsVoltageSens(ur_or,ui_or,sens_ur,sens_ui,val,Δp[ind])
+    end
+    return z1,z2
+end
+
+function CalcAbsVoltageSens(ur_or,ui_or,sens_ur,sens_ui,param,Δp)
+    s_ur = sens_ur[:,param]*Δp
+    s_ui = sens_ur[:,param]*Δp
+
+    p = 2*sqrt.(ur_or.^2.0 .+ ui_or.^2.0)
+    q = -(2 .*(ur_or.*s_ur + ui_or.*s_ui) .+ s_ur.^2 .+ s_ui.^2)
+
+    z1 = -p./2 + sqrt.((p./2).^2 .- q)
+    z2 = -p./2 - sqrt.((p./2).^2 .- q)
+    return z1,z2
+end
+
+function PlotApprVoltageTrajectory(pg_sol)
+    ur_or = ExtractResult(pg_sol,:u_r_4)[1:end-1]
+    ui_or = ExtractResult(pg_sol,:u_i_4)[1:end-1]
+    #ur_appr =
+    #ur_appr =
+
+    #u_abs =
+    return nothing
+end
