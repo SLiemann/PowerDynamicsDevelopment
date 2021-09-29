@@ -12,7 +12,7 @@ Zbase = Ubase^2/Sbase
 zfault() = 40.0/Zbase
 tfault_on() = 1.0
 tfault_off() = 1.1
-dt_max() = 1e-3
+dt_max() = 1e-2
 
 function GFC_LTVS_Test_SystemTapParam(;nTap = 0.0)
     Sbase = 100e6
@@ -30,7 +30,7 @@ function GFC_LTVS_Test_SystemTapParam(;nTap = 0.0)
             p0set = 5.0, # based on Sbase!
             q0set = 0.001*0,
             u0set = 1.00,
-            Kp_droop = 0.02*1.02,
+            Kp_droop = 0.02,
             Kq_droop = 0.001,
             ωf_P = 62.8,
             ωf_Q = 62.8,
@@ -44,7 +44,7 @@ function GFC_LTVS_Test_SystemTapParam(;nTap = 0.0)
             imax = 1.0,
             Kvi = 0.055, #0.8272172037144201, # 0.677
             σXR = 10.0,
-            K_vq = 0.10,
+            K_vq = 0.1,
             imax_csa = 1.10,
             p_ind = collect(1:16),
         ),

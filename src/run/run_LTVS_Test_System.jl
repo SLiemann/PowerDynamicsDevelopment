@@ -13,11 +13,11 @@ using JLD
 #Zbase = (Ubase^2)/Sbase
 
 begin
-    #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/include_costum_nodes_lines_utilities.jl")
+    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/include_costum_nodes_lines_utilities.jl")
     #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/grids/LTVS_Test_System.jl")
     #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/grids/LTVS_Test_System_TapParam.jl")
-    #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/sensitivity_analyses/Local_Sensitivity.jl")
-    #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/utility/utility_functions.jl")
+    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/sensitivity_analyses/Local_Sensitivity.jl")
+    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/utility/utility_functions.jl")
 end
 begin
     include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/grids/LTVS_Test_System_TapParam.jl")
@@ -32,10 +32,13 @@ begin
     pg, ic0 = InitializeInternalDynamics(pg,ic0)
 
     #pg, ic0 = GetInitializedLTVSSystem()
-    pgsol_per,evr  = run_LTVS_simulationTapParam(pg,ic0,(0.9,1.5))
-    #plot(pgsol,"bus4",:i_abs,label = "Original")
+    pgsol_droop,evr  = run_LTVS_simulationTapParam(pg,ic0,(0.0,120.0),t_stop_droop = 62.5)
+    #plot(pgsol,"bus4",:i_abs,label = "I-Original",xlims=(5,70),ylims=(1.02,1.11), legend = (0.5,0.1))
     #display(plot!(pgsol_per,"bus4",:i_abs, label ="real perturbed"))
-    #display(plot(pgsol,"bus4",:v,label = "Original"))
+    #display(plot(pgsol_stkvi,"bus4",:v,label = "Enhanced"))
+    #display(plot!(pgsol_stkvq,"bus4",:v,label = "Enh kvq"))
+    #display(plot(pgsol,"bus4",:v,label = "U-Original",xlims=(5,70),ylims=(0.9,1.01), legend = (0.5,0.1)))
+    #display(plot!(pgsol_per,"bus4",:v,label = "real perturbed"))
     #display(plot!(pgsol_per,"bus4",:v, label ="real perturbed")) #linestyle = :dash
 end
 
@@ -43,14 +46,16 @@ sensi = load("C:/Users/liemann/Desktop/Sens_LTVS/sens_short_pscc_kq_1em1_dt_1em3
 toll_tap = sensi["sens"]
 PlotApproTrajectories(pg,pgsol,pgsol_per,sensi["sens"],15,0.1,0.15,labels_p,:i_abs)
 ylims!(0.95,0.99)
-xlims!(5,65)
+xlims!(0.9,1.3)
 xlims!(0,3)
-ylims!(0.7,2.3)
+ylims!(0.6,1.1)
+ylims!(0,280)
+
 
 
 plot(pgsol,"bus4",:i_abs)
 plot!(pgsol_per,"bus4",:i_abs, linestyle = :dash)
-plo!t(pgsol,collect(keys(pg.nodes)),:v,legend = false,xlim=(60.0,110.0))
+plot(pgsol,collect(keys(pg.nodes)),:v, legend =false,xlims =(0,72))
 plot(pgsol,"bus4",:i_abs, legend = false, ylims =(0.95,1.1))
 plot(pgsol,"bus4",:ω, legend = (0.8,0.1))
 plot(pgsol,"bus4",:θ, legend = (0.8,0.8),ylims=(-0.1,0.15))

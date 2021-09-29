@@ -66,7 +66,7 @@ using Measures
 default(guidefont = (8, "Times"))
 begin
     xt0913 = ["0.90", "1.0","1.10", L"t/s \rightarrow", "1.30"]
-    yt06_11 = ["0.60", "0.70", "0.80", "0.90", L"$u_f/p.u. \uparrow$", "1.10"]
+    yt06_11 = ["0.60", "0.70", "0.80", "0.90", L"$|\underline{u}_f|/p.u. \uparrow$", "1.10"]
     ytm0_80 = []
     for i in 0.0:20.0:80.0
         append!(ytm0_80,[string(i)])
@@ -87,7 +87,7 @@ begin
     p1 = plot!(
         pgsol.dqsol.t[1:end-1],
         u_abs,
-        legend = (0.615,0.2),
+        legend = (0.615,0.36),
         xlims = (0.9, 1.3),
         xticks = (0.9:0.1:1.3, xt0913),
         ylims = (0.60,1.1),
@@ -97,6 +97,7 @@ begin
         linestyle = :dash,
         label = "approximated"
     )
+    annotate!((0.9,0.063),text("(b)",10,"Times"))
 
 
     labels_sens_u = [
@@ -121,7 +122,7 @@ begin
         )
     plot!(pgsol.dqsol.t[1:end-1],z1[:,3],label = labels_sens_u[3],color = color_mat)
     p2 = plot!(pgsol.dqsol.t[1:end-1],z1[:,4],label = labels_sens_u[4],color = grey)
-
+    annotate!((0.9,0.17),text("(a)",10,"Times"))
 
     plot(
         pgsol.dqsol.t[1:end-1],
@@ -135,13 +136,14 @@ begin
         color = color_mat
         )
     p3 = plot!(pgsol.dqsol.t[1:end-1],z2[:,1],label = labels_sens_u[1],color = :black)
+    annotate!((0.9,0.17),text("(a)",10,"Times"))
 
-    l = @layout [a [b; c]]
-    plot(p1,p2,p3, layout = l,
+    l = @layout [[b; c] a]
+    plot(p2,p3,p1, layout = l,
         framestyle = :box,
         linewidth = 1.0,
-        size = (600,270),
-        legendfont=font(8,"Times"),
+        size = (700,250), #(600,270)
+        legendfont=font(10,"Times"),
         #xlabel = "\$x_1\$",
         labelfontsize = 10,
         #linestyle = :dot,
@@ -166,3 +168,64 @@ begin
     )
 end
 savefig("C:\\Users\\liemann\\Desktop\\PSCC-EMT-Modell\\STVS.svg")
+
+begin #Unstable case
+    color_mat = RGB(0.556863,0.8,0.419608)
+    grey = RGB(0.5,0.5,0.5)
+    font_size = 10
+    xt0913 = ["0.90", "1.0","1.10", L"t/s \rightarrow", "1.30"]
+    yt06_11 = ["0.60", "0.70", "0.80", "0.90",L"$|\underline{u}_f|/p.u. \uparrow$", "1.10"]
+    plot(pgsol,"bus4",:v,label = "original", color = grey)
+    p1 = plot!(pgsol_un,
+        "bus4",
+        :v,
+        label = L"$k_\mathrm{p}=0.022$",
+        legend = (0.37,0.9),
+        xlims = (0.9, 1.3),
+        xticks = (0.9:0.1:1.3, xt0913),
+        ylims = (0.60,1.1),
+        yticks = (0.6:0.10:1.10, yt06_11),
+        color = :black,
+        xlabel = ""
+        )
+    annotate!((0.9,0.1),text("(a)",10,"Times"))
+
+
+    plot(pgsol_stkvq,"bus4",:v,label = L"$k_\mathrm{vq}=0.11$", color = color_mat)
+    plot!(pgsol_stkvi,"bus4",:v,label = L"$k_\mathrm{pVI}=0.0605$", color = :black, linestyle = :dash)
+    p2 = plot!(pgsol,
+            "bus4",
+            :v,
+            label = "base case",
+            legend = (0.61,0.4),
+            xlims = (0.9, 1.3),
+            xticks = (0.9:0.1:1.3, xt0913),
+            ylims = (0.60,1.1),
+            yticks = (0.6:0.10:1.10, yt06_11),
+            color = grey,
+            xlabel = ""
+            )
+    annotate!((0.9,0.1),text("(b)",10,"Times"))
+
+    l = @layout [a b]
+    plot(p1,p2, layout = l,
+        framestyle = :box,
+        linewidth = 1.0,
+        size = (700,250),
+        legendfont=font(10,"Times"),
+        labelfontsize = 10,
+
+        xtickfont = font(10, "Times"),
+
+        font ="Times",
+        ytickfont = font(10, "Times"),
+        grid = true,
+        gridalpha = 0.25,
+        gridstyle = :dash,
+        left_margin = 0mm,
+        bottom_margin = 0mm,
+        right_margin = 2.0mm,
+        top_margin = 0mm
+    )
+end
+savefig("C:\\Users\\liemann\\Desktop\\PSCC-EMT-Modell\\STVS_un_st.svg")
