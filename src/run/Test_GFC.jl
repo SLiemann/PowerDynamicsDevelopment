@@ -21,7 +21,7 @@ begin
     params = GFC_params()
     prob = ODEProblem(rhs(pg1),ic,(0.0,2.0),params, initializealg = BrownFullBasicInit())
     #prob_new = ODEForwardSensitivityProblem(rhs(pg1),ic,(0.0,0.1),params)
-    pgsol_sepfc,evr = simGFC(prob)
+    pgsol,evr = simGFC(prob)
 end
 plot(pgsol,collect(keys(pg.nodes))[3],:v, label = "PD - Ucf")
 plot(pgsol,["bus3"],:i_abs, label = "Iabs", legend = false)#, ylims=(1.1,1.4)

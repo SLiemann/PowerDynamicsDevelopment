@@ -42,7 +42,7 @@ function GFC_Test_Grid(;p_new = 0.0,q_new = 0.0,y_new = 0.0)
             imax = 1.0,
             Kvi = 0.055, #0.8272172037144201, # 0.677
             σXR = 10.0,
-            K_vq = 0.1,
+            K_vq = 0.1*0,
             imax_csa = 1.1,
             p_ind = collect(1:16),
         ),

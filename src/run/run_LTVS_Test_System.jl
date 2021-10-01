@@ -32,7 +32,7 @@ begin
     pg, ic0 = InitializeInternalDynamics(pg,ic0)
 
     #pg, ic0 = GetInitializedLTVSSystem()
-    pgsol_droop,evr  = run_LTVS_simulationTapParam(pg,ic0,(0.0,120.0),t_stop_droop = 62.5)
+    pgsol_stkvi,evr  = run_LTVS_simulationTapParam(pg,ic0,(0.9,1.5))
     #plot(pgsol,"bus4",:i_abs,label = "I-Original",xlims=(5,70),ylims=(1.02,1.11), legend = (0.5,0.1))
     #display(plot!(pgsol_per,"bus4",:i_abs, label ="real perturbed"))
     #display(plot(pgsol_stkvi,"bus4",:v,label = "Enhanced"))
