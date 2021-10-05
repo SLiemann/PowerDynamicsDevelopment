@@ -250,13 +250,3 @@ function CalcAbsVoltageSens(ur_or,ui_or,sens_ur,sens_ui,param,Δp)
     z2 = -p./2 - sqrt.((p./2).^2 .- q)
     return z1,z2
 end
-
-function PlotApprVoltageTrajectory(pg_sol)
-    ur_or = ExtractResult(pg_sol,:u_r_4)[1:end-1]
-    ui_or = ExtractResult(pg_sol,:u_i_4)[1:end-1]
-    #ur_appr =
-    #ur_appr =
-
-    #u_abs =
-    return nothing
-end
