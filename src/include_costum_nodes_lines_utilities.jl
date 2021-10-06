@@ -22,6 +22,7 @@ include("lines/StaticPowerTransformerTapParam.jl")
 #include("nodes/GridFormingConverterCSAAntiWindup.jl")
 #include("nodes/GridFormingConverterParam.jl")
 #include("nodes/GridSideConverter.jl")
+include("nodes/GFMCurrentPrio.jl")
 
 #Operation Point
 include("operationpoint/PowerFlow.jl")

@@ -82,6 +82,7 @@ NodeType(
         GridFormingConverterParam,
         GridFormingConverterCSA,
         GridFormingConverterCSAAntiWindup,
+        GFMCurrentPrio,
     },
 ) = 1
 
@@ -130,6 +131,7 @@ PowerNodeLoad(
         GridFormingConverterParam,
         GridFormingConverterCSA,
         GridFormingConverterCSAAntiWindup,
+        GFMCurrentPrio,
     },U
 ) = 0.#treated as generation
 
@@ -159,6 +161,7 @@ PowerNodeGeneration(
         GridFormingConverterParam,
         GridFormingConverterCSA,
         GridFormingConverterCSAAntiWindup,
+        GFMCurrentPrio,
     },
 )  = L.p0set #treated as generation
 
@@ -211,6 +214,12 @@ function PowerFlowClassic(pg::PowerGrid; ind_sl::Int64 = 0,max_tol::Float64 = 1e
     end
     if GridFormingConverterCSAAntiWindup ∈ collect(values(pg.nodes)) .|> typeof
         pv = findall(collect(values(pg.nodes).|> typeof).== GridFormingConverterCSAAntiWindup)
+        for i in pv
+            U[i] = collect(values(pg.nodes))[i].u0set
+        end
+    end
+    if GFMCurrentPrio ∈ collect(values(pg.nodes)) .|> typeof
+        pv = findall(collect(values(pg.nodes).|> typeof).== GFMCurrentPrio)
         for i in pv
             U[i] = collect(values(pg.nodes))[i].u0set
         end
