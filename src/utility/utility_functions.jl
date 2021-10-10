@@ -153,3 +153,100 @@ function ExtractResult(pgsol::PowerGridSolution, bus::String, sym::Symbol)
         return ExtractResult(pgsol,sym)
     end
 end
+
+function SavePlotApprTrajectories(pg_tmp,sol_or,sol_per,sens,par_num,or_value,new_value,labels_p; state_sym = :i_abs)
+    sol_appr = deepcopy(sol_or.dqsol)
+    for (ind,val) in enumerate(collect(eachcol(sens[par_num])))
+        sol_appr.u[ind+1] .+= val*(new_value-or_value)
+    end
+    pgsol_tmp = PowerGridSolution(sol_appr,pg_tmp)
+    title_str  = labels_p[par_num] * ": from " * string(or_value) * " to " * string(new_value)
+    plot(sol_or,"bus3",state_sym, label = "Original - " * string(state_sym), title = title_str)
+    plot!(sol_per,"bus3",state_sym, label = "Real perturbed - " * string(state_sym))
+    display(plot!(pgsol_tmp,"bus3",state_sym, label = "Approximated - " * string(state_sym),linestyle = :dash))
+    savefig("C:\\Users\\liemann\\Desktop\\Julia_figures\\"*labels_p[par_num] *".svg")
+end
+
+function PlotApproTrajectories(
+        pg::PowerGrid,
+        sol_or::PowerGridSolution,
+        sol_per::PowerGridSolution,
+        sensis::Vector{Array{Float64}},
+        par_num::Int64,
+        or_value::Float64,
+        new_value::Float64,
+        labels_p::Vector{String},
+        state::Symbol;
+        bus = "bus4"
+    )
+    sol_appr = CalcApprSolution(sol_or,sensis,par_num,or_value,new_value)
+    title_str  = labels_p[par_num] * ": from " * string(or_value) * " to " * string(new_value)
+    plot(sol_or,bus,state, label = "Original - " * string(state), title = title_str)
+    plot!(sol_per,bus,state, label = "Real perturbed - " * string(state))
+    display(plot!(sol_appr,bus,state, label = "Approximated - " * string(state),linestyle = :dash))
+end
+
+function CalcApprSolution(sol_or::PowerGridSolution,sensis::Vector{Array{Float64}},par_num::Int64,or_value::Float64,new_value::Float64)
+    sol_appr = deepcopy(sol_or)
+    for (ind,val) in enumerate(collect(eachcol(sensis[par_num])))
+        sol_appr.dqsol.u[ind+1] .+= val*(new_value-or_value)
+    end
+    return sol_appr
+end
+
+function SaveComparingTrajectoryPlots(pg_tmp,ic_or,pgsol_or,sens,labels_p,delta)
+    params_tmp = GFC_params()
+    for (ind,val) in enumerate(params_tmp)
+        params_new = deepcopy(params_tmp)
+        params_new[ind] += delta*params_new[ind]
+        prob_tmp = ODEProblem(rhs(pg_tmp),ic_or,(0.0,3.0),params_new)
+        try
+            pgsol_per,evr = simGFC(prob_tmp)
+            SavePlotApprTrajectories(pg_tmp,pgsol_or,pgsol_per,sens,ind,params[ind],params_new[ind],labels_p)
+        catch
+            @warn "Could not calc: " *labels_p[ind]
+        end
+    end
+end
+
+function GetVoltageSensis(sensis,ind_ur_state,ind_ui_state)
+    sensi_ur = Array{Float64}(undef,size(sensis[1])[2],length(sensis));
+    sensi_ui = Array{Float64}(undef,size(sensis[1])[2],length(sensis));
+
+    for (ind,val) in enumerate(sensis)
+        sensi_ur[:,ind] = val[ind_ur_state,:]
+        sensi_ui[:,ind] = val[ind_ui_state,:]
+    end
+    return sensi_ur, sensi_ui
+end
+
+function GetAbsVoltageSensis(pg_sol::PowerGridSolution,ur::Symbol,ui::Symbol,sensis::Vector{Array{Float64}},param::Vector{Int64},Δp::Vector{Float64})
+    #Idea is: |U_appr| = |U_or| + Z   with |U_or| = sqrt(Ur_or^2 + Ui_or^2)
+    #         U_r_appr = Ur_or  + xx0*Δp (same for U_i_appr)
+    #         |U_appr| = sqrt(U_r_appr^2 + U_r_appr^2)
+    #next    |U_appr|^2 = (|U_or| + Z)^2 solve for Z
+
+    ur_or = ExtractResult(pg_sol,ur)[1:end-1]
+    ui_or = ExtractResult(pg_sol,ui)[1:end-1]
+
+    ind = indexin([ur,ui],rhs(pg_sol.powergrid).syms)
+    sens_ur,sens_ui = GetVoltageSensis(toll_tap,ind[1],ind[2])
+    z1 = Array{Float64}(undef,length(pg_sol.dqsol.t[1:end-1]),length(param))
+    z2 = Array{Float64}(undef,length(pg_sol.dqsol.t[1:end-1]),length(param))
+    for (ind,val) in enumerate(param)
+        z1[:,ind],z2[:,ind] = CalcAbsVoltageSens(ur_or,ui_or,sens_ur,sens_ui,val,Δp[ind])
+    end
+    return z1,z2
+end
+
+function CalcAbsVoltageSens(ur_or,ui_or,sens_ur,sens_ui,param,Δp)
+    s_ur = sens_ur[:,param]*Δp
+    s_ui = sens_ur[:,param]*Δp
+
+    p = 2*sqrt.(ur_or.^2.0 .+ ui_or.^2.0)
+    q = -(2 .*(ur_or.*s_ur + ui_or.*s_ui) .+ s_ur.^2 .+ s_ui.^2)
+
+    z1 = -p./2 + sqrt.((p./2).^2 .- q)
+    z2 = -p./2 - sqrt.((p./2).^2 .- q)
+    return z1,z2
+end

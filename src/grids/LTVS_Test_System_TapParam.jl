@@ -4,42 +4,17 @@ using Distributed
 @everywhere using IfElse
 using ModelingToolkit
 
-zfault() = 40.0/1444.0
+Sbase = 100e6
+Ubase = 380e3
+Ibase = Sbase/Ubase/sqrt(3)
+Zbase = Ubase^2/Sbase
+
+zfault() = 40.0/Zbase
 tfault_on() = 1.0
 tfault_off() = 1.1
-dt_max() = 1e-2
+dt_max() = 1e-3
 
-function LTVS_Test_System()
-    Sbase = 100e6
-    Ubase = 380e3
-    Ibase = Sbase/Ubase/sqrt(3)
-    Zbase = Ubase^2/Sbase
-    buses=OrderedDict(
-        "bus1" => SlackAlgebraic(U=1.0),
-        "bus2" => VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=0., B=0.,Y_n = complex(0.0)),
-        "bus3" => VoltageDependentLoad(P=-10.0, Q = -3.286841, U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),
-        "bus4" => SixOrderMarconatoMachineAVROEL(Sbase=Sbase,Srated=600e6,H = 3, P=5.40, D=0., Ω=50, R_a = 0.0,
-                                             T_ds=0.9545455,T_qs=0.3,T_dss=0.0333333,T_qss=0.025,
-                                             X_d=2.2,X_q=2.0, X_ds=0.3,X_qs=0.4, X_dss=0.2,
-                                             X_qss=0.2,T_AA=0.,V0 = 1.0, Ifdlim = 3.0618,
-                                             L1 = -18.0, G1 = 120.0, Ta = 5.0, Tb = 12.5,
-                                             G2 = 10.0, L2 = 5.0),
-        "busv" => VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=0., B=0.,Y_n = complex(0.0)))
-
-    Z_EHV_Line = (9.6 + 1im*64)/Zbase
-    B_half     = 1im*1498.54*1e-6 / 2.0 *Zbase #already an admittance: 1498.54 = 2*pi*50*4.77001*10e-6
-    branches=OrderedDict(
-        "Line_1-2"=> PiModelLine(from= "bus1", to = "bus2",y=1.0/Z_EHV_Line, y_shunt_km=B_half, y_shunt_mk=B_half),
-        "Line_1-v"=> PiModelLine(from= "bus1", to = "busv",y=1.0/(Z_EHV_Line/2.0), y_shunt_km=B_half, y_shunt_mk=0.0),
-        "Line_v-2"=> PiModelLine(from= "bus2", to = "busv",y=1.0/(Z_EHV_Line/2.0), y_shunt_km=0.0, y_shunt_mk=B_half),
-        "branch3"=> StaticPowerTransformer(from="bus2",to="bus4",Sbase=Sbase,Srated=600e6,uk=0.15,XR_ratio=Inf,
-                                           i0=0.0,Pv0=0.0,tap_side = "HV",tap_pos = 0,tap_inc = 1.0),
-        "branch4"=> StaticPowerTransformer(from="bus2",to="bus3",Sbase=Sbase,Srated=1200e6,uk=0.15,XR_ratio=Inf,
-                                           i0=0.0,Pv0=0.0,tap_side = "LV",tap_pos = 7,tap_inc = 1.0))
-        return PowerGrid(buses, branches)
-end
-
-function GFC_LTVS_Test_System(;nTap = 0.0)
+function GFC_LTVS_Test_SystemTapParam(;nTap = 0.0)
     Sbase = 100e6
     Ubase = 380e3
     Ibase = Sbase/Ubase/sqrt(3)
@@ -49,13 +24,13 @@ function GFC_LTVS_Test_System(;nTap = 0.0)
         "bus1" => SlackAlgebraic(U=1.0),
         "bus2" => VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=0., B=0.,Y_n = complex(0.0)),
         "bus3" => VoltageDependentLoad(P=-9.6, Q = -2.8, U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),
-        "bus4" => GridFormingConverterCSAAntiWindup(
+        "bus4" => GFMCurrentPrio(
             Sbase = Sbase,
             Srated = 5.5*Sbase,
             p0set = 5.0, # based on Sbase!
             q0set = 0.001*0,
             u0set = 1.00,
-            Kp_droop = 0.02,
+            Kp_droop = 0.020,
             Kq_droop = 0.001,
             ωf_P = 62.8,
             ωf_Q = 62.8,
@@ -71,6 +46,7 @@ function GFC_LTVS_Test_System(;nTap = 0.0)
             σXR = 10.0,
             K_vq = 0.1,
             imax_csa = 1.10,
+            iprio = "q",
             p_ind = collect(1:16),
         ),
         "busv" => VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=0., B=0.,Y_n = complex(0.0)))
@@ -83,14 +59,15 @@ function GFC_LTVS_Test_System(;nTap = 0.0)
         "Line_v-2"=> PiModelLine(from= "bus2", to = "busv",y=1.0/(Z_EHV_Line*0.50), y_shunt_km=B_half, y_shunt_mk=0.0),
         "branch3"=> StaticPowerTransformer(from="bus2",to="bus4",Sbase=Sbase,Srated=600e6,uk=0.15,XR_ratio=Inf,
                                            i0=0.0,Pv0=0.0,tap_side = "HV",tap_pos = 0,tap_inc = 1.0),
-        "branch4"=> StaticPowerTransformer(from="bus2",to="bus3",Sbase=Sbase,Srated=1200e6,uk=0.15,XR_ratio=Inf,
-                                           i0=0.0,Pv0=0.0,tap_side = "LV",tap_pos = nTap,tap_inc = 1.2))
+        "branch4"=> StaticPowerTransformerTapParam(from="bus2",to="bus3",Sbase=Sbase,Srated=1200e6,uk=0.15,XR_ratio=Inf,
+                                           i0=0.0,Pv0=0.0,tap_side = "LV",tap_pos = nTap,tap_inc = 1.2,tap_max = 20,tap_min = 0,p_ind=17))
         return PowerGrid(buses, branches)
 end
 
-function GFC_LTVS_params()
-    pg = GFC_LTVS_Test_System()
+function GFC_LTVS_params_TapParam()
+    pg = GFC_LTVS_Test_SystemTapParam()
     GFC = pg.nodes["bus4"]
+    OLTC = pg.lines["branch4"]
     return [
         GFC.Kp_droop,
         GFC.Kq_droop,
@@ -108,16 +85,8 @@ function GFC_LTVS_params()
         GFC.σXR,
         GFC.K_vq,
         GFC.imax_csa,
+        OLTC.tap_pos
     ]
-end
-
-function GetInitializedLTVSSystem(;sm = false)
-    if sm == true
-        pg = LTVS_Test_System()
-    else
-        pg = GFC_LTVS_Test_System()
-    end
-    return GetInitializedLTVSSystem(pg)
 end
 
 function GetInitializedLTVSSystem(pg::PowerGrid)
@@ -127,8 +96,8 @@ function GetInitializedLTVSSystem(pg::PowerGrid)
     return InitializeInternalDynamics(pg,ic0)
 end
 
-function GetMTKLTVSSystem(;pg_state = "gfc_normal")
-    pg0 = GFC_LTVS_Test_System()
+function GetMTKLTVSSystemTapParam(;pg_state = "gfc_normal")
+    pg0 = GFC_LTVS_Test_SystemTapParam()
     if pg_state == "gfc_fault"
         pg = GetFaultLTVSPG(pg0)
         ic = zeros(systemsize(pg))
@@ -138,7 +107,7 @@ function GetMTKLTVSSystem(;pg_state = "gfc_normal")
     else
         pg, ic = GetInitializedLTVSSystem(pg0)
     end
-    p = GFC_LTVS_params()
+    p = GFC_LTVS_params_TapParam()
     tspan = (0.0,1.0)
     prob   = ODEProblem(rhs(pg),ic,tspan,p)
     new_f = ODEFunction(prob.f.f, syms = prob.f.syms, mass_matrix = Int.(prob.f.mass_matrix))
@@ -146,13 +115,13 @@ function GetMTKLTVSSystem(;pg_state = "gfc_normal")
     return modelingtoolkitize(ODEProb)
 end
 
-function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Float64,Float64};t_stop_droop = Inf)
+function run_LTVS_simulationTapParam(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Float64,Float64};t_stop_droop = Inf)
     tfault = [tfault_on(), tfault_off()]
 
     pg_fault = GetFaultLTVSPG(pg)
     pg_postfault = GetPostFaultLTVSPG(pg)
 
-    params = GFC_LTVS_params()
+    params = GFC_LTVS_params_TapParam()
     problem = ODEProblem{true}(rhs(pg),ic1,tspan,params)
     timer_start = -1.0
     timer_now   = 0.0
@@ -168,28 +137,17 @@ function run_LTVS_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tuple{Fl
     event_recorder = Array{Float64,2}(undef,0,4+length(params))
     function TapState(integrator)
         timer_start = integrator.t
-        sol1 = integrator.sol
-        if tap < tap_max
-            tap += 1
-            node = StaticPowerTransformer(from=OLTC.from,to=OLTC.to,Srated=OLTC.Srated,
-                                          uk=OLTC.uk,XR_ratio=OLTC.XR_ratio,i0=OLTC.i0,
-                                          Pv0=OLTC.Pv0,Sbase=OLTC.Sbase,
-                                          tap_side = OLTC.tap_side, tap_pos = tap,tap_inc = OLTC.tap_inc)
-            if postfault_state
-                np_pg = deepcopy(pg_postfault)
-            elseif fault_state
-                np_pg = deepcopy(pg_fault)
-            else
-                np_pg = deepcopy(pg)
-            end
-            np_pg.lines[branch_oltc] = node
-            ode = rhs(np_pg)
-            op_prob = ODEProblem(ode, sol1[end], (0.0, 1e-6), params, initializealg = BrownFullBasicInit())
-            x2 = solve(op_prob,Rodas4())
-            x2 = x2.u[end]
-            integrator.f = ode
-            integrator.cache.tf.f = integrator.f
-            integrator.u = x2#sol1[end]
+        tap_max = pg.lines["branch4"].tap_max
+        tap_min = pg.lines["branch4"].tap_min
+        tap_pos = pg.lines["branch4"].tap_pos
+        if integrator.p[17] + tap_pos < tap_max && integrator.p[17] + tap_pos > tap_min
+            integrator.p[17] += 1.0
+            p_tmp = deepcopy(integrator.p)
+            ic_tmp = deepcopy(integrator.sol[end])
+            op_prob = ODEProblem(integrator.f, ic_tmp, (0.0, 1e-6), p_tmp, initializealg = BrownFullBasicInit())
+            ic_new = solve(op_prob,Rodas5())
+            integrator.u = ic_new.u[end]
+
             active_pg = GetActivePG(fault_state,postfault_state)
             event_recorder = vcat(event_recorder,[integrator.t active_pg integrator.p' 3 1])
         end
@@ -337,6 +295,6 @@ function GetTriggCondsLTVS(mtk::ODESystem)
 end
 
 function GetStateResFunLTVS(mtk::ODESystem)
-    eqs, aeqs, D_states, A_states = Main.MyLocalSensi.GetSymbolicEquationsAndStates(mtk)
+    eqs, aeqs, D_states, A_states = GetSymbolicEquationsAndStates(mtk)
     return [zeros(length(D_states),1) .~ D_states]
 end

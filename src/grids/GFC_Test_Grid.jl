@@ -3,13 +3,13 @@ using OrderedCollections: OrderedDict
 using DiffEqSensitivity
 
 Ubase = 380e3
-Sbase = 100e6
+Sbase = 1000e6
 Zbase = (Ubase^2) / (Sbase)
 
-yfault() = 0.1*150.0
-tfault_on() = 0.001
-tfault_off() = 0.30
-dt_max() = 1e-2
+yfault() = 1.0/(2.0/Zbase)
+tfault_on() = 0.1
+tfault_off() = 0.25
+dt_max() = 1e-3
 
 function GFC_Test_Grid(;p_new = 0.0,q_new = 0.0,y_new = 0.0)
     buses = OrderedDict(
@@ -24,26 +24,26 @@ function GFC_Test_Grid(;p_new = 0.0,q_new = 0.0,y_new = 0.0)
         ),
         "bus3" => GridFormingConverterCSAAntiWindup(
             Sbase = Sbase,
-            Srated = 6*Sbase,
-            p0set = 3.0, # based on Sbase!
-            q0set = 0.01,
+            Srated = Sbase,
+            p0set = 0.9, # based on Sbase!
+            q0set = 0.01*0,
             u0set = 1.00,
-            Kp_droop = 0.01,
+            Kp_droop = 0.02,
             Kq_droop = 0.001,
-            ωf_P = 10.0 * 2 * pi,
-            ωf_Q = 5.0 * 2 * pi,
-            xlf = 0.0177*(380/320)^2, #0.01257,     #0.15*(320/380)^2,  *(380/320)^2
-            rf =  0.00059095*(380/320)^2, #0.00042,     #0.005*(320/380)^2,
-            xcf = 1.7908*(380/320)^2,#1.26990*2,1.7908   # 15.51,# 15.51*(320/380)^2, #1.0/(2.0*pi*50.0*1.231e-6)/Zbase, #
+            ωf_P = 62.8,#10.0 * 2 * pi,
+            ωf_Q = 62.8,#5.0 * 2 * pi,
+            xlf = 0.15,    #0.0177*(380/320)^2
+            rf =  0.005, #0.00059095*(380/320)^2
+            xcf = 15.1515151515, #1.7908*(380/320)^2
             Kp_u = 0.52, #1.0
             Ki_u = 1.161022,
             Kp_i = 0.738891, # 0.73
             Ki_i = 1.19,
             imax = 1.0,
-            Kvi = 0.5, #0.8272172037144201, # 0.677
-            σXR = 3.0,
-            K_vq = 0.01,
-            imax_csa = 1.2,
+            Kvi = 0.055, #0.8272172037144201, # 0.677
+            σXR = 10.0,
+            K_vq = 0.1*0,
+            imax_csa = 1.1,
             p_ind = collect(1:16),
         ),
     )
@@ -52,11 +52,11 @@ function GFC_Test_Grid(;p_new = 0.0,q_new = 0.0,y_new = 0.0)
         "branch1" => PiModelLine(
             from = "bus1",
             to = "bus2",
-            y = 1.0 / (1im * 0.1),
+            y = 1.0/(0.005+1im*0.05),#1.97712-1im*19.78677,
             y_shunt_km = 0.0,
             y_shunt_mk = 0.0,
         ),
-        "branch2"=> StaticPowerTransformer(from="bus2",to="bus3",Sbase=Sbase,Srated=1200e6,uk=0.15,XR_ratio=Inf,
+        "branch2"=> StaticPowerTransformer(from="bus2",to="bus3",Sbase=Sbase,Srated=1000e6,uk=0.1500833,XR_ratio=30.0,
                                            i0=0.0,Pv0=0.0,tap_side = "LV",tap_pos = 0,tap_inc = 1.0))
     pg = PowerGrid(buses, branches)
 end
@@ -116,8 +116,8 @@ function simGFC(prob)
     cb1 = DiscreteCallback(((u,t,integrator) -> t in tstep[2]), postfault_state)
 
     sol = solve(prob, Rodas4(), tstops= tstep,callback = CallbackSet(cb,cb1), dtmax = dt_max(),progress=true)
-    return sol, event_recorder
-    #return PowerGridSolution(sol,pg_new), event_recorder
+    #return sol, event_recorder
+    return PowerGridSolution(sol,pg_new), event_recorder
 end
 
 function GetTriggCondsGFCTest(mtk::ODESystem)
