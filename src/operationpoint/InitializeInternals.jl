@@ -43,6 +43,73 @@ function InitNode(SM::FourthOrderEq,ind::Int64,I_c::Vector{Complex{Float64}},ic_
    return [v_d_temp, v_q_temp, δ, 0.], node_temp
 end
 
+function InitNode(DG::GridSideConverter,ind::Int64,I_c::Vector{ComplexF64},ic_lf::Array{Float64,1},ind_offset::Int64)
+   v_d_temp = ic_lf[ind_offset]
+   v_q_temp = ic_lf[ind_offset+1]
+   u0 = v_d_temp+1im*v_q_temp
+   i0 = I_c[ind]
+
+   idq = i0*exp(-1im*angle(u0))
+   id_temp = real(idq)
+   iq_temp = imag(idq)
+
+   # x,y and z are only initialized the right way,
+   # if the dynamic limiter is not limiting the output at the stationary point
+   # Other cases has to be added later on
+
+   id0 = id_temp/DG.Kgsc
+   x_st_temp = id0*DG.Tp
+   iq0 = iq_temp/DG.Kgsc
+   y_st_temp = iq0*DG.Tq
+   z_st_temp = iq0*DG.Tv
+
+   node_temp = GridSideConverter(mode=DG.mode, p_ref=DG.p_ref, q_ref=DG.q_ref, v_ref=DG.v_ref,
+        idmax=DG.idmax, iqmax=DG.iqmax, imax=DG.imax,
+        Kp=DG.Kp, Tp=DG.Tp, Kq=DG.Kq, Tq=DG.Tq,
+        Kv=DG.Kv, Tv=DG.Tv, Kgsc=DG.Kgsc, Tgsc=DG.Tgsc,
+        δqv=DG.δqv, v1_max=DG.v1_max, v1_min=DG.v1_min, q_max=DG.q_max);
+
+   # Structure from node: x, y, z, id, iq]
+   return [v_d_temp, v_q_temp, x_st_temp, y_st_temp, z_st_temp, id_temp, iq_temp], node_temp
+end
+function InitNode(GS::SynchronousMachineGENSAL,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)
+   a = 0.2; b = 2*GS.S12-1.2*2*GS.S10; c = 1.2*GS.S10^2-GS.S12^2
+   A = (-b + sqrt(b^2 -4*a*c))/(2*a)
+   B = 1/(A^2 - 2*A*GS.S10 + GS.S10^2)
+   #sf(x) = B*(x-A)^2
+   
+   v_r_temp = ic_lf[ind_offset]
+   v_i_temp = ic_lf[ind_offset+1]
+
+   δ_temp = angle(v_r_temp+1im*v_i_temp+(GS.R_a+1im*GS.x_q)*I_c[ind]/(GS.Srated/GS.Sbase))
+   print("δ_temp: ", δ_temp)
+
+   v = v_r_temp +1im*v_i_temp
+   v = 1im*v*exp(-1im*δ_temp)
+   v_d = real(v)
+   v_q = imag(v)
+   i   = 1im*I_c[ind]*exp(-1im*δ_temp)/(GS.Srated/GS.Sbase)
+   i_d = real(i)
+   i_q = imag(i)
+   
+   ω_temp = 0.
+   ψ_qss_temp = -v_d
+   print(" ψ_qss_temp = -v_d = ", -v_d, "\n")
+   print(" ψ_qss_temp = -i_q*(x_q - x_qss) = ", -i_q*(GS.x_q - GS.x_qss), "\n")
+   ψ_dss_temp = v_q
+
+   #E_qs_temp = -(1/B - 2*A/B)/2 + sqrt(abs(((1/B - 2*A/B)/2)^2 + 1/B*(GS.E_fd-B*A^2-(GS.x_d-GS.x_ds)*i_d)))
+   E_qs_temp = GS.E_fd +(GS.x_ds-GS.x_d)*i_d
+   ψ_ds_temp = (ψ_dss_temp - (GS.x_dss-GS.x_l)/(GS.x_ds-GS.x_l)*E_qs_temp)*(GS.x_ds-GS.x_l)/(GS.x_ds-GS.x_dss)
+
+   node_temp = SynchronousMachineGENSAL(Sbase=GS.Sbase, Srated=GS.Srated, D=GS.D, H=GS.H, P=GS.P, E_fd=GS.E_fd, R_a=GS.R_a, x_d=GS.x_d, 
+                                       x_q=GS.x_q, x_ds=GS.x_ds, x_dss=GS.x_dss, x_qss=GS.x_qss, x_l=GS.x_l, 
+                                       T_d0s=GS.T_d0s, T_d0ss=GS.T_d0ss, T_q0ss=GS.T_q0ss, S10=GS.S10, S12=GS.S12);
+
+   # [ω, dω], [δ, dδ], [E_qs, dE_qs], [ψ_ds, dψ_ds], [ψ_qss, dψ_qss]
+   return [v_r_temp, v_i_temp, ω_temp, δ_temp, E_qs_temp, ψ_ds_temp, ψ_qss_temp], node_temp
+end
+
 function InitNodeSM(SM::SixOrderMarconatoMachine,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)
    v_d_temp = ic_lf[ind_offset]
    v_q_temp = ic_lf[ind_offset+1]
@@ -94,37 +161,6 @@ function InitNodeSM(SM::SixOrderMarconatoMachine,ind::Int64,I_c::Vector{Complex{
 
    # Structure from node: u_r, u_i, θ, ω, e_ds, e_qs, e_dss,e_qss
    return [v_d_temp, v_q_temp, δ, 0., e_ds, e_qs, e_dss, e_qss], node_temp
-end
-
-#function InitNode(DG::GridSideConverter,ind::Int64,I_c::Array{Complex{Float64},2},ic_lf::Array{Float64,1},ind_offset::Int64)
-function InitNode(DG::GridSideConverter,ind::Int64,I_c::Vector{ComplexF64},ic_lf::Array{Float64,1},ind_offset::Int64)
-   v_d_temp = ic_lf[ind_offset]
-   v_q_temp = ic_lf[ind_offset+1]
-   u0 = v_d_temp+1im*v_q_temp
-   i0 = I_c[ind]
-
-   idq = i0*exp(-1im*angle(u0))
-   id_temp = real(idq)
-   iq_temp = imag(idq)
-
-   # x,y and z are only initialized the right way,
-   # if the dynamic limiter is not limiting the output at the stationary point
-   # Other cases has to be added later on
-
-   id0 = id_temp/DG.Kgsc
-   x_st_temp = id0*DG.Tp
-   iq0 = iq_temp/DG.Kgsc
-   y_st_temp = iq0*DG.Tq
-   z_st_temp = iq0*DG.Tv
-
-   node_temp = GridSideConverter(mode=DG.mode, p_ref=DG.p_ref, q_ref=DG.q_ref, v_ref=DG.v_ref,
-        idmax=DG.idmax, iqmax=DG.iqmax, imax=DG.imax,
-        Kp=DG.Kp, Tp=DG.Tp, Kq=DG.Kq, Tq=DG.Tq,
-        Kv=DG.Kv, Tv=DG.Tv, Kgsc=DG.Kgsc, Tgsc=DG.Tgsc,
-        δqv=DG.δqv, v1_max=DG.v1_max, v1_min=DG.v1_min, q_max=DG.q_max);
-
-   # Structure from node: x, y, z, id, iq]
-   return [v_d_temp, v_q_temp, x_st_temp, y_st_temp, z_st_temp, id_temp, iq_temp], node_temp
 end
 
 function InitNode(SM::SixOrderMarconatoMachineAVROEL,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)
