@@ -128,12 +128,21 @@ function CalcEigenValues(pg::PowerGrid, p::Array{Float64,1}; output::Bool = fals
   return EW
 end
 
-function DFT(signal,t)
+function DFTplot(signal,t,fmax;norm=true)
+    F,freqs = DFG(signal,t,norm_to_fundamental=norm)
+    display(bar(freqs,F),xlims=(0,fmax))
+end
+
+function DFT(signal,t;norm_to_DC=false)
     N = length(t)
     Ts = t[end]/N  #it is assumed that measured point are equally distributed
     # Fourier Transform of it
     F = fft(signal) |> fftshift
     freqs = fftfreq(N, 1.0/Ts) |> fftshift
+    if norm_to_fundamental
+        ind = indexin([0.0],freqs)[1]+1
+        F ./= abs.(F[ind])
+    end
     return F, freqs
 end
 

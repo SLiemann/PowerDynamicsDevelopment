@@ -23,8 +23,17 @@ begin
     #prob_new = ODEForwardSensitivityProblem(rhs(pg1),ic,(0.0,0.1),params)
     pgsol,evr = simGFC(prob)
 end
-plot(pgsol,collect(keys(pg.nodes))[3],:v, label = "PD - Ucf")
+plot(pgsol,collect(keys(pg.nodes))[2:end],:v)
 plot(pgsol,["bus3"],:i_abs, label = "Iabs", legend = false)#, ylims=(1.1,1.4)
+
+
+
+
+
+
+
+
+
 plot(pgsol,["bus3"],:θ, label ="Droop-Winkel VSC")
 theta = ExtractResult(pgsol,:θ_3)*180/pi
 plot(pgsol,["bus3"],:ω)
