@@ -77,7 +77,7 @@ function InitNode(GS::SynchronousMachineGENSAL,ind::Int64,I_c::Vector{Complex{Fl
    A = (-b + sqrt(b^2 -4*a*c))/(2*a)
    B = 1/(A^2 - 2*A*GS.S10 + GS.S10^2)
    #sf(x) = B*(x-A)^2
-   
+
    v_r_temp = ic_lf[ind_offset]
    v_i_temp = ic_lf[ind_offset+1]
 
@@ -91,7 +91,7 @@ function InitNode(GS::SynchronousMachineGENSAL,ind::Int64,I_c::Vector{Complex{Fl
    i   = 1im*I_c[ind]*exp(-1im*δ_temp)/(GS.Srated/GS.Sbase)
    i_d = real(i)
    i_q = imag(i)
-   
+
    ω_temp = 0.
    ψ_qss_temp = -v_d
    print(" ψ_qss_temp = -v_d = ", -v_d, "\n")
@@ -102,8 +102,8 @@ function InitNode(GS::SynchronousMachineGENSAL,ind::Int64,I_c::Vector{Complex{Fl
    E_qs_temp = GS.E_fd +(GS.x_ds-GS.x_d)*i_d
    ψ_ds_temp = (ψ_dss_temp - (GS.x_dss-GS.x_l)/(GS.x_ds-GS.x_l)*E_qs_temp)*(GS.x_ds-GS.x_l)/(GS.x_ds-GS.x_dss)
 
-   node_temp = SynchronousMachineGENSAL(Sbase=GS.Sbase, Srated=GS.Srated, D=GS.D, H=GS.H, P=GS.P, E_fd=GS.E_fd, R_a=GS.R_a, x_d=GS.x_d, 
-                                       x_q=GS.x_q, x_ds=GS.x_ds, x_dss=GS.x_dss, x_qss=GS.x_qss, x_l=GS.x_l, 
+   node_temp = SynchronousMachineGENSAL(Sbase=GS.Sbase, Srated=GS.Srated, D=GS.D, H=GS.H, P=GS.P, E_fd=GS.E_fd, R_a=GS.R_a, x_d=GS.x_d,
+                                       x_q=GS.x_q, x_ds=GS.x_ds, x_dss=GS.x_dss, x_qss=GS.x_qss, x_l=GS.x_l,
                                        T_d0s=GS.T_d0s, T_d0ss=GS.T_d0ss, T_q0ss=GS.T_q0ss, S10=GS.S10, S12=GS.S12);
 
    # [ω, dω], [δ, dδ], [E_qs, dE_qs], [ψ_ds, dψ_ds], [ψ_qss, dψ_qss]
@@ -399,4 +399,22 @@ function InitNode(GFC::Union{GridFormingConverter,GridFormingConverterParam,Grid
       )
       return [v_d_temp, v_q_temp,θ,ω,Q,e_ud,e_uq,e_id,e_iq,abs(E),θ/pi*180.0], GFC_new
    end
+end
+
+function InitNode(PE::oPFC,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)
+   v_d_temp = ic_lf[ind_offset]
+   v_q_temp = ic_lf[ind_offset+1]
+   U = v_d_temp+1im*v_q_temp
+   s = U * conj(I_c[ind]) #/ (GFC.Srated/GFC.Sbase)
+   q = imag(s)
+
+   oPFC_new = oPFC(
+      Cd = PE.Cd,
+      Pdc = PE.Pdc,
+      Ulow = PE.Ulow,
+      Qn = q*(abs(U)^0.9), #new
+      t0 = PE.t0,
+   )
+
+   return [v_d_temp, v_q_temp,abs(U),1.0,PE.Pdc,q,0.0,0.0], oPFC_new
 end

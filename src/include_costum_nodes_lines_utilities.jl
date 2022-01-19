@@ -23,6 +23,8 @@ include("lines/StaticPowerTransformerTapParam.jl")
 #include("nodes/GridFormingConverterParam.jl")
 #include("nodes/GridSideConverter.jl")
 include("nodes/GFMCurrentPrio.jl")
+include("nodes/SynchronousMachineGENSAL.jl")
+include("nodes/oPFC.jl")
 
 #Operation Point
 include("operationpoint/PowerFlow.jl")

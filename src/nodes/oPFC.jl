@@ -17,25 +17,26 @@ IEEE TRANSACTIONS ON CIRCUITS AND SYSTEMS, vol. 47, February 2000
 - `Tq`: Load recovery constant q-axis [s]
 """
 =#
-@DynamicNode oPFC(Cd, Pdc, Ulow, Qnenn, t0)  begin
+@DynamicNode oPFC(Cd, Pdc, Ulow, Qn, t0)  begin
     MassMatrix(m_int = [true, true, true, true,true, true])
 end  begin
-    @assert Cd > 0 "Cd should be >0"
-    @assert Pdc > 0 "Pdc should be >0"
-    @assert Ulow > 0 "Ulow should be >0"
-    @assert t0 > 0 "t0 should be >0"
+    @assert Cd > 0.0 "Cd should be >0"
+    @assert Pdc > 0.0 "Pdc should be >0"
+    @assert Ulow > 0.0 "Ulow should be >0"
+    @assert t0 >= 0.0 "t0 should be >0"
 
 end [[Uc, dUc],[qstate, dqstate],[P, dP],[Q, dQ],[tsim,dtsim],[Iload, dIload]] begin
     s = u*conj(i)
     u_abs = abs(u)
     ϵ = 0.01
 
-    lim(x::Float64) = isinf(x) ? 0.0 : x == 0.0 ? Inf : x
-
     if 0.9 <= qstate <= 1.1 #equal
         dUc = 0.0
         Psoll = 1.0
-        Qsoll = Qnenn/lim(u_abs)^0.9)
+        if u_abs <= 0.0
+             u_abs = Inf
+         end
+        Qsoll = Qn/(u_abs^0.9)
         dtsim = 0.0
         ic = 0.0
     elseif 1.9 <= qstate <= 2.1 # low grid voltage
@@ -48,7 +49,7 @@ end [[Uc, dUc],[qstate, dqstate],[P, dP],[Q, dQ],[tsim,dtsim],[Iload, dIload]] b
        ic = 2*pi*50*u_abs*cos(2*pi*50*tsim+t0)*Cd
        dUc = ic/Cd
        Psoll = Uc*ic/1.2  + 1.0
-       Qsoll = -Uc*ic/2 + Qnenn #-u[2]*dUc*Cd*0.5 (Psoll-1)*sin(PH)
+       Qsoll = -Uc*ic/2 + Qn #-u[2]*dUc*Cd*0.5 (Psoll-1)*sin(PH)
        dtsim = 1.0
      elseif 3.9 <= qstate <= 4.1 #disconnected
        dUc = 0.0
