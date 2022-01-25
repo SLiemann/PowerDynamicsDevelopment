@@ -5,14 +5,20 @@ using ModelingToolkit
 using CSV
 using DataFrames
 
+using ForwardDiff: ForwardDiff, Dual, value, partials
+ForwardDiff.can_dual(::Type{ComplexF64}) = true
+Base.abs2(x::Dual{Z,<:Complex{T}}) where {Z,T} = Dual{Z}(abs2(value(x)), 2 .* real.(partials(x).values) .+ 2 .* imag.(partials(x).values))
+
 begin
     include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/include_costum_nodes_lines_utilities.jl")
     include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/grids/OLTC_Hybrid_Sensis.jl")
-    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/sensitivity_analyses/Local_Sensitivity.jl")
+    #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/sensitivity_analyses/Local_Sensitivity.jl")
 end
 
 #simulate nominal trajectory
 pgsol,evr = SimulateOLTCHIsken()
+sol = SimulateOLTCHIsken()
+
 sol = pgsol.dqsol
 begin
     plot(pgsol,["bus4"],:v,label="PowerDynamics")
@@ -23,6 +29,7 @@ begin
     #yticks!(collect(0.82:0.02:1.02))
     xticks!(collect(30.0:0.01:30.05))
 end
+
 
 #Calc hybrid sensis
 mtk = GetMTKOLTCSystem()

@@ -51,7 +51,7 @@ function GetInitializedOLTCHisken()
     Uc = U.*exp.(1im*δ/180*pi)
     I_c = Ykk*Uc
     S = conj(Ykk*Uc).*Uc
-    return InitializeInternalDynamics(pg,I_c,ic0)
+    return InitializeInternalDynamics(pg,ic0)
 end
 
 function GetMTKOLTCSystem(;Tp = 5.0)
@@ -146,8 +146,20 @@ function SimulateOLTCHIsken(;Tp = 5.0)
     cb6 = DiscreteCallback(check_voltage_high, stop_integration)
 
     params = GetParametersOLTCHisken(Tp)
-    prob = ODEProblem(rhs(pg), ic, tspanOLTCHisken(),params)
+    #prob = ODEProblem(rhs(pg), ic, tspanOLTCHisken(),params)
+    prob_sens = ODEForwardSensitivityProblem(rhs(pg),ic,tspanOLTCHisken(),params,ForwardDiffSensitivity(););
+    #sol = solve(prob_singular_mm_fs,Rodas4(autodiff=false),reltol=1e-8,abstol=1e-8)
     sol = solve(
+        prob_sens,
+        Rodas4(autodiff=false),
+        callback = CallbackSet(cb1, cb2, cb3,cb4,cb5),
+        dt = 1e-2,
+        adaptive = false,
+        tstops=[10.0],
+        maxiters = 1e5,
+        progress = true,
+    )
+    #=sol = solve(
         prob,
         Rodas4(),
         callback = CallbackSet(cb1, cb2, cb3,cb4,cb5),
@@ -157,7 +169,8 @@ function SimulateOLTCHIsken(;Tp = 5.0)
         maxiters = 1e5,
         progress = true,
     )
-    return PowerGridSolution(sol, pg), event_recorder
+    return PowerGridSolution(sol, pg), event_recorder =#
+    return sol
 end
 
 function GetTriggCondsOLTCHisken(mtk::ODESystem)

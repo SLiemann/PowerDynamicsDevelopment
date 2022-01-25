@@ -414,6 +414,8 @@ function InitNode(PE::oPFC,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Array
       Ulow = PE.Ulow,
       Qn = q*(abs(U)^0.9), #new
       t0 = PE.t0,
+      ϵ = PE.ϵ,
+      p_ind = PE.p_ind,
    )
 
    return [v_d_temp, v_q_temp,abs(U),1.0,PE.Pdc,q,0.0,0.0], oPFC_new

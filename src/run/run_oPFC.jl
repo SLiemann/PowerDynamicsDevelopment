@@ -13,6 +13,12 @@ begin
     include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/operationpoint/InitializeInternals.jl")
     include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/grids/Test_oPFC.jl")
 end
+
+pgsol = sim_oPFC(u_new = 0.9)
+plot(pgsol,["bus1","bus2"],:v)
+plot(pgsol,["bus2"],:P)
+plot(pgsol,["bus2"],:Q)
+
 begin
     pg = Testgrid_oPFC()
     U,δ,ic0 = PowerFlowClassic(pg, iwamoto = true, max_tol = 1e-7)
@@ -22,9 +28,7 @@ begin
     pgsol = PowerGridSolution(sol,pg)
 end
 plot(pgsol,collect(keys(pg.nodes))[2:end],:v)
-plot(pgsol,["bus1","bus2"],:v)
-plot(pgsol,["bus2"],:P)
-plot(pgsol,["bus2"],:Q)
+
 
 #, ylims=(1.1,1.4)
 

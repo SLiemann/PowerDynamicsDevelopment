@@ -17,22 +17,29 @@ IEEE TRANSACTIONS ON CIRCUITS AND SYSTEMS, vol. 47, February 2000
 - `Tq`: Load recovery constant q-axis [s]
 """
 =#
-@DynamicNode oPFC(Cd, Pdc, Ulow, Qn, t0)  begin
+@DynamicNode oPFC(Cd, Pdc, Ulow, Qn, t0,ϵ,p_ind)  begin
     MassMatrix(m_int = [true, true, true, true,true, true])
 end  begin
     @assert Cd > 0.0 "Cd should be >0"
-    @assert Pdc > 0.0 "Pdc should be >0"
+    #@assert Pdc > 0.0 "Pdc should be >0"
     @assert Ulow > 0.0 "Ulow should be >0"
     @assert t0 >= 0.0 "t0 should be >0"
+    @assert ϵ >= 0.0 "ϵ should be >0"
 
 end [[Uc, dUc],[qstate, dqstate],[P, dP],[Q, dQ],[tsim,dtsim],[Iload, dIload]] begin
+    Cd = p[p_ind[1]]
+    Pdc = p[p_ind[2]]
+    Ulow = p[p_ind[3]]
+    Qn = p[p_ind[4]]
+    t0 = p[p_ind[5]]
+    ϵ = p[p_ind[6]]
+
     s = u*conj(i)
     u_abs = abs(u)
-    ϵ = 0.01
 
     if 0.9 <= qstate <= 1.1 #equal
         dUc = 0.0
-        Psoll = 1.0
+        Psoll = Pdc
         if u_abs <= 0.0
              u_abs = Inf
          end
