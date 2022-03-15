@@ -32,7 +32,7 @@ begin
     pg, ic0 = InitializeInternalDynamics(pg,ic0)
 
     #pg, ic0 = GetInitializedLTVSSystem()
-    pgsol,evr  = run_LTVS_simulationTapParam(pg,ic0,(0.9,1.5))
+    pgsol_per,evr  = run_LTVS_simulationTapParam(pg,ic0,(0.9,1.5))
     #plot(pgsol,"bus4",:i_abs,label = "I-Original",xlims=(5,70),ylims=(1.02,1.11), legend = (0.5,0.1))
     #display(plot!(pgsol_per,"bus4",:i_abs, label ="real perturbed"))
     #display(plot(pgsol_stkvi,"bus4",:v,label = "Enhanced"))
@@ -44,7 +44,7 @@ end
 x = CalcEigenValues(pg,GFC_LTVS_params_TapParam(),output=true, plot=true)
 
 
-sensi = load("C:/Users/liemann/Desktop/Sens_LTVS/sens_short_pscc_kq_1em1_dt_1em3_tap_param.jld")
+sensi = load("C:/Users/liemann/Desktop/DIESE_sens_pscc_kq_1em1_dt_1em2_tap_param.jld")
 toll_tap = sensi["sens"]
 PlotApproTrajectories(pg,pgsol,pgsol_per,sensi["sens"],15,0.1,0.15,labels_p,:i_abs)
 ylims!(0.95,0.99)
@@ -62,6 +62,23 @@ plot(pgsol,"bus4",:θ, legend = (0.8,0.8),ylims=(-0.1,0.15))
 plot!(pgsol_droop,"bus4",:θ, legend = (0.8,0.8),ylims=(-0.05,0.05))
 plot(pgsol,"bus4",:Pout, legend = (0.8,0.5))
 plot(pgsol,"bus4",:Qout, legend = (0.8,0.5))
+vi = ExtractResult(pgsol,:u_i_4)
+vr = ExtractResult(pgsol,:u_r_4)
+v_abs = sqrt.(vi.^2+vr.^2)
+i_abs = ExtractResult(pgsol,:i_abs_4)
+time = pgsol.dqsol.t
+f = plot(time,[v_abs i_abs],layout=(1,2),label=["\$|u_f|\$" "\$|i_c|\$"], color = "green", size=(800,350),legend=:bottomright,
+    ytickfont = font(11, "Times"),
+    xtickfont = font(11, "Times"),
+    legendfont= font(11,"Times"),
+    grid = true,
+    gridalpha = 0.5,
+    gridstyle = :dash,
+    framestyle = :box,
+    linewidth = 1.5,
+    ylims = (0.6,1.2),)
+savefig(f,"Test.png")
+
 
 plot!(pgsol_per,"bus4",:Pout, legend = (0.8,0.5))
 
@@ -104,7 +121,7 @@ plot(pgsol.dqsol.t[1:end-1],toll_tap[1][look_on,1:end], title = "Sensis of $(Str
     legend = :outertopright,
     size = (1000,750),
     #xlims = (1.5,65.0),
-    xlims = (0.9,1.5),
+    #xlims = (0.9,1.5),
     ylims = (-30,100))
     #ylims = (-1.5,1.5))
 for i in sensis_p[2:end]

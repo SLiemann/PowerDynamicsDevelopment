@@ -146,12 +146,10 @@ function SimulateOLTCHIsken(;Tp = 5.0)
     cb6 = DiscreteCallback(check_voltage_high, stop_integration)
 
     params = GetParametersOLTCHisken(Tp)
-    #prob = ODEProblem(rhs(pg), ic, tspanOLTCHisken(),params)
-    prob_sens = ODEForwardSensitivityProblem(rhs(pg),ic,tspanOLTCHisken(),params,ForwardDiffSensitivity(););
-    #sol = solve(prob_singular_mm_fs,Rodas4(autodiff=false),reltol=1e-8,abstol=1e-8)
-    sol = solve(
+    prob = ODEProblem(rhs(pg), ic, tspanOLTCHisken(),params)
+    integrator = init(
         prob_sens,
-        Rodas4(autodiff=false),
+        Rodas4(),
         callback = CallbackSet(cb1, cb2, cb3,cb4,cb5),
         dt = 1e-2,
         adaptive = false,

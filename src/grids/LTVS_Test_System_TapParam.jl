@@ -24,7 +24,7 @@ function GFC_LTVS_Test_SystemTapParam(;nTap = 0.0)
         "bus1" => SlackAlgebraic(U=1.0),
         "bus2" => VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=0., B=0.,Y_n = complex(0.0)),
         "bus3" => VoltageDependentLoad(P=-9.6, Q = -2.8, U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),
-        "bus4" => GFMCurrentPrio(
+        "bus4" => GridFormingConverterCSAAntiWindup(
             Sbase = Sbase,
             Srated = 5.5*Sbase,
             p0set = 5.0, # based on Sbase!
@@ -43,10 +43,10 @@ function GFC_LTVS_Test_SystemTapParam(;nTap = 0.0)
             Ki_i = 1.19,
             imax = 1.0,
             Kvi = 0.055, #0.8272172037144201, # 0.677
-            σXR = 10.0,
+            σXR = 10.0*10,
             K_vq = 0.1,
             imax_csa = 1.10,
-            iprio = "q",
+            #iprio = "none",
             p_ind = collect(1:16),
         ),
         "busv" => VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=0., B=0.,Y_n = complex(0.0)))

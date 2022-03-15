@@ -2,6 +2,7 @@ using PowerDynamics
 using DifferentialEquations
 using Plots
 using ModelingToolkit
+using DiffEqSensitivity
 using CSV
 using DataFrames
 
