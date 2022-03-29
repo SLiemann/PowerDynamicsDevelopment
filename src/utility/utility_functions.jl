@@ -129,11 +129,11 @@ function CalcEigenValues(pg::PowerGrid, p::Array{Float64,1}; output::Bool = fals
 end
 
 function DFTplot(signal,t,fmax;norm=true)
-    F,freqs = DFG(signal,t,norm_to_fundamental=norm)
-    display(bar(freqs,F),xlims=(0,fmax))
+    F,freqs = DFT(signal,t,norm_to_fundamental=norm)
+    display(bar(freqs,abs.(F),xlims=(0,fmax)))
 end
 
-function DFT(signal,t;norm_to_DC=false)
+function DFT(signal,t;norm_to_fundamental=false)
     N = length(t)
     Ts = t[end]/N  #it is assumed that measured point are equally distributed
     # Fourier Transform of it
@@ -144,6 +144,24 @@ function DFT(signal,t;norm_to_DC=false)
         F ./= abs.(F[ind])
     end
     return F, freqs
+end
+
+function RMS(signal,time;fund = 50)
+    RMS = zeros(length(signal))
+    dt = time[end]/length(time) # fixed step-size assumed
+    L = Int(floor(1/fund/dt))
+    zaehler = Int(floor(1/fund/dt))
+    ind = 0;
+    for i=0:1:length(signal)-L
+        s = signal[i+1:i+L]
+        t = time[i+1:i+L]
+        t = t.-t[1]
+        val, freq = DFT(s,t)
+        ind = i==0 ? findmin(abs.(freq.-fund))[2] : ind
+        RMS[zaehler] = abs(val[ind]);
+        zaehler = zaehler + 1;
+    end
+    RMS./(sqrt(2)*L/2)
 end
 
 function ExtractResult(pgsol::PowerGridSolution, sym::Symbol)

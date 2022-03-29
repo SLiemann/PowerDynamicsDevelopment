@@ -32,7 +32,7 @@ begin
     pg, ic0 = InitializeInternalDynamics(pg,ic0)
 
     #pg, ic0 = GetInitializedLTVSSystem()
-    pgsol_per,evr  = run_LTVS_simulationTapParam(pg,ic0,(0.9,1.5))
+    pgsol_per,evr  = run_LTVS_simulationTapParam(pg,ic0,(0.9,120.0))
     #plot(pgsol,"bus4",:i_abs,label = "I-Original",xlims=(5,70),ylims=(1.02,1.11), legend = (0.5,0.1))
     #display(plot!(pgsol_per,"bus4",:i_abs, label ="real perturbed"))
     #display(plot(pgsol_stkvi,"bus4",:v,label = "Enhanced"))
@@ -55,7 +55,7 @@ ylims!(0,280)
 
 plot(pgsol,"bus4",:i_abs)
 plot!(pgsol_per,"bus4",:i_abs, linestyle = :dash)
-plot(pgsol,"bus4",:v, label="q-prio")
+plot!(pgsol_per,"bus4",:v, label="voltage", title="Long-term voltage stability", grid=true,gridstyle = :dash,gridalpha = 0.5,linewidth = 2)
 plot(pgsol,"bus4",:i_abs, legend = false, ylims =(0.95,1.1))
 plot(pgsol,"bus4",:ω, legend = (0.8,0.1))
 plot(pgsol,"bus4",:θ, legend = (0.8,0.8),ylims=(-0.1,0.15))
