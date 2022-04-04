@@ -87,6 +87,7 @@ NodeType(
         GFMCurrentPrio,
     },
 ) = 1
+NodeType(L::MatchingControl) = 1
 
 #note: only loads are treated with voltage depency and are called every iteration
 PowerNodeLoad(S::SlackAlgebraic,U) = 0. #treated as generation
@@ -138,6 +139,8 @@ PowerNodeLoad(
         GFMCurrentPrio,
     },U
 ) = 0.#treated as generation
+PowerNodeLoad(L::MatchingControl) = 0.
+
 
 #generation is voltage independent, otherwise it has to be called every iteration
 PowerNodeGeneration(S::SlackAlgebraic) = 0.
@@ -170,6 +173,8 @@ PowerNodeGeneration(
         GFMCurrentPrio,
     },
 )  = L.p0set #treated as generation
+PowerNodeGeneration(M::MatchingControl) = M.p0set
+
 
 function PowerFlowClassic(pg::PowerGrid; ind_sl::Int64 = 0,max_tol::Float64 = 1e-7,iter_max::Int64  = 30,iwamoto::Bool =false, Qmax = -1, Qmin = -1, Qlimit_iter_check::Int64 = 3)
     number_nodes = length(pg.nodes); #convenience
@@ -226,6 +231,12 @@ function PowerFlowClassic(pg::PowerGrid; ind_sl::Int64 = 0,max_tol::Float64 = 1e
     end
     if GFMCurrentPrio ∈ collect(values(pg.nodes)) .|> typeof
         pv = findall(collect(values(pg.nodes).|> typeof).== GFMCurrentPrio)
+        for i in pv
+            U[i] = collect(values(pg.nodes))[i].u0set
+        end
+    end
+    if MatchingControl ∈ collect(values(pg.nodes)) .|> typeof
+        pv = findall(collect(values(pg.nodes).|> typeof).== MatchingControl)
         for i in pv
             U[i] = collect(values(pg.nodes))[i].u0set
         end

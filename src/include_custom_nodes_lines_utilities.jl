@@ -1,30 +1,36 @@
 import Base: @__doc__
-## those are need for including custom nodes directly instead copying them into PowerDynamics.jl
-import PowerDynamics: dimension, symbolsof, construct_vertex
-import PowerDynamics: AbstractLine, AbstractNode
-import NetworkDynamics: ODEVertex
+import PowerDynamics: AbstractLine, AbstracNode
+## those are needed for including custom nodes directly instead copying them into PowerDynamics.jö
+import PowerDynamics: dimension, symbolsof, construct_vertex, construct_edge
+import NetworkDynamics: ODEVertex, StaticEdge
 ##############
-#Lines
-include("lines/DynamicPowerTransformer.jl")
-include("lines/PiModelLineParam.jl")
-include("lines/StaticPowerTransformer.jl")
+#Linesd
+#include("lines/DynamicPowerTransformer.jl")
+#include("lines/PiModelLineParam.jl")
+#include("lines/StaticPowerTransformer.jl")
 include("lines/StaticPowerTransformerTapParam.jl")
 
 #Nodes
-include("nodes/GridFormingConverter.jl")
-include("nodes/GridFormingConverterCSA.jl")
-include("nodes/GridFormingConverterParam.jl")
-include("nodes/SimpleRecoveryLoad.jl")
-include("nodes/SimpleRecoveryLoadParam.jl")
-include("nodes/SixOrderMarconatoMachine.jl")
-include("nodes/SixOrderMarconatoMachineAVROEL.jl")
-include("nodes/GridFormingConverterCSA.jl")
-include("nodes/GridSideConverter.jl")
-include("nodes/SlackAlgebraicParam.jl")
+#include("nodes/OLTC.jl")
+#include("nodes/SlackAlgebraicParam.jl")
+#include("nodes/SimpleRecoveryLoad.jl")
+#include("nodes/SimpleRecoveryLoadParam.jl")
+#include("nodes/SixOrderMarconatoMachine.jl")
+#include("nodes/SixOrderMarconatoMachineAVROEL.jl")
+#include("nodes/GridFormingConverter.jl")
+#include("nodes/GridFormingConverterCSA.jl")
+#include("nodes/GridFormingConverterCSAAntiWindup.jl")
+#include("nodes/GridFormingConverterParam.jl")
+#include("nodes/GridSideConverter.jl")
+include("nodes/GFMCurrentPrio.jl")
+include("nodes/SynchronousMachineGENSAL.jl")
+include("nodes/oPFC.jl")
+include("nodes/MatchingControl.jl")
+
+#Operation Point
+include("operationpoint/PowerFlow.jl")
+include("operationpoint/InitializeInternals.jl")
+
 
 #Utility functions
 include("utility/utility_functions.jl")
-
-#Operation Point
-include("operationpoint/InitializeInternals.jl")
-include("operationpoint/PowerFlow.jl")
