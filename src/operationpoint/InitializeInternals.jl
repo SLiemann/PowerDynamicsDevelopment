@@ -425,16 +425,15 @@ function InitNode(MC::MatchingControl,ind::Int64,I_c::Vector{Complex{Float64}},i
    v_d_temp = ic_lf[ind_offset]
    v_q_temp = ic_lf[ind_offset+1]
    U0 = v_d_temp+1im*v_q_temp
-
-   #The current of the capacitor has to be related, since rf,xlf and xcf are related to Sbase!!!
-   i1 = I_c[ind] / (MC.Srated/MC.Sbase) + U0/(-1im*MC.xcf) /(MC.Srated/MC.Sbase)
-   E = U0 + (MC.rf + 1im*MC.xlf) * i1
    θ = angle(U0)
-   ω = 0.0
 
    s = U0 * conj(I_c[ind]) #/ (MC.Srated/MC.Sbase)
    p = real(s)
    q = imag(s)
+
+   #The current of the capacitor has to be related, since rf,xlf and xcf are related to Sbase!!!
+   i1 = I_c[ind] / (MC.Srated/MC.Sbase) + U0/(-1im*MC.xcf) /(MC.Srated/MC.Sbase)
+   E = U0 + (MC.rf + 1im*MC.xlf) * i1
 
    idqmeas = I_c[ind]*(cos(-θ)+1im*sin(-θ)) / (MC.Srated/MC.Sbase) #1im*
    idmeas = real(idqmeas)
@@ -444,6 +443,12 @@ function InitNode(MC::MatchingControl,ind::Int64,I_c::Vector{Complex{Float64}},i
    id = real(idq)
    iq = imag(idq)
 
+   P_before = real(conj(i1) * E)
+   idc0 = MC.gdc*1.0 + id
+
+   p0_new = idc0 - MC.gdc + p - P_before
+   udc = 0.0 #ist hier nur das delta
+
    U0 = U0*(cos(-θ)+1im*sin(-θ))
    udmeas = real(U0) #should be equal to abs(U0)
    uqmeas = imag(U0) #should be zero
@@ -452,33 +457,32 @@ function InitNode(MC::MatchingControl,ind::Int64,I_c::Vector{Complex{Float64}},i
    umd = real(E0)
    umq = imag(E0)
 
-   e_id = (umd - udmeas + iq * MC.xlf) #/ MC.Ki_i
-   e_iq = (umq - uqmeas - id * MC.xlf) #/ MC.Ki_i
+   e_id = (umd - udmeas + iq * MC.xlf ) #- id*MC.rf
+   e_iq = (umq - uqmeas - id * MC.xlf ) #- iq*MC.rf
 
    e_ud = (id - idmeas + uqmeas / MC.xcf) #/ MC.Ki_u #hier müsste es ohne idmeas und iqmeas sein
    e_uq = (iq - iqmeas - udmeas / MC.xcf) #/ MC.Ki_u #passt das überhaupt mit dem Srated/Sbase???
 
-  #=MC_new = MatchingControl(
-     Sbase = MC.Sbase,
-     Srated = MC.Srated,
-     p0set = MC.p0set,
-     u0set = MC.u0set,
-     Kp_droop = MC.Kp_droop,
-     Kq_droop = MC.Kq_droop,
-     ωf_P = MC.ωf_P,
-     ωf_Q = MC.ωf_Q,
-     xlf = MC.xlf,
-     rf = MC.rf,
-     xcf = MC.xcf,
-     Kp_u = MC.Kp_u,
-     Ki_u = MC.Ki_u,
-     Kp_i = MC.Kp_i,
-     Ki_i = MC.Ki_i,
-     imax = MC.imax,
-     Kvi = MC.Kvi,
-     σXR = MC.σXR,
-     K_vq = MC.K_vq,
-     p_ind = MC.p_ind
-  )=#
-    return [v_d_temp, v_q_temp,θ,1.0,abs(U0),e_ud,e_uq,e_id,e_iq], MC
+  MC_new = MatchingControl(
+  Sbase = MC.Sbase,
+  Srated = MC.Srated,
+  p0set = p0_new, #new
+  u0set = MC.u0set,
+  Kp_uset = MC.Kp_uset,
+  Ki_uset = MC.Ki_uset,
+  Kdc = MC.Kdc,
+  gdc = MC.gdc,
+  cdc = MC.cdc,
+  xlf = MC.xlf,
+  rf = MC.rf,
+  xcf =  MC.xcf,
+  Tdc = MC.Tdc,
+  Kp_u = MC.Kp_u,
+  Ki_u = MC.Ki_u,
+  Kp_i = MC.Kp_i,
+  Ki_i = MC.Ki_i,
+  imax_csa = MC.imax_csa,
+  p_ind = MC.p_ind,
+  )
+    return [v_d_temp, v_q_temp,θ,udc,idc0,abs(U0),e_ud,e_uq,e_id,e_iq], MC_new
 end

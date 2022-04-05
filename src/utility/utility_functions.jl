@@ -277,3 +277,19 @@ function CalcAbsVoltageSens(ur_or,ui_or,sens_ur,sens_ui,param,Δp)
     z2 = -p./2 - sqrt.((p./2).^2 .- q)
     return z1,z2
 end
+
+function getallParameters(node)
+    cond = true
+    i = 1
+    param = Vector{Float64}()
+    while cond
+        try
+            tmp = getfield(node,i)
+            append!(param,tmp)
+            i += 1
+        catch
+            cond = false
+        end
+    end
+    param[1:end-1] #last entry is Y_n from PowerDynamics
+end

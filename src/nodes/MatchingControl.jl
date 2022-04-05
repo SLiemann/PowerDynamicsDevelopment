@@ -17,13 +17,12 @@ The model has the following internal dynamic variables:
 
 """
 =#
-@DynamicNode MatchingControl(Sbase,Srated,p0set,u0set,Kp_uset,Ki_uset,Kdc,gdc,cdc,xlf,rf,xcf,Kp_u,Ki_u,Kp_i,Ki_i,imax_csa,p_ind) begin
-    MassMatrix(m_int =[true,true,true,true,true,true,true])#,false,false,false,false
+@DynamicNode MatchingControl(Sbase,Srated,p0set,u0set,Kp_uset,Ki_uset,Kdc,gdc,cdc,xlf,rf,xcf,Tdc,Kp_u,Ki_u,Kp_i,Ki_i,imax_csa,p_ind) begin
+    MassMatrix(m_int =[true,true,true,true,true,true,true,true])#,false,false,false,false
 end begin
     @assert Sbase > 0 "Base apparent power of the grid in VA, should be >0"
     @assert Srated > 0 "Rated apperent power of the machine in VA, should be >0"
     @assert p0set >= 0 "Set point for active power in p.u, should be >0"
-    @assert q0set >= 0 "Set point for reactive power in p.u, should be >0"
     @assert u0set > 0 "Set point for voltage in p.u, should be >0"
     @assert Kp_uset >= 0 "Droop constant for active power in p.u, should be >=0"
     @assert Ki_uset >= 0 "Droop constant for reactive power in p.u, should be >=0"
@@ -33,6 +32,7 @@ end begin
     @assert xlf >= 0 "filter inductive reactance in p.u., should be >=0"
     @assert rf >= 0 "filter resistance in p.u., should be >=0"
     @assert xcf >= 0 "filter capacitive reactance in p.u., should be >=0"
+    @assert Tdc >= 0 "DC control time constant in s, should be > 0"
     @assert Kp_u >= 0 "Proportional gain for voltage control loop, should be >0"
     @assert Ki_u >= 0 "Integral gain for voltage control loop, should be >0"
     @assert Kp_i >= 0 "Proportional gain for current control loop, should be >0"
@@ -42,22 +42,25 @@ end begin
     #@assert σXR >= 0 "X/R ratio for for virtual impedance in p.u., should be >=0"
     @assert imax_csa >= 0 "max. current for current saturation algorithm (CSA) in p.u., should be >=0"
 
-end [[θ,dθ],[udc,dudc],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_iq]] begin
+end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_iq]] begin
     Kp_uset = p[p_ind[1]]
     Ki_uset = p[p_ind[2]]
-    ωf_P = p[p_ind[3]]
-    ωf_Q = p[p_ind[4]]
-    xlf = p[p_ind[5]]
-    rf = p[p_ind[6]]
-    xcf = p[p_ind[7]]
-    Kp_u = p[p_ind[8]]
-    Ki_u = p[p_ind[9]]
-    Kp_i = p[p_ind[10]]
-    Ki_i = p[p_ind[11]]
+    Kdc = p[p_ind[3]]
+    gdc = p[p_ind[4]]
+    cdc = p[p_ind[5]]
+
+    xlf = p[p_ind[6]]
+    rf = p[p_ind[7]]
+    xcf = p[p_ind[8]]
+    Tdc = p[p_ind[9]]
+    Kp_u = p[p_ind[10]]
+    Ki_u = p[p_ind[11]]
+    Kp_i = p[p_ind[12]]
+    Ki_i = p[p_ind[13]]
     #imax = p[p_ind[12]]
     #Kvi = p[p_ind[13]]
     #σXR = p[p_ind[14]]
-    imax_csa = p[p_ind[12]]
+    imax_csa = p[p_ind[14]]
 
     #after filter
     umeas = u*(cos(-θ)+1im*sin(-θ))
@@ -74,18 +77,21 @@ end [[θ,dθ],[udc,dudc],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id]
     idq =  imeas + umeas / (-1im * xcf) / (Srated/Sbase)
     id  = real(idq)
     iq  = imag(idq)
-    E = u + (rf + 1im*xlf) * iqd
-    p_before_filter = conj(idq) * E
+    E = u + (rf + 1im*xlf) * idq
+    p_before_filter = real(conj(idq) * E)
     ix  = id #AC/DC coupling
 
-    #DC current control
-    idc = Kdc * (udc - 1.0) + p0set/1.0 + udc*gdc + (p_before_filter - pmeas)
+    #DC current con(tro+1.0)l
+    #idc = Kdc * (1.0 - udc) + p0set/1.0 + udc*gdc + (p_before_filter - pmeas)
+    idc = -Kdc * udc + p0set/1.0 + (udc+1.0)*gdc + (p_before_filter - pmeas)
+
+    didc0 = (idc - idc0) / Tdc
 
     #DC circuit
-    dudc = (idc - gdc * udc - ix) / (cdc)
+    dudc = (idc0 - gdc * (udc+1.0) - ix) / (cdc)
 
     #Matching control
-    dθ = (udc - 1.0) * 2.0 * pi * 50.0
+    dθ = udc * 2.0 * pi * 50.0
 
     Δuabs = u0set - abs(u)
     dx_uabs = Ki_uset * Δuabs
@@ -131,16 +137,16 @@ end [[θ,dθ],[udc,dudc],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id]
     umq = uqmeas + id * xlf + Kp_i * (iqset_csa - iq) + e_iq
 
     #Coupling with DC voltage
-    um_abs = udc * hypot(umd,umq)
-    ϕm = atan(umq,umq)
+    um_abs = (udc + 1.0) * hypot(umd,umq)
+    ϕm = atan(umq,umd)
     umds = um_abs * cos(ϕm)
     umqs = um_abs * sin(ϕm)
 
     #Back transformation to global reference systems
     um = umds + 1im * umqs
     um = um*(cos(θ)+1im*sin(θ))
-    umd = real(um)
-    umq = imag(um)
+    umd0 = real(um)
+    umq0 = imag(um)
 
     idq = id + 1im*iq
     idq = idq*(cos(θ)+1im*sin(θ)) #-1im*
@@ -148,8 +154,8 @@ end [[θ,dθ],[udc,dudc],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id]
     iq = imag(idq) #* (Srated/Sbase)
 
     #Voltage equations for filter
-    u0d =  umd - rf * id + xlf * iq
-    u0q =  umq - rf * iq - xlf * id
+    u0d =  umd0 - rf * id + xlf * iq
+    u0q =  umq0 - rf * iq - xlf * id
     u0 = u0d + 1im * u0q
 
     du = u - u0 #algebraic constraint

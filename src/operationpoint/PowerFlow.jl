@@ -139,7 +139,7 @@ PowerNodeLoad(
         GFMCurrentPrio,
     },U
 ) = 0.#treated as generation
-PowerNodeLoad(L::MatchingControl) = 0.
+PowerNodeLoad(L::MatchingControl,U) = 0.
 
 
 #generation is voltage independent, otherwise it has to be called every iteration
