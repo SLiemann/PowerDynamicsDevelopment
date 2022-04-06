@@ -457,8 +457,8 @@ function InitNode(MC::MatchingControl,ind::Int64,I_c::Vector{Complex{Float64}},i
    umd = real(E0)
    umq = imag(E0)
 
-   e_id = (umd - udmeas + iq * MC.xlf ) #- id*MC.rf
-   e_iq = (umq - uqmeas - id * MC.xlf ) #- iq*MC.rf
+   e_id = (umd - udmeas + iq * MC.xlf - id*MC.rf) #- id*MC.rf
+   e_iq = (umq - uqmeas - id * MC.xlf - iq*MC.rf) #- iq*MC.rf
 
    e_ud = (id - idmeas + uqmeas / MC.xcf) #/ MC.Ki_u #hier müsste es ohne idmeas und iqmeas sein
    e_uq = (iq - iqmeas - udmeas / MC.xcf) #/ MC.Ki_u #passt das überhaupt mit dem Srated/Sbase???

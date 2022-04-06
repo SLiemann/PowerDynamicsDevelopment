@@ -51,7 +51,7 @@ function getMachtingGrid(;y_new = 0.0)
             Ki_u = 232.2, #1.161022#
             Kp_i = 0.73/200, # 0.738891
             Ki_i = 0.0059,
-            imax_csa = 10.0,
+            imax_csa = 1.90,
             p_ind = collect(1:14)
         ),
     )
@@ -79,9 +79,9 @@ begin
     pg1 ,ic = InitializeInternalDynamics(pg,ic0)
     params = getallParameters(pg.nodes["bus3"])[5:18]
     prob = ODEProblem(rhs(pg1),ic,(0.0,5.0),params)#initializealg = BrownFullBasicInit()
-    sol = solve(prob, Rodas4(),dtmax = 1e-3,progress=true)
-    pgsol = PowerGridSolution(sol,pg1)
-    #pgsol = simMatching(prob)
+    #sol = solve(prob, Rodas4(),dtmax = 1e-3,progress=true)
+    #pgsol = PowerGridSolution(sol,pg1)
+    pgsol = simMatching(prob)
 end
 
 plot(pgsol.dqsol,vars=(7:13))
@@ -95,9 +95,17 @@ plot(pgsol,"bus3",:x_uabs)
 rhs(pg).syms
 
 θ = ExtractResult(pgsol,:θ_3).*180/pi
-plot(θ)
+plot(t,θ)
 
-ud = ExtractResult(pgsol,:udc_3)
+t = pgsol.dqsol.t
+uc = pgsol(pgsol.dqsol.t,"bus3",:u)
+i_c = pgsol(pgsol.dqsol.t,"bus3",:i)'
+s = uc.*conj(i_c)
+p = real(s)
+q = imag(s)
+plot(t,p)
+plot(t,q)
+plot(t,abs.(i_c))
 
 function simMatching(prob)
     pg_new = getMachtingGrid(y_new = 1/0.5)

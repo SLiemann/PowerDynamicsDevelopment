@@ -77,11 +77,11 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
     idq =  imeas + umeas / (-1im * xcf) / (Srated/Sbase)
     id  = real(idq)
     iq  = imag(idq)
-    E = u + (rf + 1im*xlf) * idq
+    E = umeas + (rf + 1im*xlf) * idq
     p_before_filter = real(conj(idq) * E)
     ix  = id #AC/DC coupling
 
-    #DC current con(tro+1.0)l
+    #DC current control
     #idc = Kdc * (1.0 - udc) + p0set/1.0 + udc*gdc + (p_before_filter - pmeas)
     idc = -Kdc * udc + p0set/1.0 + (udc+1.0)*gdc + (p_before_filter - pmeas)
 
@@ -133,8 +133,8 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
     de_id = (idset_csa - id) * Ki_i
     de_iq = (iqset_csa - iq) * Ki_i
 
-    umd = udmeas - iq * xlf + Kp_i * (idset_csa - id) + e_id
-    umq = uqmeas + id * xlf + Kp_i * (iqset_csa - iq) + e_iq
+    umd = udmeas - iq * xlf + Kp_i * (idset_csa - id) + e_id + id * rf
+    umq = uqmeas + id * xlf + Kp_i * (iqset_csa - iq) + e_iq + iq * rf
 
     #Coupling with DC voltage
     um_abs = (udc + 1.0) * hypot(umd,umq)
