@@ -4,10 +4,11 @@ using Plots
 using ModelingToolkit
 using ForwardDiff
 using DiffResults
+using DiffEqSensitivity
 
 
 begin
-    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/include_costum_nodes_lines_utilities.jl")
+    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/include_custom_nodes_lines_utilities.jl")
     include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/grids/OLTC_Hybrid_Sensis.jl")
     #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/sensitivity_analyses/Local_Sensitivity.jl")
 end
@@ -93,20 +94,29 @@ begin
     cb6 = DiscreteCallback(check_voltage_high, stop_integration)
 
     params = GetParametersOLTCHisken(Tp)
-    prob = ODEProblem(rhs(pg), ic, tspanOLTCHisken(),[params;-1])
-    integrator = init(
-    #sol = solve(
-        prob,
+    prob_sens = ODEForwardSensitivityProblem(rhs(pg),ic,(0,11),[params;-1])
+    prob = ODEProblem(rhs(pg), ic, (0,90),[params;-1])
+    #integrator = init(
+    sol = solve(
+        prob_sens,
         Rodas4(),
         callback = CallbackSet(cb1, cb2, cb3,cb4,cb5),
-        dt = 1e-2,
-        adaptive = false,
+        dtmax = 1e-2,
+        #adaptive = false,
         tstops=[10.0],
-        maxiters = 1e5,
+        maxiters = 1e7,
         progress = true,
-        save_everystep=false,
+        #sensealg=InterpolatingAdjoint(),
+        #save_everystep=false,
     )
+    pgsol = PowerGridSolution(sol,pg)
 end
+
+using ForwardDiff: ForwardDiff, Dual, value, partials
+ForwardDiff.can_dual(::Type{ComplexF64}) = true
+Base.abs2(x::Dual{Z,<:Complex{T}}) where {Z,T} = Dual{Z}(abs2(value(x)), 2 .* real.(partials(x).values) .+ 2 .* imag.(partials(x).values))
+sol = solve(prob_sens,Rodas4(),callback = CallbackSet(cb1, cb2, cb3,cb4,cb5),dtmax = 1e-2,tstops=[10.0],maxiters = 1e7, progress = true)
+plot(pgsol,["bus3"],:v)
 
 
 function call_integrator(x)
@@ -131,7 +141,7 @@ function make_Jac(integrator, ic,tmax)
         push!(usol,DiffResults.value(result))
         u = usol[end]
         p = integrator.p
-        display(integrator.t)
+        #display(integrator.t)
     end
     return integrator.sol,usol,Jac
 end
@@ -151,3 +161,6 @@ u -> rhs(pg)(zero(u),u,params,0.0)
 f = rhs(pg)
 tmp =  f(zero(ic0),ic0,params,0.0)
 dx = ForwardDiff.gradient(u -> Subsystem1(zero([1,1]),[1.0,1.0],[1.0,1.0],0.0),[1.0,1.0])
+
+
+sol = ODEForwar

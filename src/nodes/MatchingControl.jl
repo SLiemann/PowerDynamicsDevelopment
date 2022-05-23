@@ -18,7 +18,7 @@ The model has the following internal dynamic variables:
 """
 =#
 @DynamicNode MatchingControl(Sbase,Srated,p0set,u0set,Kp_uset,Ki_uset,Kdc,gdc,cdc,xlf,rf,xcf,Tdc,Kp_u,Ki_u,Kp_i,Ki_i,imax_csa,p_ind) begin
-    MassMatrix(m_int =[true,true,true,true,true,true,true,true])#,false,false,false,false
+    MassMatrix(m_int =[true,true,true,true,true,true,true,true,true,false])#,false,false,false,false
 end begin
     @assert Sbase > 0 "Base apparent power of the grid in VA, should be >0"
     @assert Srated > 0 "Rated apperent power of the machine in VA, should be >0"
@@ -42,7 +42,7 @@ end begin
     #@assert σXR >= 0 "X/R ratio for for virtual impedance in p.u., should be >=0"
     @assert imax_csa >= 0 "max. current for current saturation algorithm (CSA) in p.u., should be >=0"
 
-end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_iq]] begin
+end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_iq],[Pdelta,dPdelta],[i_abs,di_abs]] begin #[id0,did0],[iq0,diq0],[ids,dids],[iqs,diqs]
     Kp_uset = p[p_ind[1]]
     Ki_uset = p[p_ind[2]]
     Kdc = p[p_ind[3]]
@@ -75,20 +75,22 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
     #before filter
     #The current of the capacitor has to be related, since rf,xlf and xcf are related to Sbase!!!
     idq =  imeas + umeas / (-1im * xcf) / (Srated/Sbase)
-    id  = real(idq)
-    iq  = imag(idq)
+    id = real(idq)
+    iq = imag(idq)
+
     E = umeas + (rf + 1im*xlf) * idq
     p_before_filter = real(conj(idq) * E)
-    ix  = id #AC/DC coupling
+    ix  = p_before_filter#/(udc+1.0)#id #AC/DC coupling
 
     #DC current control
     #idc = Kdc * (1.0 - udc) + p0set/1.0 + udc*gdc + (p_before_filter - pmeas)
-    idc = -Kdc * udc + p0set/1.0 + (udc+1.0)*gdc + (p_before_filter - pmeas)
+    dPdelta = 10.0*pi*(p_before_filter - pmeas - Pdelta)
+    idc = -Kdc * udc + p0set + (1.0+udc)*gdc + Pdelta
 
     didc0 = (idc - idc0) / Tdc
 
     #DC circuit
-    dudc = (idc0 - gdc * (udc+1.0) - ix) / (cdc)
+    dudc = (idc0 - gdc * (1.0+udc) - ix) / cdc
 
     #Matching control
     dθ = udc * 2.0 * pi * 50.0
@@ -125,16 +127,18 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
     iqset_csa = iset_lim*sin(ϕ1)
 
     #experimentell
-    #anti_windup = IfElse.ifelse(iset_abs > imax_csa,true,false)
-    #de_ud = IfElse.ifelse(anti_windup,0.0, (udset - udmeas) * Ki_u)
-    #de_uq = IfElse.ifelse(anti_windup,0.0, (uqset - uqmeas) * Ki_u)
+    anti_windup = IfElse.ifelse(iset_abs > imax_csa,true,false)
+    de_ud = IfElse.ifelse(anti_windup,0.0, (udset - udmeas) * Ki_u)
+    de_uq = IfElse.ifelse(anti_windup,0.0, (uqset - uqmeas) * Ki_u)
+
+    #dx_uabs = IfElse.ifelse(anti_windup,0.0, Ki_uset * Δuabs)
 
     #Current control
     de_id = (idset_csa - id) * Ki_i
     de_iq = (iqset_csa - iq) * Ki_i
 
-    umd = udmeas - iq * xlf + Kp_i * (idset_csa - id) + e_id + id * rf
-    umq = uqmeas + id * xlf + Kp_i * (iqset_csa - iq) + e_iq + iq * rf
+    umd = udmeas - iq * xlf + Kp_i * (idset_csa - id) + e_id #+ id * rf
+    umq = uqmeas + id * xlf + Kp_i * (iqset_csa - iq) + e_iq #+ iq * rf
 
     #Coupling with DC voltage
     um_abs = (udc + 1.0) * hypot(umd,umq)
@@ -152,13 +156,19 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
     idq = idq*(cos(θ)+1im*sin(θ)) #-1im*
     id = real(idq) #* (Srated/Sbase)
     iq = imag(idq) #* (Srated/Sbase)
-
+    I_abs = hypot(id,iq)
     #Voltage equations for filter
     u0d =  umd0 - rf * id + xlf * iq
     u0q =  umq0 - rf * iq - xlf * id
     u0 = u0d + 1im * u0q
 
     du = u - u0 #algebraic constraint
+
+    di_abs = i_abs - I_abs
+    #did0 = id0 - idmeas
+    #diq0 = iq0 - iqmeas
+    #dids = ids - id
+    #diqs = iqs - iq
 end
 
 export MatchingControl

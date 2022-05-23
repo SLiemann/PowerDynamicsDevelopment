@@ -151,13 +151,17 @@ ce = [
                             systems = [Rg,D1,D2,D3,D4,Cd,Grid,ground,Rload],
                             continuous_events = ce)
 
-@named _rc_model = ODESystem(rc_eqs, t,[D2.v,D3.v,D4.v])
+@named _rc_model = ODESystem(rc_eqs, t,[D2.v,D3.v,D4.v],[])
 @named rc_model = compose(_rc_model,
                           [Rg,D1,D2,D3,D4,Cd,Grid,ground,Rload])
 
+
+symp = states(rc_model)[4]
+
+tmp = indexof(symp,parameters(sys))
 #ModelingToolkit.continuous_events(sys)
 
-sys = structural_simplify(_rc_model, simplify = false)
+sys = structural_simplify(rc_model, simplify = false)
 u0 = [
   # Lg.i => 0.0
    #Ld.i => 0.0
@@ -168,7 +172,9 @@ u0 = [
    #Rload.i => 100/(230*sqrt(2))
   ]
 prob = ODEProblem(sys, u0, (0, 0.1))
-cond1(u,t,int) =
+
+
+
 
 sol = solve(prob, Rodas4(), dtmax =1e-6, progress = true)
 plot(sol,vars = [Rg.i], layout=(1,1))

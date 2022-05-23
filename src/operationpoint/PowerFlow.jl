@@ -1,4 +1,5 @@
-using LightGraphs: incidence_matrix
+#using LightGraphs: incidence_matrix
+using Graphs: incidence_matrix
 using Roots: find_zero
 using PowerDynamics: guess
 #import PowerDynamics: PiModel

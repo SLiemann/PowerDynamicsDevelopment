@@ -110,7 +110,7 @@ function InitNode(GS::SynchronousMachineGENSAL,ind::Int64,I_c::Vector{Complex{Fl
    return [v_r_temp, v_i_temp, ω_temp, δ_temp, E_qs_temp, ψ_ds_temp, ψ_qss_temp], node_temp
 end
 
-function InitNodeSM(SM::SixOrderMarconatoMachine,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)
+function InitNode(SM::SixOrderMarconatoMachine,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)
    v_d_temp = ic_lf[ind_offset]
    v_q_temp = ic_lf[ind_offset+1]
    #Rotor angle
@@ -444,9 +444,9 @@ function InitNode(MC::MatchingControl,ind::Int64,I_c::Vector{Complex{Float64}},i
    iq = imag(idq)
 
    P_before = real(conj(i1) * E)
-   idc0 = MC.gdc*1.0 + id
-
-   p0_new = idc0 - MC.gdc + p - P_before
+   dP =  P_before - p
+   idc0 = MC.gdc + MC.p0set + dP
+   p0_new = idc0 - MC.gdc - dP
    udc = 0.0 #ist hier nur das delta
 
    U0 = U0*(cos(-θ)+1im*sin(-θ))
@@ -457,10 +457,10 @@ function InitNode(MC::MatchingControl,ind::Int64,I_c::Vector{Complex{Float64}},i
    umd = real(E0)
    umq = imag(E0)
 
-   e_id = (umd - udmeas + iq * MC.xlf - id*MC.rf) #- id*MC.rf
-   e_iq = (umq - uqmeas - id * MC.xlf - iq*MC.rf) #- iq*MC.rf
+   e_id = (umd - udmeas + iq * MC.xlf ) #- id*MC.rf
+   e_iq = (umq - uqmeas - id * MC.xlf )#- iq*MC.rf
 
-   e_ud = (id - idmeas + uqmeas / MC.xcf) #/ MC.Ki_u #hier müsste es ohne idmeas und iqmeas sein
+   e_ud = (id - idmeas + uqmeas / MC.xcf)#/ MC.Ki_u #hier müsste es ohne idmeas und iqmeas sein
    e_uq = (iq - iqmeas - udmeas / MC.xcf) #/ MC.Ki_u #passt das überhaupt mit dem Srated/Sbase???
 
   MC_new = MatchingControl(
@@ -484,5 +484,5 @@ function InitNode(MC::MatchingControl,ind::Int64,I_c::Vector{Complex{Float64}},i
   imax_csa = MC.imax_csa,
   p_ind = MC.p_ind,
   )
-    return [v_d_temp, v_q_temp,θ,udc,idc0,abs(U0),e_ud,e_uq,e_id,e_iq], MC_new
+    return [v_d_temp, v_q_temp,θ,udc,idc0,abs(U0),e_ud,e_uq,e_id,e_iq,dP,abs(idq)], MC_new #,idmeas,iqmeas,id,iq 
 end

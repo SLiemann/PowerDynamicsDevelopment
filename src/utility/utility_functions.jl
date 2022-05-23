@@ -2,6 +2,7 @@ using ModelingToolkit
 using DifferentialEquations
 using PowerDynamics
 using FFTW
+using LinearAlgebra
 
 function getPreFaultVoltages(pg::PowerGrid,ic_prefault::Array{Float64,1},ic_endfault::Array{Float64,1})
     ind = getVoltageSymbolPositions(pg)
