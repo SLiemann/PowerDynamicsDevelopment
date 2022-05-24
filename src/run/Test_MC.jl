@@ -2,6 +2,7 @@ using PowerDynamics
 using DifferentialEquations
 using Plots
 using OrderedCollections
+using MAT
 
 begin
     include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/include_custom_nodes_lines_utilities.jl")
@@ -35,7 +36,7 @@ function getMachtingGrid(;y_new = 0.0)
             B = 0.0,
             Y_n = y_new,
         ),
-        "bus3" => MatchingControl(
+        "bus3" => MatchingControlRed(
             Sbase = 100e6,
             Srated = 100e6,
             p0set = 0.9, # based on Sbase!
@@ -54,7 +55,8 @@ function getMachtingGrid(;y_new = 0.0)
             Kp_i = 0.738891,#, /200.0  301.6510
             Ki_i = 1.19,#/200.0 , 485.815
             imax_csa = 1.25,
-            p_ind = collect(1:14)
+            p_red = 1.0,
+            p_ind = collect(1:15)
         ),
     )
 
@@ -72,9 +74,9 @@ function getMachtingGrid(;y_new = 0.0)
     pg = PowerGrid(buses, branches)
 end
 function simMatching(prob_sim)
-    pg_new = getMachtingGrid(y_new = 1/0.035/4)
+    pg_new = getMachtingGrid(y_new = 1444.0)#1/0.035/2
     pg_pre = getMachtingGrid()
-    tstep = [0.1,0.25]
+    tstep = [0.1,0.45]
     function fault_state(integrator)
         new_f = rhs(pg_new)
         op_prob = ODEProblem(new_f, integrator.sol[end], (0.0, 1e-6),integrator.p, initializealg = BrownFullBasicInit())
@@ -89,11 +91,11 @@ function simMatching(prob_sim)
         ic_tmp = deepcopy(integrator.sol.u[indexin(tstep[1],integrator.sol.t)[1]])
         #ic_tmp = getPreFaultVoltages(pg_new,ic_tmp,deepcopy(sol[end]))
         ic_tmp = getPreFaultAlgebraicStates(pg_pre,ic_tmp,deepcopy(sol[end]))
-        display(ic_tmp .- sol.u[end])
+        #display(ic_tmp .- sol.u[end])
         op_prob = ODEProblem(rhs(pg_pre), ic_tmp, (0.0, 1e-6),integrator.p, initializealg = BrownFullBasicInit())
         ic_new = solve(op_prob,Rodas4())
-        display(ic_tmp .- ic_new)
-        display(rhs(pg_pre).syms)
+        #display(ic_tmp .- ic_new)
+        #display(rhs(pg_pre).syms)
         integrator.f = rhs(pg_pre)
         integrator.cache.tf.f = integrator.f
         integrator.u = ic_new.u[end]
@@ -114,8 +116,8 @@ begin
     pg = getMachtingGrid()
     U,δ,ic0 = PowerFlowClassic(pg, iwamoto = true, max_tol = 1e-7)
     pg1 ,ic = InitializeInternalDynamics(pg,ic0)
-    params = getallParameters(pg1.nodes["bus3"])[5:18]
-    prob = ODEProblem(rhs(pg1),ic,(0.0,2.0),params)#initializealg = BrownFullBasicInit()
+    params = getallParameters(pg1.nodes["bus3"])[5:19]
+    prob = ODEProblem(rhs(pg1),ic,(0.0,1.0),params)#initializealg = BrownFullBasicInit()
     #sol = solve(prob, Rodas4(),dtmax = 1e-3,progress=true)
     #pgsol = PowerGridSolution(sol,pg1)
     #pgsol = simMatchingNEW(pg1,(0.0,0.3),ic)
@@ -127,12 +129,12 @@ plot(pgsol,vars=(8))
 plot(pgsol.dqsol,vars=(7:13))
 plot(pgsol.dqsol,vars=(9))
 plot(pgsol,["bus3"],:p)
-plot!(pgsol,["bus3"],:q)
+plot(pgsol,["bus3"],:q)
 plot(pgsol,["bus3"],:iabs)
 plot(pgsol,["bus3"],:i_abs)
 
   #,ylim=(0.91,0.915)
-plot(pgsol,["bus3"],:v)
+plot!(pgsol,["bus3"],:v)
 plot(pgsol,["bus3"],:u_i)
 
 plot(pgsol,"bus3",:udc) #,xlim=(0.9,1.6)
@@ -147,8 +149,32 @@ plot!(pgsol,"bus3",:ids)
 plot!(pgsol,"bus3",:iqs)
 plot(pgsol,"bus3",:x_uabs)
 
+file = matopen("C:\\Users\\liemann\\Desktop\\simtime.mat")
+t = read(file, "simtime")'
+close(file)
+
+file = matopen("C:\\Users\\liemann\\Desktop\\Vconv.mat")
+v = read(file, "Vconv")
+close(file)
 
 
+file = matopen("C:\\Users\\liemann\\Desktop\\PQ.mat")
+PQ = read(file, "PQ")
+close(file)
+plot(pgsol,["bus3"],:p)
+plot!(t',PQ[:,1],label = "MATLAB")
+xlims!((0,1))
+ylims!((-0.1,1.3))
+
+plot(pgsol,["bus3"],:q)
+plot!(t',PQ[:,2],label = "MATLAB")
+xlims!((0,1))
+ylims!((-1.5,1))
+
+plot(pgsol,["bus3"],:v)
+plot!(t',v,label = "MATLAB")
+xlims!((0.05,1))
+ylims!((0.4,1.3))
 
 ic_try = deepcopy(pgsol.dqsol.u[end])
 pg_try = deepcopy(pg1)

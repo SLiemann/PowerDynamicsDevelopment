@@ -421,7 +421,7 @@ function InitNode(PE::oPFC,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Array
    return [v_d_temp, v_q_temp,abs(U),1.0,PE.Pdc,q,0.0,0.0], oPFC_new
 end
 
-function InitNode(MC::MatchingControl,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)
+function InitNode(MC::Union{MatchingControl,MatchingControlRed},ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)
    v_d_temp = ic_lf[ind_offset]
    v_q_temp = ic_lf[ind_offset+1]
    U0 = v_d_temp+1im*v_q_temp
@@ -463,26 +463,53 @@ function InitNode(MC::MatchingControl,ind::Int64,I_c::Vector{Complex{Float64}},i
    e_ud = (id - idmeas + uqmeas / MC.xcf)#/ MC.Ki_u #hier müsste es ohne idmeas und iqmeas sein
    e_uq = (iq - iqmeas - udmeas / MC.xcf) #/ MC.Ki_u #passt das überhaupt mit dem Srated/Sbase???
 
-  MC_new = MatchingControl(
-  Sbase = MC.Sbase,
-  Srated = MC.Srated,
-  p0set = p0_new, #new
-  u0set = MC.u0set,
-  Kp_uset = MC.Kp_uset,
-  Ki_uset = MC.Ki_uset,
-  Kdc = MC.Kdc,
-  gdc = MC.gdc,
-  cdc = MC.cdc,
-  xlf = MC.xlf,
-  rf = MC.rf,
-  xcf =  MC.xcf,
-  Tdc = MC.Tdc,
-  Kp_u = MC.Kp_u,
-  Ki_u = MC.Ki_u,
-  Kp_i = MC.Kp_i,
-  Ki_i = MC.Ki_i,
-  imax_csa = MC.imax_csa,
-  p_ind = MC.p_ind,
-  )
-    return [v_d_temp, v_q_temp,θ,udc,idc0,abs(U0),e_ud,e_uq,e_id,e_iq,dP,abs(idq)], MC_new #,idmeas,iqmeas,id,iq 
+   if typeof(MC) == MatchingControlRed
+      MC_new = MatchingControlRed(
+      Sbase = MC.Sbase,
+      Srated = MC.Srated,
+      p0set = p0_new, #new
+      u0set = MC.u0set,
+      Kp_uset = MC.Kp_uset,
+      Ki_uset = MC.Ki_uset,
+      Kdc = MC.Kdc,
+      gdc = MC.gdc,
+      cdc = MC.cdc,
+      xlf = MC.xlf,
+      rf = MC.rf,
+      xcf =  MC.xcf,
+      Tdc = MC.Tdc,
+      Kp_u = MC.Kp_u,
+      Ki_u = MC.Ki_u,
+      Kp_i = MC.Kp_i,
+      Ki_i = MC.Ki_i,
+      imax_csa = MC.imax_csa,
+      p_red = MC.p_red,
+      p_ind = MC.p_ind,
+      )
+  else
+      MC_new = MatchingControl(
+      Sbase = MC.Sbase,
+      Srated = MC.Srated,
+      p0set = p0_new, #new
+      u0set = MC.u0set,
+      Kp_uset = MC.Kp_uset,
+      Ki_uset = MC.Ki_uset,
+      Kdc = MC.Kdc,
+      gdc = MC.gdc,
+      cdc = MC.cdc,
+      xlf = MC.xlf,
+      rf = MC.rf,
+      xcf =  MC.xcf,
+      Tdc = MC.Tdc,
+      Kp_u = MC.Kp_u,
+      Ki_u = MC.Ki_u,
+      Kp_i = MC.Kp_i,
+      Ki_i = MC.Ki_i,
+      imax_csa = MC.imax_csa,
+      p_red = MC.p_red,
+      p_ind = MC.p_ind,
+      )
+  end
+
+    return [v_d_temp, v_q_temp,θ,udc,idc0,abs(U0),e_ud,e_uq,e_id,e_iq,dP,abs(idq)], MC_new #,idmeas,iqmeas,id,iq
 end

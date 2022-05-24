@@ -26,6 +26,7 @@ include("nodes/GFMCurrentPrio.jl")
 include("nodes/SynchronousMachineGENSAL.jl")
 include("nodes/oPFC.jl")
 include("nodes/MatchingControl.jl")
+include("nodes/MatchingControlRed.jl")
 
 #Operation Point
 include("operationpoint/PowerFlow.jl")
