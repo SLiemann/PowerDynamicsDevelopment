@@ -17,15 +17,16 @@ The model has the following internal dynamic variables:
 
 """
 =#
-@DynamicNode MatchingControlRed(Sbase,Srated,p0set,u0set,Kp_uset,Ki_uset,Kdc,gdc,cdc,xlf,rf,xcf,Tdc,Kp_u,Ki_u,Kp_i,Ki_i,imax_csa,p_red,p_ind) begin
-    MassMatrix(m_int =[true,true,true,true,true,true,true,true,true,false])#,false,false,false,false
+@DynamicNode dVOC(Sbase,Srated,p0set,q0set,u0set,eta,alpha,Kdc,gdc,cdc,xlf,rf,xcf,Tdc,Kp_u,Ki_u,Kp_i,Ki_i,imax_csa,p_red,ϵ,p_ind) begin
+    MassMatrix(m_int =[true,true,true,true,true,true,true,true,true,true,true,false])#,false,false,false,false
 end begin
     @assert Sbase > 0 "Base apparent power of the grid in VA, should be >0"
     @assert Srated > 0 "Rated apperent power of the machine in VA, should be >0"
     @assert p0set >= 0 "Set point for active power in p.u, should be >0"
+    @assert q0set >= 0 "Set point for reactive power in p.u, should be >0"
     @assert u0set > 0 "Set point for voltage in p.u, should be >0"
-    @assert Kp_uset >= 0 "Droop constant for active power in p.u, should be >=0"
-    @assert Ki_uset >= 0 "Droop constant for reactive power in p.u, should be >=0"
+    @assert eta >= 0 "dVOC gain parameter should be pi/Sb*V_m^2 in pu"
+    @assert alpha >= 0 "dVOC gain parameter should be 0.1*V_m^2 in pu"
     @assert Kdc >= 0 "Droop constant for current control in p.u, should be >=0"
     @assert gdc >=0 "Conductance of DC-circuit in global p.u., should be >=0"
     @assert cdc >0 "Capacitance of DC-circuit in global p.u., should be >=0"
@@ -39,15 +40,14 @@ end begin
     @assert Ki_i >= 0 "Integral gain for current control loop, should be >0"
     @assert imax_csa >= 0 "max. current for current saturation algorithm (CSA) in p.u., should be >=0"
     @assert p_red == 0 || p_red == 1 "Boolean value vor activating or deactivating power reduction in case of limited current"
+    @assert ϵ >= 0 "Small epsilon for controlled voltage to prevent singularity at zero voltage, should be around 1e-4"
 
-
-end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_iq],[Pdelta,dPdelta],[i_abs,di_abs]] begin #[id0,did0],[iq0,diq0],[ids,dids],[iqs,diqs]
-    Kp_uset = p[p_ind[1]]
-    Ki_uset = p[p_ind[2]]
+end [[θ,dθ],[udc,dudc],[idc0,didc0],[vd,dvd],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_iq],[Pf,dPf],[Qf,dQf],[Pdelta,dPdelta],[i_abs,di_abs]] begin #[id0,did0],[iq0,diq0],[ids,dids],[iqs,diqs]
+    eta = p[p_ind[1]]
+    alpha = p[p_ind[2]]
     Kdc = p[p_ind[3]]
     gdc = p[p_ind[4]]
     cdc = p[p_ind[5]]
-
     xlf = p[p_ind[6]]
     rf = p[p_ind[7]]
     xcf = p[p_ind[8]]
@@ -56,10 +56,10 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
     Ki_u = p[p_ind[11]]
     Kp_i = p[p_ind[12]]
     Ki_i = p[p_ind[13]]
-    #imax = p[p_ind[12]]
-    #Kvi = p[p_ind[13]]
-    #σXR = p[p_ind[14]]
     imax_csa = p[p_ind[14]]
+    p_red = p[p_ind[15]]
+    ϵ = p[p_ind[16]]
+    vd_e = vd + ϵ #to prevent singularity at zero voltage
 
     #after filter
     umeas = u*(cos(-θ)+1im*sin(-θ))
@@ -79,17 +79,20 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
 
     E = umeas + (rf + 1im*xlf) * idq
     p_before_filter = real(conj(idq) * E)
-    ix  = p_before_filter#/(udc+1.0)#id #AC/DC coupling
+    ix = p_before_filter
 
-    #Matching control
-    dθ = udc * 2.0 * pi * 50.0
 
-    Δuabs = u0set - abs(u)
-    dx_uabs = Ki_uset * Δuabs
-    Uset = x_uabs + Kp_uset * Δuabs
+    #filtered power
+    dPf = 10.0*pi*(pmeas - Pf)
+    dQf = 10.0*pi*(qmeas - Qf)
+
+    #dVOC voltage control
+    v1 = eta * (q0set / u0set^2 - Qf / vd_e^2)
+    v2 = ((u0set^2 - vd_e^2) * eta * alpha) / (u0set^2)
+    dvd = (v1 +v2) * vd_e
 
     #Building voltage reference
-    udset = Uset #- Δud_vi
+    udset = vd_e #- Δud_vi
     uqset = 0.0 #- Δuq_vi
 
     #Voltage control
@@ -110,8 +113,6 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
     anti_windup = IfElse.ifelse(iset_abs > imax_csa,true,false)
     de_ud = IfElse.ifelse(anti_windup,0.0, (udset - udmeas) * Ki_u)
     de_uq = IfElse.ifelse(anti_windup,0.0, (uqset - uqmeas) * Ki_u)
-
-    #dx_uabs = IfElse.ifelse(anti_windup,0.0, Ki_uset * Δuabs)
 
     #Current control
     de_id = (idset_csa - id) * Ki_i
@@ -146,23 +147,20 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
 
     di_abs = i_abs - I_abs
 
-    dx_uabs = IfElse.ifelse(iset_abs > imax_csa,0.0,Ki_uset * Δuabs)
-    #DC current control
+    #Power Reduction in case of limited current
     pmax = idset_csa * real(E) + iqset_csa * imag(E)
     dP = IfElse.ifelse(iset_abs > imax_csa,p_red*(p0set -pmax), 0.0)
-    #idc = Kdc * (1.0 - udc) + p0set/1.0 + udc*gdc + (p_before_filter - pmeas)
+
+    #dVOC frequency /active power control
+    dθ = eta * ((p0set - dP) / u0set^2 - Pf / vd_e )
+
+    #DC current control
     dPdelta = 10.0*pi*(p_before_filter - pmeas - Pdelta)
     idc = -Kdc * udc + p0set - dP + (1.0+udc)*gdc + Pdelta
     didc0 = (idc - idc0) / Tdc
 
     #DC circuit
     dudc = (idc0 - gdc * (1.0+udc) - ix) / cdc
-
-
-    #did0 = id0 - idmeas
-    #diq0 = iq0 - iqmeas
-    #dids = ids - id
-    #diqs = iqs - iq
 end
 
-export MatchingControl
+export dVOC

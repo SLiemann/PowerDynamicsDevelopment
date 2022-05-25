@@ -36,13 +36,14 @@ function getMachtingGrid(;y_new = 0.0)
             B = 0.0,
             Y_n = y_new,
         ),
-        "bus3" => MatchingControlRed(
+        "bus3" => dVOC(
             Sbase = 100e6,
             Srated = 100e6,
             p0set = 0.9, # based on Sbase!
+            q0set = 0.0,
             u0set = 1.00,
-            Kp_uset = 0.001,
-            Ki_uset = 0.5,
+            eta = pi*Zbase*2/3,
+            alpha = 0.1*2/3*1000^2,
             Kdc = 100.0, #1600
             gdc = Gdc,
             cdc = Cdc,
@@ -56,7 +57,8 @@ function getMachtingGrid(;y_new = 0.0)
             Ki_i = 1.19,#/200.0 , 485.815
             imax_csa = 1.25,
             p_red = 1.0,
-            p_ind = collect(1:15)
+            ϵ = 1e-4,
+            p_ind = collect(1:16)
         ),
     )
 
@@ -74,7 +76,7 @@ function getMachtingGrid(;y_new = 0.0)
     pg = PowerGrid(buses, branches)
 end
 function simMatching(prob_sim)
-    pg_new = getMachtingGrid(y_new = 1444.0)#1/0.035/2
+    pg_new = getMachtingGrid(y_new = 1444)#1/0.035/2
     pg_pre = getMachtingGrid()
     tstep = [0.1,0.45]
     function fault_state(integrator)
@@ -112,11 +114,10 @@ end
 
 begin
     include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/include_custom_nodes_lines_utilities.jl")
-    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/operationpoint/InitializeInternals.jl")
     pg = getMachtingGrid()
     U,δ,ic0 = PowerFlowClassic(pg, iwamoto = true, max_tol = 1e-7)
     pg1 ,ic = InitializeInternalDynamics(pg,ic0)
-    params = getallParameters(pg1.nodes["bus3"])[5:19]
+    params = getallParameters(pg1.nodes["bus3"])[6:21]
     prob = ODEProblem(rhs(pg1),ic,(0.0,1.0),params)#initializealg = BrownFullBasicInit()
     #sol = solve(prob, Rodas4(),dtmax = 1e-3,progress=true)
     #pgsol = PowerGridSolution(sol,pg1)
@@ -134,8 +135,9 @@ plot(pgsol,["bus3"],:iabs)
 plot(pgsol,["bus3"],:i_abs)
 
   #,ylim=(0.91,0.915)
-plot!(pgsol,["bus3"],:v)
-plot(pgsol,["bus3"],:u_i)
+plot(pgsol,["bus3"],:v)
+plot(pgsol,["bus3"],:Pf)
+plot(pgsol,["bus3"],:vd)
 
 plot(pgsol,"bus3",:udc) #,xlim=(0.9,1.6)
 plot(pgsol,"bus3",:idc0)
@@ -174,7 +176,7 @@ ylims!((-1.5,1))
 plot(pgsol,["bus3"],:v)
 plot!(t',v,label = "MATLAB")
 xlims!((0.05,1))
-ylims!((0.4,1.3))
+ylims!((0.0,1.1))
 
 ic_try = deepcopy(pgsol.dqsol.u[end])
 pg_try = deepcopy(pg1)

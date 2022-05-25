@@ -513,3 +513,76 @@ function InitNode(MC::Union{MatchingControl,MatchingControlRed},ind::Int64,I_c::
 
     return [v_d_temp, v_q_temp,θ,udc,idc0,abs(U0),e_ud,e_uq,e_id,e_iq,dP,abs(idq)], MC_new #,idmeas,iqmeas,id,iq
 end
+
+function InitNode(VOC::dVOC,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)
+   v_d_temp = ic_lf[ind_offset]
+   v_q_temp = ic_lf[ind_offset+1]
+   U0 = v_d_temp+1im*v_q_temp
+   θ = angle(U0)
+
+   s = U0 * conj(I_c[ind]) #/ (VOC.Srated/VOC.Sbase)
+   p = real(s)
+   q = imag(s)
+
+   #The current of the capacitor has to be related, since rf,xlf and xcf are related to Sbase!!!
+   i1 = I_c[ind] / (VOC.Srated/VOC.Sbase) + U0/(-1im*VOC.xcf) /(VOC.Srated/VOC.Sbase)
+   E = U0 + (VOC.rf + 1im*VOC.xlf) * i1
+
+   idqmeas = I_c[ind]*(cos(-θ)+1im*sin(-θ)) / (VOC.Srated/VOC.Sbase) #1im*
+   idmeas = real(idqmeas)
+   iqmeas = imag(idqmeas)
+
+   idq = i1*(cos(-θ)+1im*sin(-θ)) #1im*
+   id = real(idq)
+   iq = imag(idq)
+
+   P_before = real(conj(i1) * E)
+   dP =  P_before - p
+   idc0 = VOC.gdc + VOC.p0set + dP
+   p0_new = idc0 - VOC.gdc - dP
+   udc = 0.0 #ist hier nur das delta
+
+   U0 = U0*(cos(-θ)+1im*sin(-θ))
+   udmeas = real(U0) #should be equal to abs(U0)
+   uqmeas = imag(U0) #should be zero
+
+   qset = VOC.q0set
+   x1 = (qset + VOC.u0set^2) * VOC.alpha/ (2 * VOC.alpha) + sqrt(((-qset - VOC.u0set^2*VOC.alpha) / (2 * VOC.alpha))^2 - qset * VOC.u0set / VOC.alpha)
+   vd_int = sqrt(x1) - VOC.ϵ
+   E0 = E*(cos(-θ)+1im*sin(-θ))
+   umd = real(E0)
+   umq = imag(E0)
+
+   e_id = (umd - udmeas + iq * VOC.xlf ) #- id*VOC.rf
+   e_iq = (umq - uqmeas - id * VOC.xlf )#- iq*VOC.rf
+
+   e_ud = (id - idmeas + uqmeas / VOC.xcf)#/ VOC.Ki_u #hier müsste es ohne idmeas und iqmeas sein
+   e_uq = (iq - iqmeas - udmeas / VOC.xcf) #/ VOC.Ki_u #passt das überhaupt mit dem Srated/Sbase???
+
+   VOC_new = dVOC(
+          Sbase = VOC.Sbase,
+          Srated = VOC.Srated,
+          p0set = p0_new, #new
+          q0set = q,
+          u0set = VOC.u0set,
+          eta = VOC.eta,
+          alpha = VOC.alpha,
+          Kdc = VOC.Kdc,
+          gdc = VOC.gdc,
+          cdc = VOC.cdc,
+          xlf = VOC.xlf,
+          rf = VOC.rf,
+          xcf =  VOC.xcf,
+          Tdc = VOC.Tdc,
+          Kp_u = VOC.Kp_u,
+          Ki_u = VOC.Ki_u,
+          Kp_i = VOC.Kp_i,
+          Ki_i = VOC.Ki_i,
+          imax_csa = VOC.imax_csa,
+          p_red = VOC.p_red,
+          ϵ = VOC.ϵ,
+          p_ind = VOC.p_ind,
+          )
+
+    return [v_d_temp, v_q_temp,θ,udc,idc0,vd_int,e_ud,e_uq,e_id,e_iq,p,q,dP,abs(idq)], VOC_new #,idmeas,iqmeas,id,iq
+end
