@@ -584,5 +584,74 @@ function InitNode(VOC::dVOC,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Arra
           p_ind = VOC.p_ind,
           )
 
-    return [v_d_temp, v_q_temp,θ,udc,idc0,vd_int,e_ud,e_uq,e_id,e_iq,p,q,dP,abs(idq)], VOC_new #,idmeas,iqmeas,id,iq
+    return [v_d_temp, v_q_temp,θ,udc,idc0,vd_int,e_ud,e_uq,e_id,e_iq,p,q,dP,abs(idq),0.0,0.0], VOC_new #,idmeas,iqmeas,id,iq
+end
+
+function InitNode(DR::droop,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)
+   v_d_temp = ic_lf[ind_offset]
+   v_q_temp = ic_lf[ind_offset+1]
+   U0 = v_d_temp+1im*v_q_temp
+   θ = angle(U0)
+
+   s = U0 * conj(I_c[ind]) #/ (DR.Srated/DR.Sbase)
+   p = real(s)
+   q = imag(s)
+
+   #The current of the capacitor has to be related, since rf,xlf and xcf are related to Sbase!!!
+   i1 = I_c[ind] / (DR.Srated/DR.Sbase) + U0/(-1im*DR.xcf) /(DR.Srated/DR.Sbase)
+   E = U0 + (DR.rf + 1im*DR.xlf) * i1
+
+   idqmeas = I_c[ind]*(cos(-θ)+1im*sin(-θ)) / (DR.Srated/DR.Sbase) #1im*
+   idmeas = real(idqmeas)
+   iqmeas = imag(idqmeas)
+
+   idq = i1*(cos(-θ)+1im*sin(-θ)) #1im*
+   id = real(idq)
+   iq = imag(idq)
+
+   P_before = real(conj(i1) * E)
+   dP =  P_before - p
+   idc0 = DR.gdc + DR.p0set + dP
+   p0_new = idc0 - DR.gdc - dP
+   udc = 0.0 #ist hier nur das delta
+
+   U0 = U0*(cos(-θ)+1im*sin(-θ))
+   udmeas = real(U0) #should be equal to abs(U0)
+   uqmeas = imag(U0) #should be zero
+
+   E0 = E*(cos(-θ)+1im*sin(-θ))
+   umd = real(E0)
+   umq = imag(E0)
+
+   e_id = (umd - udmeas + iq * DR.xlf ) #- id*DR.rf
+   e_iq = (umq - uqmeas - id * DR.xlf )#- iq*DR.rf
+
+   e_ud = (id - idmeas + uqmeas / DR.xcf)#/ DR.Ki_u #hier müsste es ohne idmeas und iqmeas sein
+   e_uq = (iq - iqmeas - udmeas / DR.xcf) #/ DR.Ki_u #passt das überhaupt mit dem Srated/Sbase???
+
+   droop_new = droop(
+          Sbase = DR.Sbase,
+          Srated = DR.Srated,
+          p0set = p0_new, #new
+          u0set = DR.u0set,
+          Kp_droop = DR.Kp_droop,
+          Kp_uset = DR.Kp_uset,
+          Ki_uset = DR.Ki_uset,
+          Kdc = DR.Kdc,
+          gdc = DR.gdc,
+          cdc = DR.cdc,
+          xlf = DR.xlf,
+          rf = DR.rf,
+          xcf =  DR.xcf,
+          Tdc = DR.Tdc,
+          Kp_u = DR.Kp_u,
+          Ki_u = DR.Ki_u,
+          Kp_i = DR.Kp_i,
+          Ki_i = DR.Ki_i,
+          imax_csa = DR.imax_csa,
+          p_red = DR.p_red,
+          p_ind = DR.p_ind,
+          )
+
+    return [v_d_temp, v_q_temp,θ,udc,idc0,abs(U0),e_ud,e_uq,e_id,e_iq,p,dP,abs(idq),0.0], droop_new #,idmeas,iqmeas,id,iq
 end

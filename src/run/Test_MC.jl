@@ -36,14 +36,14 @@ function getMachtingGrid(;y_new = 0.0)
             B = 0.0,
             Y_n = y_new,
         ),
-        "bus3" => dVOC(
+        "bus3" => droop(
             Sbase = 100e6,
             Srated = 100e6,
             p0set = 0.9, # based on Sbase!
-            q0set = 0.0,
             u0set = 1.00,
-            eta = pi*Zbase*2/3,
-            alpha = 0.1*2/3*1000^2,
+            Kp_droop = 1.0,
+            Kp_uset = 0.001, #*Zbase*2/3
+            Ki_uset = 0.5,#*2/3*1000^2
             Kdc = 100.0, #1600
             gdc = Gdc,
             cdc = Cdc,
@@ -57,7 +57,7 @@ function getMachtingGrid(;y_new = 0.0)
             Ki_i = 1.19,#/200.0 , 485.815
             imax_csa = 1.25,
             p_red = 1.0,
-            ϵ = 1e-4,
+            #ϵ = 1e-9*0,
             p_ind = collect(1:16)
         ),
     )
@@ -76,9 +76,9 @@ function getMachtingGrid(;y_new = 0.0)
     pg = PowerGrid(buses, branches)
 end
 function simMatching(prob_sim)
-    pg_new = getMachtingGrid(y_new = 1444)#1/0.035/2
+    pg_new = getMachtingGrid(y_new = 10.0)#1/0.035/2
     pg_pre = getMachtingGrid()
-    tstep = [0.1,0.45]
+    tstep = [0.1,0.25]
     function fault_state(integrator)
         new_f = rhs(pg_new)
         op_prob = ODEProblem(new_f, integrator.sol[end], (0.0, 1e-6),integrator.p, initializealg = BrownFullBasicInit())
@@ -94,7 +94,7 @@ function simMatching(prob_sim)
         #ic_tmp = getPreFaultVoltages(pg_new,ic_tmp,deepcopy(sol[end]))
         ic_tmp = getPreFaultAlgebraicStates(pg_pre,ic_tmp,deepcopy(sol[end]))
         #display(ic_tmp .- sol.u[end])
-        op_prob = ODEProblem(rhs(pg_pre), ic_tmp, (0.0, 1e-6),integrator.p, initializealg = BrownFullBasicInit())
+        op_prob = ODEProblem(rhs(pg_pre), ic_tmp, (0.0, 1e-5),integrator.p, initializealg = BrownFullBasicInit())
         ic_new = solve(op_prob,Rodas4())
         #display(ic_tmp .- ic_new)
         #display(rhs(pg_pre).syms)
@@ -117,7 +117,7 @@ begin
     pg = getMachtingGrid()
     U,δ,ic0 = PowerFlowClassic(pg, iwamoto = true, max_tol = 1e-7)
     pg1 ,ic = InitializeInternalDynamics(pg,ic0)
-    params = getallParameters(pg1.nodes["bus3"])[6:21]
+    params = getallParameters(pg1.nodes["bus3"])[5:21] #6:21
     prob = ODEProblem(rhs(pg1),ic,(0.0,1.0),params)#initializealg = BrownFullBasicInit()
     #sol = solve(prob, Rodas4(),dtmax = 1e-3,progress=true)
     #pgsol = PowerGridSolution(sol,pg1)
@@ -134,14 +134,16 @@ plot(pgsol,["bus3"],:q)
 plot(pgsol,["bus3"],:iabs)
 plot(pgsol,["bus3"],:i_abs)
 
-  #,ylim=(0.91,0.915)
+ylims!((0.8975,0.91))
 plot(pgsol,["bus3"],:v)
 plot(pgsol,["bus3"],:Pf)
+plot!(pgsol,["bus3"],:v12)
 plot(pgsol,["bus3"],:vd)
+plot!([0; 1],[1; 1])
 
-plot(pgsol,"bus3",:udc) #,xlim=(0.9,1.6)
+plot!(pgsol,"bus3",:udc) #,xlim=(0.9,1.6)
 plot(pgsol,"bus3",:idc0)
-plot(pgsol,"bus3",:θ)
+plot(pgsol,["bus3"],:θ)
 plot!(pgsol,"bus3",:idc0)
 plot(pgsol,"bus3",:Pdelta)
 plot(pgsol,"bus3",:e_ud)
@@ -150,33 +152,85 @@ plot!(pgsol,"bus3",:iq0)
 plot!(pgsol,"bus3",:ids)
 plot!(pgsol,"bus3",:iqs)
 plot(pgsol,"bus3",:x_uabs)
+plot(pgsol,"bus3",:w)
+dw = ExtractResult(pgsol,:w_3)
+plot!(pgsol.dqsol.t,(dw.+100*pi)./2.0./pi)
 
-file = matopen("C:\\Users\\liemann\\Desktop\\simtime.mat")
-t = read(file, "simtime")'
-close(file)
+begin
+    file = matopen("C:\\Users\\liemann\\Desktop\\simtime.mat")
+    t = read(file, "simtime")'
+    close(file)
 
-file = matopen("C:\\Users\\liemann\\Desktop\\Vconv.mat")
-v = read(file, "Vconv")
-close(file)
+    file = matopen("C:\\Users\\liemann\\Desktop\\Vconv.mat")
+    v = read(file, "Vconv")
+    close(file)
 
+    file = matopen("C:\\Users\\liemann\\Desktop\\vd.mat")
+    vd = read(file, "vd")
+    close(file)
 
-file = matopen("C:\\Users\\liemann\\Desktop\\PQ.mat")
-PQ = read(file, "PQ")
-close(file)
+    file = matopen("C:\\Users\\liemann\\Desktop\\freq.mat")
+    freq = read(file, "freq")
+    close(file)
+
+    file = matopen("C:\\Users\\liemann\\Desktop\\udc.mat")
+    udc = read(file, "udc")
+    close(file)
+
+    file = matopen("C:\\Users\\liemann\\Desktop\\PQ.mat")
+    PQ = read(file, "PQ")
+    close(file)
+
+    file = matopen("C:\\Users\\liemann\\Desktop\\isabs.mat")
+    isabs = read(file, "i_s_abs")
+    close(file)
+
+    file = matopen("C:\\Users\\liemann\\Desktop\\iabs.mat")
+    iabs = read(file, "i_abs")
+    close(file)
+end
+
 plot(pgsol,["bus3"],:p)
-plot!(t',PQ[:,1],label = "MATLAB")
+plot!(t',PQ[:,1:2],label = "MATLAB")
 xlims!((0,1))
 ylims!((-0.1,1.3))
 
 plot(pgsol,["bus3"],:q)
-plot!(t',PQ[:,2],label = "MATLAB")
+plot!(t',PQ[:,3:4],label = "MATLAB")
 xlims!((0,1))
 ylims!((-1.5,1))
 
 plot(pgsol,["bus3"],:v)
 plot!(t',v,label = "MATLAB")
 xlims!((0.05,1))
-ylims!((0.0,1.1))
+ylims!((0.5,1.1))
+
+plot(pgsol,["bus3"],:vd)
+plot!(t',vd,label = "MATLAB")
+xlims!((0.0,0.4))
+
+plot(pgsol,["bus3"],:iabs)
+plot!(t',iabs,label = "MATLAB")
+xlims!((0.0,1))
+
+plot(pgsol,["bus3"],:i_abs)
+plot!(t',isabs,label = "MATLAB")
+xlims!((0.0,1))
+
+dudc = ExtractResult(pgsol,:udc_3)
+plot(pgsol.dqsol.t,dudc.+1)
+plot!(t',udc,label = "MATLAB")
+xlims!((0.0,1))
+
+dw = ExtractResult(pgsol,:udc_3)
+plot(pgsol.dqsol.t,(dw*100*pi.+100*pi)./2.0./pi)
+plot!(t',freq,label = "MATLAB")
+xlims!((0.0,1))
+
+dw = ExtractResult(pgsol,:w_3)
+plot(pgsol.dqsol.t,(dw.+100*pi)./2.0./pi)
+plot!(t',freq,label = "MATLAB")
+xlims!((0.0,1))
 
 ic_try = deepcopy(pgsol.dqsol.u[end])
 pg_try = deepcopy(pg1)
@@ -263,3 +317,53 @@ function simMatchingNEW(pg_pre,timespan,x1)
     return sol
     #return PowerGridSolution(sol,pg_new)
 end
+
+#=
+"bus3" => dVOC(
+    Sbase = 100e6,
+    Srated = 100e6,
+    p0set = 0.9, # based on Sbase!
+    q0set = 0.0,
+    u0set = 1.00,
+    eta = pi, #*Zbase*2/3
+    alpha = 0.1*2/3*1000^2,#*2/3*1000^2
+    Kdc = 100.0, #1600
+    gdc = Gdc,
+    cdc = Cdc,
+    xlf = Xlf,    #  0.15
+    rf = R_f, # 0.0005
+    xcf =  Xcf ,# 15.1515151515
+    Tdc = 0.05,
+    Kp_u = 0.52,#*200, #1.0
+    Ki_u = 1.161022,#*200.0, #1.161022#
+    Kp_i = 0.738891,#, /200.0  301.6510
+    Ki_i = 1.19,#/200.0 , 485.815
+    imax_csa = 1.25,
+    p_red = 1.0,
+    ϵ = 1e-9*0,
+    p_ind = collect(1:16)
+),
+"bus3" => MatchingControlRed(
+    Sbase = 100e6,
+    Srated = 100e6,
+    p0set = 0.9, # based on Sbase!
+    u0set = 1.00,
+    Kp_uset = 0.001, #*Zbase*2/3
+    Ki_uset = 0.5,#*2/3*1000^2
+    Kdc = 100.0, #1600
+    gdc = Gdc,
+    cdc = Cdc,
+    xlf = Xlf,    #  0.15
+    rf = R_f, # 0.0005
+    xcf =  Xcf ,# 15.1515151515
+    Tdc = 0.05,
+    Kp_u = 0.52,#*200, #1.0
+    Ki_u = 1.161022,#*200.0, #1.161022#
+    Kp_i = 0.738891,#, /200.0  301.6510
+    Ki_i = 1.19,#/200.0 , 485.815
+    imax_csa = 1.25,
+    p_red = 1.0,
+    #ϵ = 1e-9*0,
+    p_ind = collect(1:14)
+),
+=#

@@ -18,7 +18,7 @@ The model has the following internal dynamic variables:
 """
 =#
 @DynamicNode dVOC(Sbase,Srated,p0set,q0set,u0set,eta,alpha,Kdc,gdc,cdc,xlf,rf,xcf,Tdc,Kp_u,Ki_u,Kp_i,Ki_i,imax_csa,p_red,ϵ,p_ind) begin
-    MassMatrix(m_int =[true,true,true,true,true,true,true,true,true,true,true,false])#,false,false,false,false
+    MassMatrix(m_int =[true,true,true,true,true,true,true,true,true,true,true,false,false,false])#,false,false,false,false
 end begin
     @assert Sbase > 0 "Base apparent power of the grid in VA, should be >0"
     @assert Srated > 0 "Rated apperent power of the machine in VA, should be >0"
@@ -42,7 +42,7 @@ end begin
     @assert p_red == 0 || p_red == 1 "Boolean value vor activating or deactivating power reduction in case of limited current"
     @assert ϵ >= 0 "Small epsilon for controlled voltage to prevent singularity at zero voltage, should be around 1e-4"
 
-end [[θ,dθ],[udc,dudc],[idc0,didc0],[vd,dvd],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_iq],[Pf,dPf],[Qf,dQf],[Pdelta,dPdelta],[i_abs,di_abs]] begin #[id0,did0],[iq0,diq0],[ids,dids],[iqs,diqs]
+end [[θ,dθ],[udc,dudc],[idc0,didc0],[vd,dvd],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_iq],[Pf,dPf],[Qf,dQf],[Pdelta,dPdelta],[i_abs,di_abs],[w,dw],[v12,dv12]] begin #[id0,did0],[iq0,diq0],[ids,dids],[iqs,diqs]
     eta = p[p_ind[1]]
     alpha = p[p_ind[2]]
     Kdc = p[p_ind[3]]
@@ -81,7 +81,6 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[vd,dvd],[e_ud,de_ud],[e_uq,de_uq],[e_id,d
     p_before_filter = real(conj(idq) * E)
     ix = p_before_filter
 
-
     #filtered power
     dPf = 10.0*pi*(pmeas - Pf)
     dQf = 10.0*pi*(qmeas - Qf)
@@ -89,7 +88,8 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[vd,dvd],[e_ud,de_ud],[e_uq,de_uq],[e_id,d
     #dVOC voltage control
     v1 = eta * (q0set / u0set^2 - Qf / vd_e^2)
     v2 = ((u0set^2 - vd_e^2) * eta * alpha) / (u0set^2)
-    dvd = (v1 +v2) * vd_e
+    dv12 = v12 - v2
+    dvd = (v1+v2) * vd_e
 
     #Building voltage reference
     udset = vd_e #- Δud_vi
@@ -152,7 +152,8 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[vd,dvd],[e_ud,de_ud],[e_uq,de_uq],[e_id,d
     dP = IfElse.ifelse(iset_abs > imax_csa,p_red*(p0set -pmax), 0.0)
 
     #dVOC frequency /active power control
-    dθ = eta * ((p0set - dP) / u0set^2 - Pf / vd_e )
+    dw = w - eta * ((p0set - dP) / u0set^2 - Pf / vd_e^2)
+    dθ = w
 
     #DC current control
     dPdelta = 10.0*pi*(p_before_filter - pmeas - Pdelta)

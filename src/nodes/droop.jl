@@ -1,29 +1,11 @@
-#= Sebastian Liemann, ie3 TU Dortmund, based on F. Milano, Power System Modelling and Scripting, Springer Verlag, 2010
-@doc doc"""
-```Julia
-GridFormingConverter(Sbase,Srated,p0set,u0set,Kp_droop,Kq_droop,ωf,xlf,rf,xcf,Kp_u,Ki_u,Kp_i,Ki_i)
-```
-
-A node type that applies..
-
-The model has the following internal dynamic variables:
-* ``u`` is here an algebraic constraint
-* ``θ`` representing the angle of the rotor with respect to the voltage angle ``ϕ``.
-
-# Keyword Arguments
-- `Sbase`: "Base apparent power of the grid in VA, should be >0"
-- `Srated`: "Rated apperent power of the machine in VA, should be >0"
-
-
-"""
-=#
-@DynamicNode MatchingControlRed(Sbase,Srated,p0set,u0set,Kp_uset,Ki_uset,Kdc,gdc,cdc,xlf,rf,xcf,Tdc,Kp_u,Ki_u,Kp_i,Ki_i,imax_csa,p_red,p_ind) begin
-    MassMatrix(m_int =[true,true,true,true,true,true,true,true,true,false])#,false,false,false,false
+@DynamicNode droop(Sbase,Srated,p0set,u0set,Kp_droop,Kp_uset,Ki_uset,Kdc,gdc,cdc,xlf,rf,xcf,Tdc,Kp_u,Ki_u,Kp_i,Ki_i,imax_csa,p_red,p_ind) begin
+    MassMatrix(m_int =[true,true,true,true,true,true,true,true,true,true,false,false])#,false,false,false,false
 end begin
     @assert Sbase > 0 "Base apparent power of the grid in VA, should be >0"
     @assert Srated > 0 "Rated apperent power of the machine in VA, should be >0"
     @assert p0set >= 0 "Set point for active power in p.u, should be >0"
     @assert u0set > 0 "Set point for voltage in p.u, should be >0"
+    @assert Kp_droop >= 0 "Droop constant for active power in p.u, should be >=0"
     @assert Kp_uset >= 0 "P-Gain for voltage control, should be >=0"
     @assert Ki_uset >= 0 "I-Gain for voltage control.u, should be >=0"
     @assert Kdc >= 0 "Droop constant for current control in p.u, should be >=0"
@@ -40,26 +22,23 @@ end begin
     @assert imax_csa >= 0 "max. current for current saturation algorithm (CSA) in p.u., should be >=0"
     @assert p_red == 0 || p_red == 1 "Boolean value vor activating or deactivating power reduction in case of limited current"
 
-
-end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_iq],[Pdelta,dPdelta],[i_abs,di_abs]] begin #[id0,did0],[iq0,diq0],[ids,dids],[iqs,diqs]
-    Kp_uset = p[p_ind[1]]
-    Ki_uset = p[p_ind[2]]
-    Kdc = p[p_ind[3]]
-    gdc = p[p_ind[4]]
-    cdc = p[p_ind[5]]
-
-    xlf = p[p_ind[6]]
-    rf = p[p_ind[7]]
-    xcf = p[p_ind[8]]
-    Tdc = p[p_ind[9]]
-    Kp_u = p[p_ind[10]]
-    Ki_u = p[p_ind[11]]
-    Kp_i = p[p_ind[12]]
-    Ki_i = p[p_ind[13]]
-    #imax = p[p_ind[12]]
-    #Kvi = p[p_ind[13]]
-    #σXR = p[p_ind[14]]
-    imax_csa = p[p_ind[14]]
+end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_iq],[Pf,dPf],[Pdelta,dPdelta],[i_abs,di_abs],[w,dw]] begin
+    Kp_droop = p[p_ind[1]]
+    Kp_uset = p[p_ind[2]]
+    Ki_uset = p[p_ind[3]]
+    Kdc = p[p_ind[4]] #
+    gdc = p[p_ind[5]] #
+    cdc = p[p_ind[6]] #
+    xlf = p[p_ind[7]]
+    rf = p[p_ind[8]]
+    xcf = p[p_ind[9]]
+    Tdc = p[p_ind[10]] #
+    Kp_u = p[p_ind[11]]
+    Ki_u = p[p_ind[12]]
+    Kp_i = p[p_ind[13]]
+    Ki_i = p[p_ind[14]]
+    imax_csa = p[p_ind[15]]
+    p_red = p[p_ind[16]]
 
     #after filter
     umeas = u*(cos(-θ)+1im*sin(-θ))
@@ -74,23 +53,21 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
     #before filter
     #The current of the capacitor has to be related, since rf,xlf and xcf are related to Sbase!!!
     idq =  imeas + umeas / (-1im * xcf) / (Srated/Sbase)
-    id = real(idq)
-    iq = imag(idq)
+    id  = real(idq)
+    iq  = imag(idq)
 
     E = umeas + (rf + 1im*xlf) * idq
     p_before_filter = real(conj(idq) * E)
     ix  = p_before_filter   #AC/DC coupling
 
-    #Matching control
-    dθ = udc * 2.0 * pi * 50.0
-
+    #Voltage control
     Δuabs = u0set - abs(u)
     dx_uabs = Ki_uset * Δuabs
     Uset = x_uabs + Kp_uset * Δuabs
 
     #Building voltage reference
-    udset = Uset #- Δud_vi
-    uqset = 0.0 #- Δuq_vi
+    udset = Uset
+    uqset = 0.0
 
     #Voltage control
     de_ud = (udset - udmeas) * Ki_u
@@ -111,14 +88,12 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
     de_ud = IfElse.ifelse(anti_windup,0.0, (udset - udmeas) * Ki_u)
     de_uq = IfElse.ifelse(anti_windup,0.0, (uqset - uqmeas) * Ki_u)
 
-    #dx_uabs = IfElse.ifelse(anti_windup,0.0, Ki_uset * Δuabs)
-
     #Current control
     de_id = (idset_csa - id) * Ki_i
     de_iq = (iqset_csa - iq) * Ki_i
 
-    umd = udmeas - iq * xlf + Kp_i * (idset_csa - id) + e_id #+ id * rf
-    umq = uqmeas + id * xlf + Kp_i * (iqset_csa - iq) + e_iq #+ iq * rf
+    umd = udmeas - iq * xlf + Kp_i * (idset_csa - id) + e_id
+    umq = uqmeas + id * xlf + Kp_i * (iqset_csa - iq) + e_iq
 
     #Coupling with DC voltage
     um_abs = (udc + 1.0) * hypot(umd,umq)
@@ -150,7 +125,7 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
     #DC current control
     pmax = idset_csa * real(E) + iqset_csa * imag(E)
     dP = IfElse.ifelse(iset_abs > imax_csa,p_red*(p0set -pmax), 0.0)
-    #idc = Kdc * (1.0 - udc) + p0set/1.0 + udc*gdc + (p_before_filter - pmeas)
+
     dPdelta = 10.0*pi*(p_before_filter - pmeas - Pdelta)
     idc = -Kdc * udc + p0set - dP + (1.0+udc)*gdc + Pdelta
     didc0 = (idc - idc0) / Tdc
@@ -158,11 +133,11 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
     #DC circuit
     dudc = (idc0 - gdc * (1.0+udc) - ix) / cdc
 
-
-    #did0 = id0 - idmeas
-    #diq0 = iq0 - iqmeas
-    #dids = ids - id
-    #diqs = iqs - iq
+    #Droop control
+    #filtered power
+    dPf = 10.0*pi*(pmeas - Pf)
+    dw = w - (p0set - dP - Pf) * pi * Kp_droop
+    dθ = w
 end
 
-export MatchingControl
+export droop
