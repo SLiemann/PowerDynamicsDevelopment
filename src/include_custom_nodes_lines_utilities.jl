@@ -29,6 +29,7 @@ include("nodes/MatchingControl.jl")
 include("nodes/MatchingControlRed.jl")
 include("nodes/dVOC.jl")
 include("nodes/droop.jl")
+include("nodes/VSM.jl")
 
 #Operation Point
 include("operationpoint/PowerFlow.jl")

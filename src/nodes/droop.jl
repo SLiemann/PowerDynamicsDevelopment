@@ -1,5 +1,5 @@
-@DynamicNode droop(Sbase,Srated,p0set,u0set,Kp_droop,Kp_uset,Ki_uset,Kdc,gdc,cdc,xlf,rf,xcf,Tdc,Kp_u,Ki_u,Kp_i,Ki_i,imax_csa,p_red,p_ind) begin
-    MassMatrix(m_int =[true,true,true,true,true,true,true,true,true,true,false,false])#,false,false,false,false
+@DynamicNode droop(Sbase,Srated,p0set,u0set,Kp_droop,Kp_uset,Ki_uset,Kdc,gdc,cdc,xlf,rf,xcf,Tdc,Kp_u,Ki_u,Kp_i,Ki_i,imax_csa,imax_dc,p_red,p_ind) begin
+    MassMatrix(m_int =[true,true,true,true,true,true,true,true,true,true,false,false,false])#,false,false,false,false
 end begin
     @assert Sbase > 0 "Base apparent power of the grid in VA, should be >0"
     @assert Srated > 0 "Rated apperent power of the machine in VA, should be >0"
@@ -20,9 +20,10 @@ end begin
     @assert Kp_i >= 0 "Proportional gain for current control loop, should be >0"
     @assert Ki_i >= 0 "Integral gain for current control loop, should be >0"
     @assert imax_csa >= 0 "max. current for current saturation algorithm (CSA) in p.u., should be >=0"
+    @assert imax_dc >= 0 "max. current of dc source in p.u., should be >=0"
     @assert p_red == 0 || p_red == 1 "Boolean value vor activating or deactivating power reduction in case of limited current"
 
-end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_iq],[Pf,dPf],[Pdelta,dPdelta],[i_abs,di_abs],[w,dw]] begin
+end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_iq],[Pf,dPf],[Pdelta,dPdelta],[i_abs,di_abs],[w,dw],[idc0_lim,didc0_lim]] begin
     Kp_droop = p[p_ind[1]]
     Kp_uset = p[p_ind[2]]
     Ki_uset = p[p_ind[3]]
@@ -38,7 +39,8 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
     Kp_i = p[p_ind[13]]
     Ki_i = p[p_ind[14]]
     imax_csa = p[p_ind[15]]
-    p_red = p[p_ind[16]]
+    imax_dc = p[p_ind[16]]
+    p_red = p[p_ind[17]]
 
     #after filter
     umeas = u*(cos(-θ)+1im*sin(-θ))
@@ -130,8 +132,9 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
     idc = -Kdc * udc + p0set - dP + (1.0+udc)*gdc + Pdelta
     didc0 = (idc - idc0) / Tdc
 
+    didc0_lim = idc0_lim - IfElse.ifelse(idc0 > imax_dc, imax_dc, IfElse.ifelse(idc0 < -imax_dc,-imax_dc,idc0))
     #DC circuit
-    dudc = (idc0 - gdc * (1.0+udc) - ix) / cdc
+    dudc = (idc0_lim - gdc * (1.0+udc) - ix) / cdc
 
     #Droop control
     #filtered power

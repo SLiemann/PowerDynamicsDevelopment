@@ -483,6 +483,7 @@ function InitNode(MC::Union{MatchingControl,MatchingControlRed},ind::Int64,I_c::
       Kp_i = MC.Kp_i,
       Ki_i = MC.Ki_i,
       imax_csa = MC.imax_csa,
+      imax_dc = MC.imax_dc,
       p_red = MC.p_red,
       p_ind = MC.p_ind,
       )
@@ -506,6 +507,7 @@ function InitNode(MC::Union{MatchingControl,MatchingControlRed},ind::Int64,I_c::
       Kp_i = MC.Kp_i,
       Ki_i = MC.Ki_i,
       imax_csa = MC.imax_csa,
+      imax_dc = MC.imax_dc,
       p_red = MC.p_red,
       p_ind = MC.p_ind,
       )
@@ -579,6 +581,7 @@ function InitNode(VOC::dVOC,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Arra
           Kp_i = VOC.Kp_i,
           Ki_i = VOC.Ki_i,
           imax_csa = VOC.imax_csa,
+          imax_dc = VOC.imax_dc,
           p_red = VOC.p_red,
           ϵ = VOC.ϵ,
           p_ind = VOC.p_ind,
@@ -649,9 +652,81 @@ function InitNode(DR::droop,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Arra
           Kp_i = DR.Kp_i,
           Ki_i = DR.Ki_i,
           imax_csa = DR.imax_csa,
+          imax_dc = DR.imax_dc,
           p_red = DR.p_red,
           p_ind = DR.p_ind,
           )
 
-    return [v_d_temp, v_q_temp,θ,udc,idc0,abs(U0),e_ud,e_uq,e_id,e_iq,p,dP,abs(idq),0.0], droop_new #,idmeas,iqmeas,id,iq
+    return [v_d_temp, v_q_temp,θ,udc,idc0,abs(U0),e_ud,e_uq,e_id,e_iq,p,dP,abs(idq),0.0,idc0], droop_new #,idmeas,iqmeas,id,iq
+end
+
+function InitNode(VSM0::VSM,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)
+   v_d_temp = ic_lf[ind_offset]
+   v_q_temp = ic_lf[ind_offset+1]
+   U0 = v_d_temp+1im*v_q_temp
+   θ = angle(U0)
+
+   s = U0 * conj(I_c[ind]) #/ (VSM0.Srated/VSM0.Sbase)
+   p = real(s)
+   q = imag(s)
+
+   #The current of the capacitor has to be related, since rf,xlf and xcf are related to Sbase!!!
+   i1 = I_c[ind] / (VSM0.Srated/VSM0.Sbase) + U0/(-1im*VSM0.xcf) /(VSM0.Srated/VSM0.Sbase)
+   E = U0 + (VSM0.rf + 1im*VSM0.xlf) * i1
+
+   idqmeas = I_c[ind]*(cos(-θ)+1im*sin(-θ)) / (VSM0.Srated/VSM0.Sbase) #1im*
+   idmeas = real(idqmeas)
+   iqmeas = imag(idqmeas)
+
+   idq = i1*(cos(-θ)+1im*sin(-θ)) #1im*
+   id = real(idq)
+   iq = imag(idq)
+
+   P_before = real(conj(i1) * E)
+   dP =  P_before - p
+   idc0 = VSM0.gdc + VSM0.p0set + dP
+   p0_new = idc0 - VSM0.gdc - dP
+   udc = 0.0 #ist hier nur das delta
+
+   U0 = U0*(cos(-θ)+1im*sin(-θ))
+   udmeas = real(U0) #should be equal to abs(U0)
+   uqmeas = imag(U0) #should be zero
+
+   E0 = E*(cos(-θ)+1im*sin(-θ))
+   umd = real(E0)
+   umq = imag(E0)
+
+   e_id = (umd - udmeas + iq * VSM0.xlf ) #- id*VSM0.rf
+   e_iq = (umq - uqmeas - id * VSM0.xlf )#- iq*VSM0.rf
+
+   e_ud = (id - idmeas + uqmeas / VSM0.xcf)#/ VSM0.Ki_u #hier müsste es ohne idmeas und iqmeas sein
+   e_uq = (iq - iqmeas - udmeas / VSM0.xcf) #/ VSM0.Ki_u #passt das überhaupt mit dem Srated/Sbase???
+
+   vsm_new = VSM(
+          Sbase = VSM0.Sbase,
+          Srated = VSM0.Srated,
+          p0set = p0_new, #new
+          u0set = VSM0.u0set,
+          J = VSM0.J,
+          Dp = VSM0.Dp,
+          Kp_uset = VSM0.Kp_uset,
+          Ki_uset = VSM0.Ki_uset,
+          Kdc = VSM0.Kdc,
+          gdc = VSM0.gdc,
+          cdc = VSM0.cdc,
+          xlf = VSM0.xlf,
+          rf = VSM0.rf,
+          xcf =  VSM0.xcf,
+          Tdc = VSM0.Tdc,
+          Kp_u = VSM0.Kp_u,
+          Ki_u = VSM0.Ki_u,
+          Kp_i = VSM0.Kp_i,
+          Ki_i = VSM0.Ki_i,
+          imax_csa = VSM0.imax_csa,
+          imax_dc = VSM0.imax_dc,
+          p_red = VSM0.p_red,
+          p_ind = VSM0.p_ind,
+          )
+
+    return [v_d_temp, v_q_temp,θ,0.0,udc,idc0,abs(U0),e_ud,e_uq,e_id,e_iq,p,dP,abs(idq)], vsm_new #,idmeas,iqmeas,id,iq
 end

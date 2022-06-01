@@ -91,6 +91,7 @@ NodeType(
 NodeType(L::Union{MatchingControl,MatchingControlRed}) = 1
 NodeType(L::dVOC) = 1
 NodeType(L::droop) = 1
+NodeType(L::VSM) = 1
 
 #note: only loads are treated with voltage depency and are called every iteration
 PowerNodeLoad(S::SlackAlgebraic,U) = 0. #treated as generation
@@ -145,6 +146,8 @@ PowerNodeLoad(
 PowerNodeLoad(L::Union{MatchingControl,MatchingControlRed},U) = 0.
 PowerNodeLoad(L::dVOC,U) = 0.
 PowerNodeLoad(L::droop,U) = 0.
+PowerNodeLoad(L::VSM,U) = 0.
+
 
 
 #generation is voltage independent, otherwise it has to be called every iteration
@@ -181,6 +184,7 @@ PowerNodeGeneration(
 PowerNodeGeneration(M::Union{MatchingControl,MatchingControlRed}) = M.p0set
 PowerNodeGeneration(V::dVOC) = V.p0set
 PowerNodeGeneration(V::droop) = V.p0set
+PowerNodeGeneration(V::VSM) = V.p0set
 
 
 function PowerFlowClassic(pg::PowerGrid; ind_sl::Int64 = 0,max_tol::Float64 = 1e-7,iter_max::Int64  = 30,iwamoto::Bool =false, Qmax = -1, Qmin = -1, Qlimit_iter_check::Int64 = 3)
@@ -263,6 +267,13 @@ function PowerFlowClassic(pg::PowerGrid; ind_sl::Int64 = 0,max_tol::Float64 = 1e
 
     if droop ∈ collect(values(pg.nodes)) .|> typeof
         pv = findall(collect(values(pg.nodes).|> typeof).== droop)
+        for i in pv
+            U[i] = collect(values(pg.nodes))[i].u0set
+        end
+    end
+
+    if VSM ∈ collect(values(pg.nodes)) .|> typeof
+        pv = findall(collect(values(pg.nodes).|> typeof).== VSM)
         for i in pv
             U[i] = collect(values(pg.nodes))[i].u0set
         end

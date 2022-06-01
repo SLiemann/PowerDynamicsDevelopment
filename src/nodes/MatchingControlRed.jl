@@ -17,7 +17,7 @@ The model has the following internal dynamic variables:
 
 """
 =#
-@DynamicNode MatchingControlRed(Sbase,Srated,p0set,u0set,Kp_uset,Ki_uset,Kdc,gdc,cdc,xlf,rf,xcf,Tdc,Kp_u,Ki_u,Kp_i,Ki_i,imax_csa,p_red,p_ind) begin
+@DynamicNode MatchingControlRed(Sbase,Srated,p0set,u0set,Kp_uset,Ki_uset,Kdc,gdc,cdc,xlf,rf,xcf,Tdc,Kp_u,Ki_u,Kp_i,Ki_i,imax_csa,imax_dc,p_red,p_ind) begin
     MassMatrix(m_int =[true,true,true,true,true,true,true,true,true,false])#,false,false,false,false
 end begin
     @assert Sbase > 0 "Base apparent power of the grid in VA, should be >0"
@@ -38,6 +38,7 @@ end begin
     @assert Kp_i >= 0 "Proportional gain for current control loop, should be >0"
     @assert Ki_i >= 0 "Integral gain for current control loop, should be >0"
     @assert imax_csa >= 0 "max. current for current saturation algorithm (CSA) in p.u., should be >=0"
+    @assert imax_dc >= 0 "max. current of dc source in p.u., should be >=0"
     @assert p_red == 0 || p_red == 1 "Boolean value vor activating or deactivating power reduction in case of limited current"
 
 
@@ -60,6 +61,8 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
     #Kvi = p[p_ind[13]]
     #σXR = p[p_ind[14]]
     imax_csa = p[p_ind[14]]
+    imax_dc = p[p_ind[15]]
+
 
     #after filter
     umeas = u*(cos(-θ)+1im*sin(-θ))
@@ -155,14 +158,10 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
     idc = -Kdc * udc + p0set - dP + (1.0+udc)*gdc + Pdelta
     didc0 = (idc - idc0) / Tdc
 
+    idc0_lim = IfElse.ifelse(idc0 > imax_dc, imax_dc, IfElse.ifelse(idc0 < -imax_dc,-imax_dc,idc0))
     #DC circuit
-    dudc = (idc0 - gdc * (1.0+udc) - ix) / cdc
+    dudc = (idc0_lim - gdc * (1.0+udc) - ix) / cdc
 
-
-    #did0 = id0 - idmeas
-    #diq0 = iq0 - iqmeas
-    #dids = ids - id
-    #diqs = iqs - iq
 end
 
-export MatchingControl
+export MatchingControlRed

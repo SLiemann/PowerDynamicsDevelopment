@@ -1,32 +1,14 @@
-#= Sebastian Liemann, ie3 TU Dortmund, based on F. Milano, Power System Modelling and Scripting, Springer Verlag, 2010
-@doc doc"""
-```Julia
-GridFormingConverter(Sbase,Srated,p0set,u0set,Kp_droop,Kq_droop,ωf,xlf,rf,xcf,Kp_u,Ki_u,Kp_i,Ki_i)
-```
-
-A node type that applies..
-
-The model has the following internal dynamic variables:
-* ``u`` is here an algebraic constraint
-* ``θ`` representing the angle of the rotor with respect to the voltage angle ``ϕ``.
-
-# Keyword Arguments
-- `Sbase`: "Base apparent power of the grid in VA, should be >0"
-- `Srated`: "Rated apperent power of the machine in VA, should be >0"
-
-
-"""
-=#
-@DynamicNode dVOC(Sbase,Srated,p0set,q0set,u0set,eta,alpha,Kdc,gdc,cdc,xlf,rf,xcf,Tdc,Kp_u,Ki_u,Kp_i,Ki_i,imax_csa,imax_dc,p_red,ϵ,p_ind) begin
-    MassMatrix(m_int =[true,true,true,true,true,true,true,true,true,true,true,false,false,false])#,false,false,false,false
+@DynamicNode VSM(Sbase,Srated,p0set,u0set,J,Dp,Kp_uset,Ki_uset,Kdc,gdc,cdc,xlf,rf,xcf,Tdc,Kp_u,Ki_u,Kp_i,Ki_i,imax_csa,imax_dc,p_red,p_ind) begin
+    MassMatrix(m_int =[true,true,true,true,true,true,true,true,true,true,true,false])#,false,false,false,false
 end begin
     @assert Sbase > 0 "Base apparent power of the grid in VA, should be >0"
     @assert Srated > 0 "Rated apperent power of the machine in VA, should be >0"
     @assert p0set >= 0 "Set point for active power in p.u, should be >0"
-    @assert q0set >= 0 "Set point for reactive power in p.u, should be >0"
     @assert u0set > 0 "Set point for voltage in p.u, should be >0"
-    @assert eta >= 0 "dVOC gain parameter should be pi/Sb*V_m^2 in pu"
-    @assert alpha >= 0 "dVOC gain parameter should be 0.1*V_m^2 in pu"
+    @assert J > 0 "Inertia, should be >=0"
+    @assert Dp >= 0 "Damping constant, should be >0"
+    @assert Kp_uset >= 0 "P-Gain for voltage control, should be >=0"
+    @assert Ki_uset >= 0 "I-Gain for voltage control.u, should be >=0"
     @assert Kdc >= 0 "Droop constant for current control in p.u, should be >=0"
     @assert gdc >=0 "Conductance of DC-circuit in global p.u., should be >=0"
     @assert cdc >0 "Capacitance of DC-circuit in global p.u., should be >=0"
@@ -41,27 +23,26 @@ end begin
     @assert imax_csa >= 0 "max. current for current saturation algorithm (CSA) in p.u., should be >=0"
     @assert imax_dc >= 0 "max. current of dc source in p.u., should be >=0"
     @assert p_red == 0 || p_red == 1 "Boolean value vor activating or deactivating power reduction in case of limited current"
-    @assert ϵ >= 0 "Small epsilon for controlled voltage to prevent singularity at zero voltage, should be around 1e-4"
 
-end [[θ,dθ],[udc,dudc],[idc0,didc0],[vd,dvd],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_iq],[Pf,dPf],[Qf,dQf],[Pdelta,dPdelta],[i_abs,di_abs],[w,dw],[v12,dv12]] begin #[id0,did0],[iq0,diq0],[ids,dids],[iqs,diqs]
-    eta = p[p_ind[1]]
-    alpha = p[p_ind[2]]
-    Kdc = p[p_ind[3]]
-    gdc = p[p_ind[4]]
-    cdc = p[p_ind[5]]
-    xlf = p[p_ind[6]]
-    rf = p[p_ind[7]]
-    xcf = p[p_ind[8]]
-    Tdc = p[p_ind[9]]
-    Kp_u = p[p_ind[10]]
-    Ki_u = p[p_ind[11]]
-    Kp_i = p[p_ind[12]]
-    Ki_i = p[p_ind[13]]
-    imax_csa = p[p_ind[14]]
-    imax_dc = p[p_ind[15]]
-    p_red = p[p_ind[16]]
-    ϵ = p[p_ind[17]]
-    vd_e = vd + ϵ #to prevent singularity at zero voltage
+end [[θ,dθ],[w,dw],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_iq],[Pf,dPf],[Pdelta,dPdelta],[i_abs,di_abs]] begin
+    J = p[p_ind[1]]
+    Dp = p[p_ind[2]]
+    Kp_uset = p[p_ind[3]]
+    Ki_uset = p[p_ind[4]]
+    Kdc = p[p_ind[5]] #
+    gdc = p[p_ind[6]] #
+    cdc = p[p_ind[7]] #
+    xlf = p[p_ind[8]]
+    rf = p[p_ind[9]]
+    xcf = p[p_ind[10]]
+    Tdc = p[p_ind[11]] #
+    Kp_u = p[p_ind[12]]
+    Ki_u = p[p_ind[13]]
+    Kp_i = p[p_ind[14]]
+    Ki_i = p[p_ind[15]]
+    imax_csa = p[p_ind[16]]
+    imax_dc = p[p_ind[17]]
+    p_red = p[p_ind[18]]
 
     #after filter
     umeas = u*(cos(-θ)+1im*sin(-θ))
@@ -76,26 +57,22 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[vd,dvd],[e_ud,de_ud],[e_uq,de_uq],[e_id,d
     #before filter
     #The current of the capacitor has to be related, since rf,xlf and xcf are related to Sbase!!!
     idq =  imeas + umeas / (-1im * xcf) / (Srated/Sbase)
-    id = real(idq)
-    iq = imag(idq)
+    id  = real(idq)
+    iq  = imag(idq)
 
     E = umeas + (rf + 1im*xlf) * idq
     p_before_filter = real(conj(idq) * E)
-    ix = p_before_filter
+    ix  = p_before_filter   #AC/DC coupling
 
-    #filtered power
-    dPf = 10.0*pi*(pmeas - Pf)
-    dQf = 10.0*pi*(qmeas - Qf)
-
-    #dVOC voltage control
-    v1 = eta * (q0set / u0set^2 - Qf / vd_e^2)
-    v2 = ((u0set^2 - vd_e^2) * eta * alpha) / (u0set^2)
-    dv12 = v12 - v2
-    dvd = (v1+v2) * vd_e
+    #Voltage control
+    Δuabs = u0set - abs(u)
+    dx_uabs = Ki_uset * Δuabs
+    Mf = 1.0 # virtual mutual inductance, value taken from Doerfler et. al
+    i_f = x_uabs + Kp_uset * Δuabs #field current
 
     #Building voltage reference
-    udset = vd_e #- Δud_vi
-    uqset = 0.0 #- Δuq_vi
+    udset = Mf * i_f * (w + 1.0)
+    uqset = 0.0
 
     #Voltage control
     de_ud = (udset - udmeas) * Ki_u
@@ -120,8 +97,8 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[vd,dvd],[e_ud,de_ud],[e_uq,de_uq],[e_id,d
     de_id = (idset_csa - id) * Ki_i
     de_iq = (iqset_csa - iq) * Ki_i
 
-    umd = udmeas - iq * xlf + Kp_i * (idset_csa - id) + e_id #+ id * rf
-    umq = uqmeas + id * xlf + Kp_i * (iqset_csa - iq) + e_iq #+ iq * rf
+    umd = udmeas - iq * xlf + Kp_i * (idset_csa - id) + e_id
+    umq = uqmeas + id * xlf + Kp_i * (iqset_csa - iq) + e_iq
 
     #Coupling with DC voltage
     um_abs = (udc + 1.0) * hypot(umd,umq)
@@ -149,15 +126,11 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[vd,dvd],[e_ud,de_ud],[e_uq,de_uq],[e_id,d
 
     di_abs = i_abs - I_abs
 
-    #Power Reduction in case of limited current
+    dx_uabs = IfElse.ifelse(iset_abs > imax_csa,0.0,Ki_uset * Δuabs)
+    #DC current control
     pmax = idset_csa * real(E) + iqset_csa * imag(E)
     dP = IfElse.ifelse(iset_abs > imax_csa,p_red*(p0set -pmax), 0.0)
 
-    #dVOC frequency /active power control
-    dw = w - eta * ((p0set - dP) / u0set^2 - Pf / vd_e^2)
-    dθ = w
-
-    #DC current control
     dPdelta = 10.0*pi*(p_before_filter - pmeas - Pdelta)
     idc = -Kdc * udc + p0set - dP + (1.0+udc)*gdc + Pdelta
     didc0 = (idc - idc0) / Tdc
@@ -165,6 +138,12 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[vd,dvd],[e_ud,de_ud],[e_uq,de_uq],[e_id,d
     idc0_lim = IfElse.ifelse(idc0 > imax_dc, imax_dc, IfElse.ifelse(idc0 < -imax_dc,-imax_dc,idc0))
     #DC circuit
     dudc = (idc0_lim - gdc * (1.0+udc) - ix) / cdc
+
+    #VSM-based control
+    #filtered power
+    dPf = 10.0*pi*(pmeas - Pf)
+    dw = (p0set - dP - Pf - w * Dp) / J
+    dθ = w * 100 *pi
 end
 
-export dVOC
+export VSM
