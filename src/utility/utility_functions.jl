@@ -124,7 +124,7 @@ function CalcEigenValues(pg::PowerGrid, p::Array{Float64,1}; output::Bool = fals
       plot!([min_real_ew;0.0],[min_real_ew*10.0;0.0], linestyle=:dash,linecolor = :blue, label = "10 % damping")
       plot!([min_real_ew;0.0],[-min_real_ew*10.0;0.0], linestyle=:dash,linecolor = :blue, label = nothing)
       plot!([min_real_ew;0.0],[min_real_ew*5.0;0.0], linestyle=:dash,linecolor = :green, label = "20 % damping")
-      display(plot!([min_real_ew;0.0],[-min_real_ew*5.0;0.0], linestyle=:dash,linecolor = :green, label = nothing))
+      display(plot!([min_real_ew;0.0],[-min_real_ew*5.0;0.0], linestyle=:dash,linecolor = :green, label = nothing));
   end
   return EW
 end

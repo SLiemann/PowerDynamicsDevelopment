@@ -151,3 +151,21 @@ uc = sqrt(1)*cos.(2*pi*50 .*t .+2*pi/3)
 plot(t,ua)
 plot!(t,ub)
 plot!(t,uc)
+
+
+function CalcParallel(R)
+    tmp = R[1]
+    for ind in 2:length(R)
+        tmp = parallel(R[ind],tmp)
+    end
+    return tmp
+end
+
+
+function parallel(R1::Union{ComplexF64,Float64},R2::Union{ComplexF64,Float64})
+    return (R1*R2)/(R1+R2)
+end
+
+r1 = [9.6+1im*64,9.6+1im*64,16+1im*64,16+1im*96]
+a = [1,1]
+CalcParallel(r1)

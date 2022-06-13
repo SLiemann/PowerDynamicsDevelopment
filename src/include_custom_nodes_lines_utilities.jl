@@ -30,6 +30,7 @@ include("nodes/MatchingControlRed.jl")
 include("nodes/dVOC.jl")
 include("nodes/droop.jl")
 include("nodes/VSM.jl")
+include("nodes/GeneralVoltageDependentLoad.jl")
 
 #Operation Point
 include("operationpoint/PowerFlow.jl")

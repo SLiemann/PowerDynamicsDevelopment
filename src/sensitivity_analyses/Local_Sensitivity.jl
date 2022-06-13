@@ -259,6 +259,9 @@ end
 function Substitute(syms::Union{Vector{Num},Array{Num}}, subs_args::Vector{Pair{SymbolicUtils.Symbolic{Real}, Float64}}) #SymbolicUtils.Symbolic{Real} ::Array{Pair{Num,Float64},1}
   return Symbolics.value.(substitute.(syms, (subs_args,)))
 end
+function Substitute(syms::Matrix{Num}, subs_args::Dict{Any, Any}) #SymbolicUtils.Symbolic{Real} ::Array{Pair{Num,Float64},1}
+  return Symbolics.value.(substitute.(syms, (subs_args,)))
+end
 
 function GetMTKSystem(pg::PowerGrid, time_interval::Tuple{Float64,Float64}, p::Array{Float64,1})
   U,δ,ic0 = PowerFlowClassic(pg,iwamoto = false)

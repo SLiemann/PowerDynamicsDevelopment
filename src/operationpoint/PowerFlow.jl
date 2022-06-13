@@ -92,6 +92,7 @@ NodeType(L::Union{MatchingControl,MatchingControlRed}) = 1
 NodeType(L::dVOC) = 1
 NodeType(L::droop) = 1
 NodeType(L::VSM) = 1
+NodeType(L::GeneralVoltageDependentLoad) = 2
 
 #note: only loads are treated with voltage depency and are called every iteration
 PowerNodeLoad(S::SlackAlgebraic,U) = 0. #treated as generation
@@ -147,8 +148,12 @@ PowerNodeLoad(L::Union{MatchingControl,MatchingControlRed},U) = 0.
 PowerNodeLoad(L::dVOC,U) = 0.
 PowerNodeLoad(L::droop,U) = 0.
 PowerNodeLoad(L::VSM,U) = 0.
-
-
+function PowerNodeLoad(L::GeneralVoltageDependentLoad,U)
+    u_rel = abs(U)/L.U
+    Pv = L.P * (L.Ap * u_rel^2 + L.Bp * u_rel + 1.0 - L.Ap - L.Bp)
+    Qv = L.Q * (L.Aq * u_rel^2 + L.Bq * u_rel + 1.0 - L.Aq -L. Bq)
+    return complex(Pv,Qv)
+end
 
 #generation is voltage independent, otherwise it has to be called every iteration
 PowerNodeGeneration(S::SlackAlgebraic) = 0.
@@ -185,6 +190,7 @@ PowerNodeGeneration(M::Union{MatchingControl,MatchingControlRed}) = M.p0set
 PowerNodeGeneration(V::dVOC) = V.p0set
 PowerNodeGeneration(V::droop) = V.p0set
 PowerNodeGeneration(V::VSM) = V.p0set
+PowerNodeGeneration(V::GeneralVoltageDependentLoad) = 0.0
 
 
 function PowerFlowClassic(pg::PowerGrid; ind_sl::Int64 = 0,max_tol::Float64 = 1e-7,iter_max::Int64  = 30,iwamoto::Bool =false, Qmax = -1, Qmin = -1, Qlimit_iter_check::Int64 = 3)
@@ -192,7 +198,7 @@ function PowerFlowClassic(pg::PowerGrid; ind_sl::Int64 = 0,max_tol::Float64 = 1e
     nodetypes = NodeType.(values(pg.nodes))
     if !isempty(findall(x-> x==0, nodetypes)) #if there is no SlackAlgebraic
         ind_sl = findall(x-> x==0, nodetypes)[1] #set passed value
-        @info "Reference node is bus no. $ind_sl"
+        #@info "Reference node is bus no. $ind_sl"
     end
     ind_PV_or = findall(x-> x==1, nodetypes)
     ind_PQ_or = findall(x-> x==2, nodetypes)
@@ -203,81 +209,7 @@ function PowerFlowClassic(pg::PowerGrid; ind_sl::Int64 = 0,max_tol::Float64 = 1e
     #to calculate Ykk a vector with all SI voltages of the nodes is needed (U_r_nodes)
     Ykk = NodalAdmittanceMatrice(pg);
 
-    U = ones(number_nodes,1);
-    if SlackAlgebraic ∈ collect(values(pg.nodes)) .|> typeof
-        U[ind_sl] = collect(values(pg.nodes))[ind_sl].U
-    end
-    if SlackAlgebraicParam ∈ collect(values(pg.nodes)) .|> typeof
-        U[ind_sl] = collect(values(pg.nodes))[ind_sl].U
-    end
-    if PVAlgebraic ∈ collect(values(pg.nodes)) .|> typeof
-        pv = findall(collect(values(pg.nodes).|> typeof).== PVAlgebraic)
-        for i in pv
-            U[i] = collect(values(pg.nodes))[i].V
-        end
-    end
-    if GridFormingConverter ∈ collect(values(pg.nodes)) .|> typeof
-        pv = findall(collect(values(pg.nodes).|> typeof).== GridFormingConverter)
-        for i in pv
-            U[i] = collect(values(pg.nodes))[i].u0set
-        end
-    end
-    if GridFormingConverterParam ∈ collect(values(pg.nodes)) .|> typeof
-        pv = findall(collect(values(pg.nodes).|> typeof).== GridFormingConverterParam)
-        for i in pv
-            U[i] = collect(values(pg.nodes))[i].u0set
-        end
-    end
-    if GridFormingConverterCSA ∈ collect(values(pg.nodes)) .|> typeof
-        pv = findall(collect(values(pg.nodes).|> typeof).== GridFormingConverterCSA)
-        for i in pv
-            U[i] = collect(values(pg.nodes))[i].u0set
-        end
-    end
-    if GridFormingConverterCSAAntiWindup ∈ collect(values(pg.nodes)) .|> typeof
-        pv = findall(collect(values(pg.nodes).|> typeof).== GridFormingConverterCSAAntiWindup)
-        for i in pv
-            U[i] = collect(values(pg.nodes))[i].u0set
-        end
-    end
-    if GFMCurrentPrio ∈ collect(values(pg.nodes)) .|> typeof
-        pv = findall(collect(values(pg.nodes).|> typeof).== GFMCurrentPrio)
-        for i in pv
-            U[i] = collect(values(pg.nodes))[i].u0set
-        end
-    end
-    if MatchingControl ∈ collect(values(pg.nodes)) .|> typeof
-        pv = findall(collect(values(pg.nodes).|> typeof).== MatchingControl)
-        for i in pv
-            U[i] = collect(values(pg.nodes))[i].u0set
-        end
-    end
-    if MatchingControlRed ∈ collect(values(pg.nodes)) .|> typeof
-        pv = findall(collect(values(pg.nodes).|> typeof).== MatchingControlRed)
-        for i in pv
-            U[i] = collect(values(pg.nodes))[i].u0set
-        end
-    end
-    if dVOC ∈ collect(values(pg.nodes)) .|> typeof
-        pv = findall(collect(values(pg.nodes).|> typeof).== dVOC)
-        for i in pv
-            U[i] = collect(values(pg.nodes))[i].u0set
-        end
-    end
-
-    if droop ∈ collect(values(pg.nodes)) .|> typeof
-        pv = findall(collect(values(pg.nodes).|> typeof).== droop)
-        for i in pv
-            U[i] = collect(values(pg.nodes))[i].u0set
-        end
-    end
-
-    if VSM ∈ collect(values(pg.nodes)) .|> typeof
-        pv = findall(collect(values(pg.nodes).|> typeof).== VSM)
-        for i in pv
-            U[i] = collect(values(pg.nodes))[i].u0set
-        end
-    end
+    U = GetInitialVoltages(pg,ind_sl,number_nodes)
 
     δ = CalcδStartValues(pg,Ykk,ind_sl);
 
@@ -351,6 +283,9 @@ function PowerFlowClassic(pg::PowerGrid; ind_sl::Int64 = 0,max_tol::Float64 = 1e
             if mod(iter,Qlimit_iter_check) == 0 && !isempty(ind_PV_or) #dont change every iteration and check if PV nodes exist
                 for i in ind_PV_or # Calc current reactive power at each node
                     Qn[i] = sum(U[i].*U.*Ykk_abs[:,i].*sin.(δ[i].-δ.-θ[:,i]))
+                    if i == 5
+                        display(string(iter)*" Iteration: Q = "*string(Qn[i])*", PV_ind = "*string(ind_PV)*", U[i] = "*string(U[i]))
+                    end
                     if Qn[i] >= Qmax[i]
                         index = findall(x-> x==i ,ind_PV) #find the PV node index
                         if ~isempty(index)
@@ -373,6 +308,8 @@ function PowerFlowClassic(pg::PowerGrid; ind_sl::Int64 = 0,max_tol::Float64 = 1e
                         index = findall(x-> x==i ,ind_PQ)
                         if ~isempty(index)
                             ind_PQ = ind_PQ[1:end .!= index, 1]; #delete PQ node
+                            u_tmp = GetInitialVoltages(pg,ind_sl,number_nodes)
+                            U[i] = u_tmp[i] # set voltage again
                         end
                         append!(ind_PV,i)#append it to the PV list
                     end
@@ -482,9 +419,95 @@ function CalcIwamotoMultiplier(J,res,ΔP,ΔQ,Ykk,ind_sl,ind_PV,ind_PQ,number_nod
 
     g0 = sum(a.*b);
     g1 = sum(b.*b+ 2.0*a.*c);
-    g2 = sum(3.0*b.*c);
-    g3 = sum(2.0*c.*c);
+    g2 = 3.0*sum(b.*c);
+    g3 = 2.0*sum(c.*c);
 
     f(x) = g3*x^3+g2*x^3+g1*x+g0
     return  find_zero(f,1.0)
+end
+
+function GetInitialVoltages(pg::PowerGrid, ind_sl::Int64,number_nodes::Int64)
+    U = ones(number_nodes,1);
+    if SlackAlgebraic ∈ collect(values(pg.nodes)) .|> typeof
+        U[ind_sl] = collect(values(pg.nodes))[ind_sl].U
+    end
+    if SlackAlgebraicParam ∈ collect(values(pg.nodes)) .|> typeof
+        U[ind_sl] = collect(values(pg.nodes))[ind_sl].U
+    end
+    if PVAlgebraic ∈ collect(values(pg.nodes)) .|> typeof
+        pv = findall(collect(values(pg.nodes).|> typeof).== PVAlgebraic)
+        for i in pv
+            U[i] = collect(values(pg.nodes))[i].V
+        end
+    end
+    if GridFormingConverter ∈ collect(values(pg.nodes)) .|> typeof
+        pv = findall(collect(values(pg.nodes).|> typeof).== GridFormingConverter)
+        for i in pv
+            U[i] = collect(values(pg.nodes))[i].u0set
+        end
+    end
+    if GridFormingConverterParam ∈ collect(values(pg.nodes)) .|> typeof
+        pv = findall(collect(values(pg.nodes).|> typeof).== GridFormingConverterParam)
+        for i in pv
+            U[i] = collect(values(pg.nodes))[i].u0set
+        end
+    end
+    if GridFormingConverterCSA ∈ collect(values(pg.nodes)) .|> typeof
+        pv = findall(collect(values(pg.nodes).|> typeof).== GridFormingConverterCSA)
+        for i in pv
+            U[i] = collect(values(pg.nodes))[i].u0set
+        end
+    end
+    if GridFormingConverterCSAAntiWindup ∈ collect(values(pg.nodes)) .|> typeof
+        pv = findall(collect(values(pg.nodes).|> typeof).== GridFormingConverterCSAAntiWindup)
+        for i in pv
+            U[i] = collect(values(pg.nodes))[i].u0set
+        end
+    end
+    if GFMCurrentPrio ∈ collect(values(pg.nodes)) .|> typeof
+        pv = findall(collect(values(pg.nodes).|> typeof).== GFMCurrentPrio)
+        for i in pv
+            U[i] = collect(values(pg.nodes))[i].u0set
+        end
+    end
+    if MatchingControl ∈ collect(values(pg.nodes)) .|> typeof
+        pv = findall(collect(values(pg.nodes).|> typeof).== MatchingControl)
+        for i in pv
+            U[i] = collect(values(pg.nodes))[i].u0set
+        end
+    end
+    if MatchingControlRed ∈ collect(values(pg.nodes)) .|> typeof
+        pv = findall(collect(values(pg.nodes).|> typeof).== MatchingControlRed)
+        for i in pv
+            U[i] = collect(values(pg.nodes))[i].u0set
+        end
+    end
+    if dVOC ∈ collect(values(pg.nodes)) .|> typeof
+        pv = findall(collect(values(pg.nodes).|> typeof).== dVOC)
+        for i in pv
+            U[i] = collect(values(pg.nodes))[i].u0set
+        end
+    end
+
+    if droop ∈ collect(values(pg.nodes)) .|> typeof
+        pv = findall(collect(values(pg.nodes).|> typeof).== droop)
+        for i in pv
+            U[i] = collect(values(pg.nodes))[i].u0set
+        end
+    end
+
+    if VSM ∈ collect(values(pg.nodes)) .|> typeof
+        pv = findall(collect(values(pg.nodes).|> typeof).== VSM)
+        for i in pv
+            U[i] = collect(values(pg.nodes))[i].u0set
+        end
+    end
+
+    if SixOrderMarconatoMachineAVROEL ∈ collect(values(pg.nodes)) .|> typeof
+        pv = findall(collect(values(pg.nodes).|> typeof).== SixOrderMarconatoMachineAVROEL)
+        for i in pv
+            U[i] = 1.0
+        end
+    end
+    return U
 end

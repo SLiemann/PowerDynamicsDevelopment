@@ -8,7 +8,7 @@ begin
     include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/include_custom_nodes_lines_utilities.jl")
     include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/operationpoint/InitializeInternals.jl")
 end
-function getMachtingGrid(;y_new = 0.0)
+function getMachtingGrid(;y_new = 0.0, p0set = 0.9)
     Ubase = 1e3;
     Sbase = 100e6;
     Zbase = Ubase^2/Sbase;
@@ -36,15 +36,14 @@ function getMachtingGrid(;y_new = 0.0)
             B = 0.0,
             Y_n = y_new,
         ),
-        "bus3" => VSM(
+        "bus3" => dVOC(
             Sbase = 100e6,
             Srated = 100e6,
-            p0set = 0.9, # based on Sbase!
+            p0set = p0set, # based on Sbase!
+            q0set = 0.0,
             u0set = 1.00,
-            J = 0.02*100e6/(pi)/(sqrt(2/3)*1000)/(100*pi),#
-            Dp = 100e6/(pi)/(sqrt(2/3)*1000)/(100*pi),#
-            Kp_uset = 0.001, #*Zbase*2/3
-            Ki_uset = 0.5,#*2/3*1000^2
+            eta = pi, #rated to Zb  2.0944*
+            alpha = 0.1*2/3*1000^2/100,#*2/3*1000^2
             Kdc = 100.0, #1600
             gdc = Gdc,
             cdc = Cdc,
@@ -59,7 +58,8 @@ function getMachtingGrid(;y_new = 0.0)
             imax_csa = 1.25,
             imax_dc = 1.2,
             p_red = 1.0,
-            p_ind = collect(1:18)
+            ϵ = 1e-9*0,
+            p_ind = collect(1:17)
         ),
     )
 
@@ -79,8 +79,9 @@ end
 
 function simMatching(prob_sim)
     pg_new = getMachtingGrid(y_new = 1.0)#1/0.035/2
+    #pg_new = getMachtingGrid(p0set = 0.3)#1/0.035/2
     pg_pre = getMachtingGrid()
-    tstep = [0.1,0.25]
+    tstep = [0.1,0.250]
     function fault_state(integrator)
         new_f = rhs(pg_new)
         op_prob = ODEProblem(new_f, integrator.sol[end], (0.0, 1e-6),integrator.p, initializealg = BrownFullBasicInit())
@@ -119,7 +120,7 @@ begin
     pg = getMachtingGrid()
     U,δ,ic0 = PowerFlowClassic(pg, iwamoto = true, max_tol = 1e-7)
     pg1 ,ic = InitializeInternalDynamics(pg,ic0)
-    params = getallParameters(pg1.nodes["bus3"])[5:22] #6:21
+    params = getallParameters(pg1.nodes["bus3"])[6:23] #6:21
     prob = ODEProblem(rhs(pg1),ic,(0.0,1.0),params)#initializealg = BrownFullBasicInit()
     #sol = solve(prob, Rodas4(),dtmax = 1e-3,progress=true)
     #pgsol = PowerGridSolution(sol,pg1)
@@ -131,7 +132,7 @@ plot(pgsol,vars=(8))
 
 plot(pgsol.dqsol,vars=(7:13))
 plot(pgsol.dqsol,vars=(9))
-plot!(pgsol,["bus3"],:p)
+plot!(pgsol,["bus3"],:p, label = "dVOC")
 plot(pgsol,["bus3"],:q)
 plot(pgsol,["bus3"],:iabs)
 plot(pgsol,["bus3"],:i_abs)
@@ -143,7 +144,7 @@ plot!(pgsol,["bus3"],:v12)
 plot(pgsol,["bus3"],:vd)
 plot!([0; 1],[1; 1])
 
-plot!(pgsol,"bus3",:udc) #,xlim=(0.9,1.6)
+plot(pgsol,"bus3",:udc) #,xlim=(0.9,1.6)
 plot(pgsol,"bus3",:idc0_lim)
 plot(pgsol,["bus3"],:θ)
 plot!(pgsol,"bus3",:idc0)
@@ -156,7 +157,7 @@ plot!(pgsol,"bus3",:iqs)
 plot(pgsol,"bus3",:x_uabs)
 plot(pgsol,"bus3",:w)
 dw = ExtractResult(pgsol,:w_3)
-plot!(pgsol.dqsol.t,(dw.+100*pi)./2.0./pi)
+plot(pgsol.dqsol.t,(dw.+100*pi)./2.0./pi)
 
 begin
     file = matopen("C:\\Users\\liemann\\Desktop\\simtime.mat")
@@ -216,8 +217,8 @@ xlims!((0.05,1))
 ylims!((0.9,1.1))
 
 plot(pgsol,["bus3"],:vd)
-plot!(t',vd,label = "MATLAB")
-xlims!((0.0,0.4))
+plot!(t',vdm,label = "MATLAB")
+xlims!((0.0,1.0))
 
 plot(pgsol,["bus3"],:iabs)
 plot!(t',iabs,label = "MATLAB")
@@ -412,5 +413,30 @@ end
     p_red = 1.0,
     #ϵ = 1e-9*0,
     p_ind = collect(1:17)
+),
+"bus3" => VSM(
+    Sbase = 100e6,
+    Srated = 100e6,
+    p0set = p0set, # based on Sbase!
+    u0set = 1.00,
+    J = 2.0,# Ta = J*w^2/P
+    Dp = 100.0,# D_base = Dp*w^2/P
+    Kp_uset = 0.001, #*Zbase*2/3
+    Ki_uset = 0.5,#*2/3*1000^2
+    Kdc = 100.0, #1600
+    gdc = Gdc,
+    cdc = Cdc,
+    xlf = Xlf,    #  0.15
+    rf = R_f, # 0.0005
+    xcf =  Xcf ,# 15.1515151515
+    Tdc = 0.05,
+    Kp_u = 0.52,#*200, #1.0
+    Ki_u = 1.161022,#*200.0, #1.161022#
+    Kp_i = 0.738891,#, /200.0  301.6510
+    Ki_i = 1.19,#/200.0 , 485.815
+    imax_csa = 1.25,
+    imax_dc = 1.2,
+    p_red = 1.0,
+    p_ind = collect(1:18)
 ),
 =#
