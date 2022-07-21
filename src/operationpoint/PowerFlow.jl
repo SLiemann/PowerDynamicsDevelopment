@@ -230,6 +230,7 @@ function PowerFlowClassic(pg::PowerGrid; ind_sl::Int64 = 0,max_tol::Float64 = 1e
             Pn[i] = sum(U[i].*U.*Ykk_abs[:,i].*cos.(δ[i].-δ.-θ[:,i]))
             Qn[i] = sum(U[i].*U.*Ykk_abs[:,i].*sin.(δ[i].-δ.-θ[:,i]))
         end
+
         #update load powers
         for (ind,val) in enumerate(values(pg.nodes)) S_node_load[ind] = PowerNodeLoad(val,U[ind]*exp(1im*δ[ind])) end
 
@@ -310,8 +311,8 @@ function PowerFlowClassic(pg::PowerGrid; ind_sl::Int64 = 0,max_tol::Float64 = 1e
                             ind_PQ = ind_PQ[1:end .!= index, 1]; #delete PQ node
                             u_tmp = GetInitialVoltages(pg,ind_sl,number_nodes)
                             U[i] = u_tmp[i] # set voltage again
+                            append!(ind_PV,i)#append it to the PV list
                         end
-                        append!(ind_PV,i)#append it to the PV list
                     end
                 end
             end
@@ -419,11 +420,17 @@ function CalcIwamotoMultiplier(J,res,ΔP,ΔQ,Ykk,ind_sl,ind_PV,ind_PQ,number_nod
 
     g0 = sum(a.*b);
     g1 = sum(b.*b+ 2.0*a.*c);
-    g2 = 3.0*sum(b.*c);
-    g3 = 2.0*sum(c.*c);
+    g2 = sum(3.0*b.*c);
+    g3 = sum(2.0*c.*c);
 
     f(x) = g3*x^3+g2*x^3+g1*x+g0
-    return  find_zero(f,1.0)
+    iwam = 1.0
+    try
+        iwam = find_zero(f,1.0)
+    catch e
+        iwam = find_zero(f,0.0)
+    end
+    return iwam
 end
 
 function GetInitialVoltages(pg::PowerGrid, ind_sl::Int64,number_nodes::Int64)

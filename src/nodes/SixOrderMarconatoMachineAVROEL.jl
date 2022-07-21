@@ -124,16 +124,16 @@ end [[θ,dθ],[ω, dω],[e_ds, de_ds],[e_qs, de_qs],[e_dss, de_dss],[e_qss, de_q
     dω = (P - D * ω - pe) / (2*H)
 
     #Field current in a non-reciprocal system, otherwise would be: ifd = (E_f - T_d0s * de_qs) / (X_d - X-l)
-    difd = ifd - (E_f - T_d0s * de_qs)  #algebraic constraint for output
+    difd = ifd - (E_f - T_d0s * de_qs) / (X_d - 0.15)  #algebraic constraint for output
 
     #AVR error
     V_error = V0 - abs(u)
     #OEL
 
     ifd_error = ifd - Ifdlim
-    array_out  = ifelse(ifd_error > 0.0,ifd_error,ifelse(ifd_error >= -0.1,0.0,-1.0))
-    dtimer =ifelse(timer<=L1,ifelse(array_out<0.0,0.0,array_out),array_out)
-    switch_output = ifelse(timer<0.0,V_error,-ifd_error)
+    array_out  = IfElse.ifelse(ifd_error > 0.0,ifd_error,IfElse.ifelse(ifd_error >= -0.1,0.0,-1.0))
+    dtimer =IfElse.ifelse(timer<=L1,IfElse.ifelse(array_out<0.0,0.0,array_out),array_out)
+    switch_output = IfElse.ifelse(timer<0.0,V_error,-ifd_error)
 
     #AVR - Transient Gain Reducution & Exciter
     min_out = min(V_error,switch_output)
@@ -141,9 +141,9 @@ end [[θ,dθ],[ω, dω],[e_ds, de_ds],[e_qs, de_qs],[e_dss, de_dss],[e_qss, de_q
     PDT1_out = x1 + dx1*Ta
     e = G2*(PDT1_out - E_f)
 
-    lowlimit  = ifelse(E_f<=0.0,ifelse(e<0.0,true,false),false)
-    highlimit = ifelse(E_f>= L2,ifelse(e>0.0,true,false),false)
-    dE_f = ifelse(lowlimit==true,0.0,IfElse.ifelse(highlimit==true,0.0,e))
+    lowlimit  = IfElse.ifelse(E_f<=0.0,IfElse.ifelse(e<0.0,true,false),false)
+    highlimit = IfElse.ifelse(E_f>= L2,IfElse.ifelse(e>0.0,true,false),false)
+    dE_f = IfElse.ifelse(lowlimit==true,0.0,IfElse.ifelse(highlimit==true,0.0,e))
 end
 
 export SixOrderMarconatoMachineAVROEL

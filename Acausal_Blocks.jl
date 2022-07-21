@@ -3,7 +3,7 @@ using IfElse
 
 @variables t
 @connector function Pin(;name)
-    sts = @variables v(t)=1.0 i(t)=1.0 [connect = Flow]
+    sts = @variables v(t)=1.0 [irreducible=true] i(t)=1.0 [connect = Flow, irreducible=true]
     ODESystem(Equation[], t, sts, []; name=name, continuous_events = [1~0])
 end
 
@@ -16,7 +16,7 @@ end
 function OnePort(;name)
     @named p = Pin()
     @named n = Pin()
-    sts = @variables v(t)=1.0 i(t)=1.0
+    sts = @variables v(t)=1.0 [irreducible=true]  i(t)=1.0 [connect = Flow,irreducible=true]
     eqs = [
            v ~ p.v - n.v
            0 ~ p.i + n.i

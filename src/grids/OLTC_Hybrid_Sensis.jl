@@ -42,15 +42,11 @@ function OLTC_Hybrid_Sensi(;x_grid = 0.25)
     pg = PowerGrid(buses, branches)
 end
 tspanOLTCHisken() = (0.0,200.0)
-GetParametersOLTCHisken(Tp) =  [0.25,0.0,Tp,5.0]
+GetParametersOLTCHisken(Tp) =  [0.25,0.0,Tp,5.0,20]
 
 function GetInitializedOLTCHisken()
     pg = OLTC_Hybrid_Sensi()
     U,δ,ic0 = PowerFlowClassic(pg,iwamoto = false)
-    Ykk = NodalAdmittanceMatrice(pg)
-    Uc = U.*exp.(1im*δ/180*pi)
-    I_c = Ykk*Uc
-    S = conj(Ykk*Uc).*Uc
     return InitializeInternalDynamics(pg,ic0)
 end
 
@@ -110,7 +106,7 @@ function SimulateOLTCHIsken(;Tp = 5.0)
         if timer_start == -1
             return false
         else
-            return t - timer_start > 20.0
+            return t - timer_start > integrator.p[5]
         end
     end
 
@@ -146,18 +142,9 @@ function SimulateOLTCHIsken(;Tp = 5.0)
     cb6 = DiscreteCallback(check_voltage_high, stop_integration)
 
     params = GetParametersOLTCHisken(Tp)
-    prob = ODEProblem(rhs(pg), ic, tspanOLTCHisken(),params)
-    integrator = init(
-        prob_sens,
-        Rodas4(),
-        callback = CallbackSet(cb1, cb2, cb3,cb4,cb5),
-        dt = 1e-2,
-        adaptive = false,
-        tstops=[10.0],
-        maxiters = 1e5,
-        progress = true,
-    )
-    #=sol = solve(
+    #prob = ODEProblem(rhs(pg), ic, tspanOLTCHisken(),params)
+    prob = ODEForwardSensitivityProblem(rhs(pg),ic,tspanOLTCHisken(),params,ForwardDiffSensitivity())
+    sol = solve(
         prob,
         Rodas4(),
         callback = CallbackSet(cb1, cb2, cb3,cb4,cb5),
@@ -167,8 +154,8 @@ function SimulateOLTCHIsken(;Tp = 5.0)
         maxiters = 1e5,
         progress = true,
     )
-    return PowerGridSolution(sol, pg), event_recorder =#
-    return sol
+    #return PowerGridSolution(sol, pg), event_recorder
+    return sol, event_recorder
 end
 
 function GetTriggCondsOLTCHisken(mtk::ODESystem)

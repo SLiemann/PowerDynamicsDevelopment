@@ -1,0 +1,2 @@
+ENV["HTTP_PROXY"] = ""
+ENV["HTTPS_PROXY"] = ""

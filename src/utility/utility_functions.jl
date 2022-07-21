@@ -56,7 +56,7 @@ end
 
 # The following PiModel function is copied from the actual PowerDynamics package, Michael
 function PiModel(y, y_shunt_km, y_shunt_mk, t_km, t_mk)
-    Π = zeros(Complex{Float64}, 2, 2)
+    Π = Matrix{Any}(undef,2,2)#zeros(Complex{Float64}, 2, 2)
     Π[1, 1] = - abs2(t_km) * (y + y_shunt_km) # Our sign convention is opposite for the source of the edge
     Π[1, 2] = conj(t_km) * t_mk * y # Our sign convention is opposite for the source of the edge
     Π[2, 1] = - conj(t_mk) * t_km * y
@@ -91,7 +91,7 @@ function PiModel(y, y_shunt_km, y_shunt_mk, t_km::Num, t_mk)
     Π
 end
 
-function CalcEigenValues(pg::PowerGrid, p::Array{Float64,1}; output::Bool = false, plot::Bool = false)
+function CalcEigenValues(pg::PowerGrid, p::Array{Any}; output::Bool = false, plot::Bool = false)
   mtsys = GetMTKSystem(pg, (0.0, 1.0), p)
   Fx, Fy, Gx, Gy = GetSymbolicFactorizedJacobian(mtsys)
   Fxf, Fyf, Gxf, Gyf = [

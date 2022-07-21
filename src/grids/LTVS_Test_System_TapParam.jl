@@ -12,7 +12,7 @@ Zbase = Ubase^2/Sbase
 zfault() = 40.0/Zbase
 tfault_on() = 1.0
 tfault_off() = 1.1
-dt_max() = 1e-3
+dt_max() = 1e-2
 
 function GFC_LTVS_Test_SystemTapParam(;nTap = 0.0)
     Sbase = 100e6
@@ -43,7 +43,7 @@ function GFC_LTVS_Test_SystemTapParam(;nTap = 0.0)
             Ki_i = 1.19,
             imax = 1.0,
             Kvi = 0.055, #0.8272172037144201, # 0.677
-            σXR = 10.0*10,
+            σXR = 10.0,
             K_vq = 0.1,
             imax_csa = 1.10,
             #iprio = "none",
@@ -122,7 +122,8 @@ function run_LTVS_simulationTapParam(pg::PowerGrid,ic1::Array{Float64,1},tspan::
     pg_postfault = GetPostFaultLTVSPG(pg)
 
     params = GFC_LTVS_params_TapParam()
-    problem = ODEProblem{true}(rhs(pg),ic1,tspan,params)
+    #problem = ODEProblem{true}(rhs(pg),ic1,tspan,params)
+    problem = ODEForwardSensitivityProblem(rhs(pg),ic1,tspan,params,ForwardDiffSensitivity())
     timer_start = -1.0
     timer_now   = 0.0
     branch_oltc = "branch4"
@@ -254,7 +255,8 @@ function run_LTVS_simulationTapParam(pg::PowerGrid,ic1::Array{Float64,1},tspan::
     sol = solve(problem, Rodas4(), callback = CallbackSet(cb1,cb2,cb3,cb4,cb5,cb6,cb7), tstops=[tfault[1],tfault[2],t_stop_droop], dtmax = dt_max(),progress =true) #
     #sol = AddNaNsIntoSolution(pg,pg_postfault,deepcopy(sol))
 
-    return PowerGridSolution(sol, pg), event_recorder
+    #return PowerGridSolution(sol, pg), event_recorder
+    return sol, event_recorder
 end
 
 function GetActivePG(fault_state::Bool, postfault_state::Bool)
