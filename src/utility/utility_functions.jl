@@ -10,6 +10,12 @@ function getPreFaultVoltages(pg::PowerGrid,ic_prefault::Array{Float64,1},ic_endf
     return ic_endfault
 end
 
+function getPreFaultVoltages(pg::PowerGrid,ic_prefault,ic_endfault)
+    ind = getVoltageSymbolPositions(pg)
+    ic_endfault[ind] = ic_prefault[ind]
+    return ic_endfault
+end
+
 function getPreFaultAlgebraicStates(pg::PowerGrid,ic_prefault::Array{Float64,1},ic_endfault::Array{Float64,1})
     prob = ODEFunction(rhs(pg))
     ind = findall(x-> iszero(x),diag(prob.mass_matrix))
@@ -270,6 +276,18 @@ end
 function CalcAbsVoltageSens(ur_or,ui_or,sens_ur,sens_ui,param,Δp)
     s_ur = sens_ur[:,param]*Δp
     s_ui = sens_ur[:,param]*Δp
+
+    p = 2*sqrt.(ur_or.^2.0 .+ ui_or.^2.0)
+    q = -(2 .*(ur_or.*s_ur + ui_or.*s_ui) .+ s_ur.^2 .+ s_ui.^2)
+
+    z1 = -p./2 + sqrt.((p./2).^2 .- q)
+    z2 = -p./2 - sqrt.((p./2).^2 .- q)
+    return z1,z2
+end
+
+function CalcAbsVoltageSens_v2(ur_or,ui_or,sens_ur,sens_ui;Δp=1.0)
+    s_ur = sens_ur*Δp
+    s_ui = sens_ur*Δp
 
     p = 2*sqrt.(ur_or.^2.0 .+ ui_or.^2.0)
     q = -(2 .*(ur_or.*s_ur + ui_or.*s_ui) .+ s_ur.^2 .+ s_ui.^2)

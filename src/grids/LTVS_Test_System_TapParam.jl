@@ -206,9 +206,12 @@ function run_LTVS_simulationTapParam(pg::PowerGrid,ic1::Array{Float64,1},tspan::
         ode   = rhs(pg_postfault)
         index = PowerDynamics.variable_index(pg.nodes,"busv",:u_r)
 
-        ic_tmp = deepcopy(integrator.sol.u[indexin(tfault[1],integrator.sol.t)[1]])
+        ic_tmp = copy(integrator.sol.u[indexin(tfault[1],integrator.sol.t)[1]])
         #ic_tmp = sol[end]
-        ic_tmp = getPreFaultVoltages(pg,ic_tmp,deepcopy(sol[end]))
+        #display(ForwardDiff.value(ic_tmp))
+        #display("-----------------")
+        #display(sol[end])
+        ic_tmp = getPreFaultVoltages(pg,ic_tmp,copy(sol[end]))
         #deleteat!(ic_tmp,index:index+1)
         op_prob = ODEProblem(ode, ic_tmp, (0.0, 1e-6), params, initializealg = BrownFullBasicInit())
         x3 = solve(op_prob,Rodas5())
@@ -252,7 +255,7 @@ function run_LTVS_simulationTapParam(pg::PowerGrid,ic1::Array{Float64,1},tspan::
     cb6 = DiscreteCallback(check_voltage, stop_integration)
     cb7 = DiscreteCallback(((u,t,integrator) -> t in t_stop_droop), deactivate_droop)
 
-    sol = solve(problem, Rodas4(), callback = CallbackSet(cb1,cb2,cb3,cb4,cb5,cb6,cb7), tstops=[tfault[1],tfault[2],t_stop_droop], dtmax = dt_max(),progress =true) #
+    sol = solve(problem, Rodas4(), callback = CallbackSet(cb1,cb2,cb3,cb4,cb5,cb6,cb7), tstops=[tfault[1],tfault[2],t_stop_droop], dtmax = dt_max(),force_dtmin=true,progress =true) #
     #sol = AddNaNsIntoSolution(pg,pg_postfault,deepcopy(sol))
 
     #return PowerGridSolution(sol, pg), event_recorder

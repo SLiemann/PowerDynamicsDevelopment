@@ -140,8 +140,27 @@ begin
     sol,evr  = run_LTVS_simulationTapParam(pg,ic0,(0.0,70.0))
 end
 
+x,dp = extract_local_sensitivities(sol)
+da = dp[1]
+
+plot(sol.t,da[7:8,:]')
+z1,z2 = CalcAbsVoltageSens_v2(x[7,:],x[8,:],da[7,:],da[8,:])
+plot(sol.t,z1)
+plot(sol.t,z2)
+xlims!((0.9,1.0))
+xlims!((10,70.0))
+ylims!((-10,1.0))
+
+
+u4 = sqrt.(x[8,:].^2 .+x[7,:].^2)
+plot(sol.t,u4)
+plot(sol.t,x[1,:], legend=:left)
+
+
+
+
 plot(pgsol_per,"bus4",:i_abs, legend=:bottomleft)
-plot(pgsol_per,"bus4",:v)
+plot(sol,"bus4",:v)
 #display(plot!(pgsol_stkvq,"bus4",:v,label = "Enh kvq"))
 #display(plot(pgsol,"bus4",:v,label = "U-Original",xlims=(5,70),ylims=(0.9,1.01), legend = (0.5,0.1)))
 #display(plot!(pgsol_per,"bus4",:v,label = "real perturbed"))
