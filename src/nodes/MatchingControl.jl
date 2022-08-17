@@ -98,7 +98,6 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
     Δuabs = u0set - abs(u)
     dx_uabs = Ki_uset * Δuabs
     Uset = x_uabs + Kp_uset * Δuabs
-
     #Virtual Impedance
     #I_abs = hypot(id,iq)
     #Δi = (I_abs - imax)
