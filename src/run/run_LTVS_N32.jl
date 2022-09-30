@@ -5,16 +5,19 @@ using IfElse
 begin
     include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/include_custom_nodes_lines_utilities.jl")
     include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/grids/LTVS_Test_System_N32.jl")
-    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/sensitivity_analyses/Local_Sensitivity.jl")
+    #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/sensitivity_analyses/Local_Sensitivity.jl")
 end
 begin
     pg = LTVS_Test_System_N32()
-    Qmax   = [Inf, Inf, Inf,Inf,Inf*53.0*sqrt(1-0.8377358^2),Inf]
+    Qmax   = [Inf, Inf, Inf,Inf,Inf*5300/8000*sqrt(1-0.85^2),Inf]
     Qmin   = -Qmax
-    U,δ,ic0 = PowerFlowClassic(pg,iwamoto = false,max_tol = 1e-4,iter_max = 30,Qmax = Qmax, Qmin = Qmin,Qlimit_iter_check=3)
-    #pg, ic0 = InitializeInternalDynamics(pg,ic0)
-    #pgsol  = run_LTVS_N32_simulation(pg,ic0,(0.0,300.0))
+    U,δ,ic0 = PowerFlowClassic(pg,iwamoto = true,max_tol = 1e-4,iter_max = 100,Qmax = Qmax, Qmin = Qmin,Qlimit_iter_check=3)
+    display(U.=> δ)
+    pg, ic0 = InitializeInternalDynamics(pg,ic0)
+    pgsol  = run_LTVS_N32_simulation(pg,ic0,(0.0,170.0));
+    nothing
 end
+
 
 CalcEigenValues(pg,[],plot =true, output = true)
 xlims!((-3,0))
@@ -25,7 +28,7 @@ plot(pgsol,"bus5",:ifd)
 
 Uc = U.*exp.(1im*δ/180*pi)
 Ykk = NodalAdmittanceMatrice(pg)
-S  = round.(Uc.*(conj.(Ykk)*conj.(Uc)),digits=5)
+S  = round.(Uc.*(conj.(Ykk)*conj.(Uc)),digits=5)*8000e6
 abs.(S)
 
 

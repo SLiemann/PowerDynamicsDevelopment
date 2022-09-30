@@ -2,8 +2,10 @@ using ModelingToolkit, DifferentialEquations
 using IfElse
 
 @variables t
+D = Differential(t)
+
 @connector function Pin(;name)
-    sts = @variables v(t)=1.0 i(t)=1.0 [connect = Flow] #[irreducible=true]
+    sts = @variables v(t)= 0.0 i(t)=0.0 [connect = Flow] #[irreducible=true]
     ODESystem(Equation[], t, sts, []; name=name)
 end
 
@@ -16,8 +18,8 @@ end
 function OnePort(;name,irv = false, iri = false)
     @named p = Pin()
     @named n = Pin()
-    @variables v(t)=1.0 [irreducible=irv] 
-    @variables i(t)=1.0 [connect = Flow, irreducible=iri]
+    @variables v(t)=0.0 [irreducible=irv] 
+    @variables i(t)=0.0 [connect=Flow,irreducible=iri]
     eqs = [
         v ~ p.v - n.v
         0 ~ p.i + n.i
@@ -68,7 +70,7 @@ function ACVoltage(;name, V = 1.0, freq = 1.0, phase = 0.0)
 end
 
 function ACStepVoltage(;name, V = 1.0, freq = 1.0, phase = 0.0, dV = 1.0)
-    @named oneport = OnePort(irv=false)
+    @named oneport = OnePort(irv=true)
     @unpack v = oneport
     ps = @parameters V=V freq=freq phase=phase dV = dV switch=1
     eqs = [
@@ -95,14 +97,14 @@ function affect!(integ,u,v,ctx)
     display(integ.u[u.v])
 end
 
-function Diode(;name, Uf = 0.8,Ron = 0.01, Roff = 0.5e4)
-    @named oneport = OnePort(irv = true)
+function Diode(;name, uf = 0.8,ron = 0.01, roff = 0.5e4)
+    @named oneport = OnePort(irv=true)
     @unpack v, i = oneport
-    ps = @parameters Ron=Ron Roff= Roff Uf=Uf 
+    ps = @parameters Ron=ron Roff=roff Uf=uf 
     eqs = [
         i ~ IfElse.ifelse(v<=Uf, v/Roff ,v/Ron + Uf*(1.0/Roff - 1.0/Ron))
         ]
-    extend(ODESystem(eqs, t, [], ps;continuous_events  = [v-Uf~0.0], name=name), oneport) # =>(affect!, [v], [], nothing)]
+    extend(ODESystem(eqs, t, [], ps;continuous_events  = [v~Uf], name=name), oneport) # =>(affect!, [v], [], nothing)]
     #extend(ODESystem(eqs, t, [], ps;continuous_events  = [[v~Uf],[v~Uf-0.01],[v~Uf+0.01]], name=name), oneport)
 end
 
@@ -111,8 +113,8 @@ affectID!(integ,u,v,ctx) = integ.u[u.i] = 0
 function IdealDiode(;name)
     @named p = Pin()
     @named n = Pin()
-    @variables v(t)=1.0 [irreducible=true] 
-    @variables i(t)=1.0 [connect = Flow, irreducible=true]
+    @variables v(t)=0.0 [irreducible=true] 
+    @variables i(t)=0.0 [connect = Flow, irreducible=true]
     eqs = [
         v ~ p.v - n.v
         0 ~ p.i + n.i
@@ -145,7 +147,7 @@ function ShockleyDiode(;name,Is = 10e-8,n=1.5,Ut=25e-3, Steigung = 100)
     eqs = [
         i ~ IfElse.ifelse(v <= Uknick, Is * (exp(v/(n*Ut))-1.0),(v-Uknick)*Steigung + Is * (exp(Uknick/(n*Ut))-1.0)) 
         ]
-    extend(ODESystem(eqs, t, [], ps;continuous_events  = [v~Uknick], name=name), oneport)
+    extend(ODESystem(eqs, t, [], ps;continuous_events  = [v-Uknick~0.0], name=name), oneport)
 end
 
 function ConstPower(;name, P = 1.0)

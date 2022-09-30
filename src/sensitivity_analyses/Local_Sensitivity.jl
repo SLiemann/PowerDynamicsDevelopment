@@ -543,7 +543,7 @@ function CalcHybridTrajectorySensitivity(
     g_pre = g_all[1]
     Mc = copy(M)
 
-    @progress for i = 1:length(ind_sol)-1
+    for i = 1:length(ind_sol)-1
         sol_part = sol[ind_sol[i]:ind_sol[i+1]]
         sensi_part,xx0_k,yx0_k = ContinuousSensitivity(
                                     sol_part,

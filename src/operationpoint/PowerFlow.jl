@@ -220,6 +220,7 @@ function PowerFlowClassic(pg::PowerGrid; ind_sl::Int64 = 0,max_tol::Float64 = 1e
 
     S_node_gen = Array{Complex{Float64},2}(undef,number_nodes,1)
     S_node_load = Array{Complex{Float64},2}(undef,number_nodes,1)
+    
     #PowerNodeGeneration is called only once, since it should only change,
     #when power limits are reached or voltage dependency should be included.
     #However, both are not included yet.
@@ -235,7 +236,7 @@ function PowerFlowClassic(pg::PowerGrid; ind_sl::Int64 = 0,max_tol::Float64 = 1e
         for (ind,val) in enumerate(values(pg.nodes)) S_node_load[ind] = PowerNodeLoad(val,U[ind]*exp(1im*δ[ind])) end
 
         S_node = S_node_gen + S_node_load #total power at a node
-
+        
         ΔP = real(S_node) - Pn
         ΔQ = imag(S_node) - Qn
 
@@ -284,9 +285,9 @@ function PowerFlowClassic(pg::PowerGrid; ind_sl::Int64 = 0,max_tol::Float64 = 1e
             if mod(iter,Qlimit_iter_check) == 0 && !isempty(ind_PV_or) #dont change every iteration and check if PV nodes exist
                 for i in ind_PV_or # Calc current reactive power at each node
                     Qn[i] = sum(U[i].*U.*Ykk_abs[:,i].*sin.(δ[i].-δ.-θ[:,i]))
-                    if i == 5
-                        display(string(iter)*" Iteration: Q = "*string(Qn[i])*", PV_ind = "*string(ind_PV)*", U[i] = "*string(U[i]))
-                    end
+                    #if i == 5
+                    #    display(string(iter)*" Iteration: Q = "*string(Qn[i])*", PV_ind = "*string(ind_PV)*", U[i] = "*string(U[i]))
+                    #end
                     if Qn[i] >= Qmax[i]
                         index = findall(x-> x==i ,ind_PV) #find the PV node index
                         if ~isempty(index)

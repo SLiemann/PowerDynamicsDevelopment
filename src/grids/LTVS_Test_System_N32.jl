@@ -4,53 +4,56 @@ using Distributed
 @everywhere using IfElse
 using ModelingToolkit
 
-zfault() = (20+1im*20)/160000
+Sbase = 8000e6
+Ubase = 400e3
+Ibase = Sbase/Ubase/sqrt(3)
+Zbase = Ubase^2/Sbase
+
+zfault() = (20+1im*20)/Zbase
 tfault_on() = 1.0
 tfault_off() = 1.1
-dt_max() = 1e-2
+dt_max() = 1e-3
 
 function LTVS_Test_System_N32()
-    Sbase = 100e6
-    Ubase = 400e3
-    Ibase = Sbase/Ubase/sqrt(3)
-    Zbase = Ubase^2/Sbase
     Ybase = 1.0/Zbase
     #Yshunt = (400e3)^2*1im*100*pi*273.1061e-6*(400/130)^2/Ybase
-    Q_Shunt = 1450e6/Sbase
+    Q_Shunt_EHV = 600e6/Sbase
+    Q_Shunt_HV = 850e6/Sbase
     cos_phi_load = 0.95 #ind
     Pload = -7580e6 /Sbase
-    QLoad = Pload * sqrt(1.0/cos_phi_load^2 -1.0)
+    QLoad = -2243.7e6/Sbase #Pload * sqrt(1.0/cos_phi_load^2 -1.0)
+    position_fault = 0.9 #0 at slack 1.0 at bus 2
 
     buses=OrderedDict(
-        "bus1" => SlackAlgebraic(U=1.0),
-        "bus2" => VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=0., B=0.,Y_n = complex(0.0)),
-        "bus3" => VoltageDependentLoad(P=0.0, Q=Q_Shunt, U=1.0, A=1.0, B=0.,Y_n = complex(0.0)),
+        "bus1" => SlackAlgebraic(U=1.036),
+        "bus2" => VoltageDependentLoad(P=0.0, Q=Q_Shunt_EHV, U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),
+        "bus3" => VoltageDependentLoad(P=0.0, Q=Q_Shunt_HV,  U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),
         "bus4" => GeneralVoltageDependentLoad(P=Pload, Q = QLoad, U=1.0, Ap=0.0, Bp=1.0,Aq = 1.0, Bq= 0.0,Y_n = complex(0.0)),
-        "bus5" => SixOrderMarconatoMachineAVROEL(Sbase=Sbase,Srated=5300e6,H = 3, P=4440e6/Sbase, D=0., Ω=50, R_a = 0.0,
+        #="bus5" => VoltageDependentLoad(P=4400e6/Sbase, Q=2942.4191e6/Sbase,  U=1.0, A=0.0, B=0.0,Y_n = complex(0.0)),=#
+        "bus5" => SixOrderMarconatoMachineAVROEL(Sbase=Sbase,Srated=5300e6,H = 3, P=4400e6/Sbase, D=0., Ω=50, R_a = 0.0,
                                              T_ds=0.9545455,T_qs=0.3,T_dss=0.0333333,T_qss=0.025,
                                              X_d=2.2,X_q=2.0, X_ds=0.3,X_qs=0.4, X_dss=0.2,
                                              X_qss=0.2,T_AA=0.,V0 = 1.0, Ifdlim = 3.0618/(2.2-0.15),
                                              L1 = -18.0, G1 = 120.0, Ta = 5.0, Tb = 12.5,
                                              G2 = 10.0, L2 = 5.0),
-      #= "bus5" => VoltageDependentLoad(P=44.4, Q=31.079753, U=1.0, A=0., B=0.,Y_n = complex(0.0)),=#
        "busv" => VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=0., B=0.,Y_n = complex(0.0)))
     #Lines
     Z_SumLine = (3.140255 + 1im*17.48548)/Zbase
     B_half_SumLine = 1im*100*pi*19.49005*1e-6/2.0*Zbase
     Z_4032_4044 = (9.6 + 1im*80.0)/Zbase
-    B_half_4032_4044 = 1im*100*pi*4.77*1e-6/2.0*Zbase
+    B_half_4032_4044 = 1im*100*pi*4.770001*1e-6/2.0*Zbase
     #Transformers
     Z_Trafo_Netz = 0.13*(400e3)^2/7580e6/Zbase #same base power
     Z_OLTC= 0.1*(130e3)^2/7580e6 * (400/130)^2 / Zbase
     Z_Trafo_SM= 0.15*(130e3)^2/5300e6 * (400/130)^2 / Zbase
     branches=OrderedDict(
         "Line_1-2"=> PiModelLine(from= "bus1", to = "bus2",y=1.0/Z_SumLine, y_shunt_km=B_half_SumLine, y_shunt_mk=B_half_SumLine),
-        "Line_1-v"=> PiModelLine(from= "bus1", to = "busv",y=1.0/(Z_4032_4044/2.0), y_shunt_km=B_half_4032_4044, y_shunt_mk=0.0),
-        "Line_v-2"=> PiModelLine(from= "bus2", to = "busv",y=1.0/(Z_4032_4044/2.0), y_shunt_km=B_half_4032_4044, y_shunt_mk=0),
-        "Trafo_Netz"=> StaticPowerTransformer(from="bus2",to="bus3",Sbase=Sbase,Srated=7580e6,uk=0.13,XR_ratio=Inf,
-                                           i0=0.0,Pv0=0.0,tap_side = "HV",tap_pos = 7,tap_inc = 1.0),
-        "OLTC"=> StaticPowerTransformer(from="bus3",to="bus4",Sbase=Sbase,Srated=7580e6,uk=0.10,XR_ratio=Inf,
-                                           i0=0.0,Pv0=0.0,tap_side = "HV",tap_pos = -1,tap_inc = 1.0),
+        "Line_1-v"=> PiModelLine(from= "bus1", to = "busv",y=1.0/(Z_4032_4044*position_fault), y_shunt_km=B_half_4032_4044, y_shunt_mk=0.0),
+        "Line_v-2"=> PiModelLine(from= "bus2", to = "busv",y=1.0/(Z_4032_4044*(1.0-position_fault)), y_shunt_km=B_half_4032_4044, y_shunt_mk=0),
+        "Trafo_Netz"=> StaticPowerTransformer(from="bus2",to="bus3",Sbase=Sbase,Srated=8000e6,uk=0.15,XR_ratio=Inf,
+                                           i0=0.0,Pv0=0.0,tap_side = "HV",tap_pos = 5,tap_inc = 1.0),
+        "OLTC"=> StaticPowerTransformer(from="bus3",to="bus4",Sbase=Sbase,Srated=8000e6,uk=0.12,XR_ratio=Inf,
+                                           i0=0.0,Pv0=0.0,tap_side = "HV",tap_pos = -6,tap_inc = 1.0),
         "Trafo_SM"=> StaticPowerTransformer(from="bus3",to="bus5",Sbase=Sbase,Srated=5300e6,uk=0.15,XR_ratio=Inf,
                                           i0=0.0,Pv0=0.0,tap_side = "HV",tap_pos = 5,tap_inc = 1.0))
         return PowerGrid(buses, branches)
@@ -193,7 +196,7 @@ function run_LTVS_N32_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tupl
     end
 
     function check_voltage(u,t,integrator)
-            sqrt(u[index_U_load]*u[index_U_load] + u[index_U_load+1]*u[index_U_load+1]) < 0.65
+            sqrt(u[index_U_load]*u[index_U_load] + u[index_U_load+1]*u[index_U_load+1]) < 0.3
     end
 
     function stop_integration(integrator)
