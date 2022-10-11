@@ -52,8 +52,8 @@ function LTVS_Test_System_N32()
         "Line_v-2"=> PiModelLine(from= "bus2", to = "busv",y=1.0/(Z_4032_4044*(1.0-position_fault)), y_shunt_km=B_half_4032_4044, y_shunt_mk=0),
         "Trafo_Netz"=> StaticPowerTransformer(from="bus2",to="bus3",Sbase=Sbase,Srated=8000e6,uk=0.15,XR_ratio=Inf,
                                            i0=0.0,Pv0=0.0,tap_side = "HV",tap_pos = 5,tap_inc = 1.0),
-        "OLTC"=> StaticPowerTransformer(from="bus3",to="bus4",Sbase=Sbase,Srated=8000e6,uk=0.12,XR_ratio=Inf,
-                                           i0=0.0,Pv0=0.0,tap_side = "HV",tap_pos = -6,tap_inc = 1.0),
+        "OLTC"=> StaticPowerTransformer(from="bus3",to="bus4",Sbase=Sbase,Srated=8000e6,uk=0.105,XR_ratio=Inf,
+                                           i0=0.0,Pv0=0.0,tap_side = "LV",tap_pos = 6,tap_inc = 1.0),
         "Trafo_SM"=> StaticPowerTransformer(from="bus3",to="bus5",Sbase=Sbase,Srated=5300e6,uk=0.15,XR_ratio=Inf,
                                           i0=0.0,Pv0=0.0,tap_side = "HV",tap_pos = 5,tap_inc = 1.0))
         return PowerGrid(buses, branches)

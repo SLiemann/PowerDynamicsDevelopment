@@ -9,14 +9,15 @@ begin
 end
 begin
     pg = LTVS_Test_System_N32()
-    Qmax   = [Inf, Inf, Inf,Inf,Inf*5300/8000*sqrt(1-0.85^2),Inf]
+    Qmax   = [Inf, Inf, Inf,Inf,5300/8000*sqrt(1-0.85^2),Inf]
     Qmin   = -Qmax
-    U,δ,ic0 = PowerFlowClassic(pg,iwamoto = true,max_tol = 1e-4,iter_max = 100,Qmax = Qmax, Qmin = Qmin,Qlimit_iter_check=3)
+    U,δ,ic0,cu = PowerFlowClassic(pg,iwamoto = true,max_tol = 1e-4,iter_max = 100,Qmax = Qmax, Qmin = Qmin,Qlimit_iter_check=80)
     display(U.=> δ)
-    pg, ic0 = InitializeInternalDynamics(pg,ic0)
-    pgsol  = run_LTVS_N32_simulation(pg,ic0,(0.0,170.0));
-    nothing
+    #pg, ic0 = InitializeInternalDynamics(pg,ic0)
+    #pgsol  = run_LTVS_N32_simulation(pg,ic0,(0.0,170.0));
+    #nothing
 end
+plot(cu')
 
 
 CalcEigenValues(pg,[],plot =true, output = true)

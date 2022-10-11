@@ -18,30 +18,43 @@ begin
     #x = sin.(0:1e-2:4*pi)
     f = plot()
     J = getConstructionDelay(x)
-    for kend in 1:100:2000
-        ks2 = 0:1:kend
+    #for kend in 1:100:2000
+        ks2 = 0:4:Int64(floor(length(x)/10))
 
-        
-        for d in 8, τ in J
-            r = embed(x, d, τ)
-
-            E2 = lyapunov_from_data(r, ks2; ntype)
+        for d in [1], N in 1:30#, τ in 1:3:9
+            r = embed(x, d, J)
+            ntype =  NeighborNumber(N)
+            E2 = lyapunov_from_data(r, ks2;ntype)
             λ2 = linear_region(ks2 .* Δt, E2)[2]
             #display(E2[end])
-            plot!(ks2, E2; label = "kend=$(kend), λ=$(round(λ2, digits = 3))",legend=false) #, d=$(d), τ=$(τ)
-            #plot([0,200],[-1])
+            if ~isnan(λ2)
+                #plot!(ks2, E2; label = "N=$(N),d=$(d), λ=$(round(λ2, digits = 3))",legend=:topleft) #, d=$(d), τ=$(τ)
+                #plot([0,200],[-1])
+                bar!([N],[λ2],legend=false)
+            end
         end
-    end
+    #end
     f
 end
 
 using StatsBase
 
 
-function getConstructionDelay(x)
-    acf = autocor(x)
+function getConstructionDelay(x;demean=true)
+    acf = autocor(x,collect(1:length(x)-1),demean=demean)
     #bar(acf)
     #plot!([0,length(acf)],[1-1/exp(1),1-1/exp(1)])
-    return findfirst(acf .< (1-1/exp(1)))
+    J  = findfirst(acf .< (1-1/exp(1)))
+    if isnothing(J)
+        @warn "Autocorrelation higher then 0.63212... \n setting J to 1"
+        return 1
+    else
+        return J
+    end
 end
 
+using CSV, DataFrames
+ test = DataFrame(CSV.File("C:\\Users\\liemann\\dissertation\\Dissertation\\document\\images\\231_LVRT curves and cases\\unstable.csv"; header=false, delim=';', type=Float64))
+
+ x = Float64.(test[3:end,2])
+ getConstructionDelay(x)

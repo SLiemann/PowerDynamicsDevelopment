@@ -92,6 +92,7 @@ NodeType(L::Union{MatchingControl,MatchingControlRed}) = 1
 NodeType(L::dVOC) = 1
 NodeType(L::droop) = 1
 NodeType(L::VSM) = 1
+NodeType(L::gentpj) = 1
 NodeType(L::GeneralVoltageDependentLoad) = 2
 
 #note: only loads are treated with voltage depency and are called every iteration
@@ -148,6 +149,7 @@ PowerNodeLoad(L::Union{MatchingControl,MatchingControlRed},U) = 0.
 PowerNodeLoad(L::dVOC,U) = 0.
 PowerNodeLoad(L::droop,U) = 0.
 PowerNodeLoad(L::VSM,U) = 0.
+PowerNodeLoad(L::gentpj,U) = 0.
 function PowerNodeLoad(L::GeneralVoltageDependentLoad,U)
     u_rel = abs(U)/L.U
     Pv = L.P * (L.Ap * u_rel^2 + L.Bp * u_rel + 1.0 - L.Ap - L.Bp)
@@ -190,6 +192,7 @@ PowerNodeGeneration(M::Union{MatchingControl,MatchingControlRed}) = M.p0set
 PowerNodeGeneration(V::dVOC) = V.p0set
 PowerNodeGeneration(V::droop) = V.p0set
 PowerNodeGeneration(V::VSM) = V.p0set
+PowerNodeGeneration(V::gentpj) = V.P
 PowerNodeGeneration(V::GeneralVoltageDependentLoad) = 0.0
 
 
@@ -217,6 +220,8 @@ function PowerFlowClassic(pg::PowerGrid; ind_sl::Int64 = 0,max_tol::Float64 = 1e
     θ   = angle.(Ykk);
     Pn  = similar(U);
     Qn  = similar(U);
+    conv_u = deepcopy(U)
+   
 
     S_node_gen = Array{Complex{Float64},2}(undef,number_nodes,1)
     S_node_load = Array{Complex{Float64},2}(undef,number_nodes,1)
@@ -247,11 +252,11 @@ function PowerFlowClassic(pg::PowerGrid; ind_sl::Int64 = 0,max_tol::Float64 = 1e
         if error_ < max_tol
             @info "Power flow converged in $iter iterations"
             ic_guess = guess.(values(pg.nodes),U.*exp.(1im.*δ))
-            return U,δ*180/pi,vcat(ic_guess...) # power flow converged
+            return U,δ*180/pi,vcat(ic_guess...),conv_u # power flow converged
         elseif iter == iter_max
              @warn "Power flow reached max. iteration ($iter) and has not converged."
              ic_guess = guess.(values(pg.nodes),U.*exp.(1im.*δ))
-             return U,δ*180/pi,vcat(ic_guess...) #max iteration reached
+             return U,δ*180/pi,vcat(ic_guess...),conv_u #max iteration reached
         end
 
         #get load flow Jacobian
@@ -277,6 +282,7 @@ function PowerFlowClassic(pg::PowerGrid; ind_sl::Int64 = 0,max_tol::Float64 = 1e
         #Update angle and voltage magnitude, where the latter is the square
         δ[1:end .!= ind_sl, :] += Δδ
         U[setdiff(1:end, [ind_sl; ind_PV]), :] = U[setdiff(1:end, [ind_sl; ind_PV]), :] + ΔU.*U[setdiff(1:end, [ind_sl; ind_PV]), :]
+        conv_u = hcat(conv_u,U)
 
         #Check if reactive power limit is reached; change PV to PQ node
         if Qmax != -1 && Qmin != -1 #Qmax and Qmin are normally vectors with the limits
@@ -513,6 +519,13 @@ function GetInitialVoltages(pg::PowerGrid, ind_sl::Int64,number_nodes::Int64)
 
     if SixOrderMarconatoMachineAVROEL ∈ collect(values(pg.nodes)) .|> typeof
         pv = findall(collect(values(pg.nodes).|> typeof).== SixOrderMarconatoMachineAVROEL)
+        for i in pv
+            U[i] = 1.0
+        end
+    end
+
+    if gentpj ∈ collect(values(pg.nodes)) .|> typeof
+        pv = findall(collect(values(pg.nodes).|> typeof).== gentpj)
         for i in pv
             U[i] = 1.0
         end
