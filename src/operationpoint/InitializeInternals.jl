@@ -745,14 +745,15 @@ function InitNode(GP::gentpj,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Arr
        end
    end
    function sat_exponential(x1)
-      q = log(GP.S_12/GP.S_10)/log(GP.S_12)
+      q = log(GP.S_12/GP.S_10)/log(1.2)
       return GP.S_10*x1^q
   end
 
-   # field voltage calculation
+   #= field voltage calculation
    function CalcFieldVoltage(Vrterm,Viterm,Ir,Ii) #vd&Vq ausrechnen ohne Sättigung zu bestimmen - muss aber in einem Rutsch sein (nichtl.)
        function f!(F,x)
-            S_d = sat_exponential(sqrt(x[1]^2 + x[2]^2))
+            E_l = norm([Viterm + Ii * GP.R_a + Ir * GP.X_l,Vrterm + Ir * GP.R_a - Ii * GP.X_l])
+            S_d = sat_exponential(E_l)
             S_q = (GP.X_q)/(GP.X_d) * S_d
             Xdsatss = (GP.X_dss - GP.X_l) /  (1 + S_d) + GP.X_l
             Xqsatss = (GP.X_qss - GP.X_l) /  (1 + S_q) + GP.X_l
@@ -763,21 +764,32 @@ function InitNode(GP::gentpj,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Arr
        end
        sol = nlsolve(f!, [Vrterm,Viterm],ftol = 1e-12)
        return sol.zero
-   end
-
+   end=#
+   
    #get inital values
    v_r_term = ic_lf[ind_offset]
    v_i_term = ic_lf[ind_offset+1]
    i_r = real(I_c[ind])
    i_i = imag(I_c[ind])
 
+   #Calculate saturation
+   E_l = norm([v_i_term + i_i * GP.R_a + i_r * GP.X_l,v_r_term + i_r * GP.R_a - i_i * GP.X_l]) #magnitude not changed by dq-transformation
+   S_d = sat_exponential(E_l)
+   S_q = (GP.X_q)/(GP.X_d) * S_d
+
+   #Calulate Polradspannung
+   Xdsatss = (GP.X_dss - GP.X_l) /  (1 + S_d) + GP.X_l
+   Xqsatss = (GP.X_qss - GP.X_l) /  (1 + S_q) + GP.X_l   
+   Vr = v_r_term + GP.R_a *i_r  - Xqsatss * i_i
+   Vi = v_i_term + GP.R_a *i_i  + Xdsatss * i_r
+
    #calculate field voltage
-   Vr,Vi = CalcFieldVoltage(v_r_term,v_i_term,i_r,i_i) #not in dq-system
+   #Vr,Vi = CalcFieldVoltage(v_r_term,v_i_term,i_r,i_i) #not in dq-system
 
    #calculate δ
-   K_temp = (GP.X_q-GP.X_qss)/(1 + sat_exponential(sqrt(Vr^2 + Vi^2)))
+   K_temp = (GP.X_q-GP.X_qss)/(1 + S_q)
    δ = atan((Vi+i_r*K_temp)/(Vr-i_i*K_temp))
-   println("δ = ",δ*180/pi)
+
    #terminal voltage transformation to local dq-system
    v = v_r_term+1im*v_i_term
    v = 1im*v*exp(-1im*δ)
@@ -788,11 +800,6 @@ function InitNode(GP::gentpj,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Arr
    i_c = 1im*I_c[ind]*exp(-1im*δ)/(GP.Srated/GP.Sbase)
    i_d = real(i_c)
    i_q = imag(i_c)
-
-   #saturation
-   e_l = sqrt((v_q + (i_q * GP.R_a) + (i_d * GP.X_l))^2 + (v_d + (i_d * GP.R_a) - (i_q * GP.X_l))^2)
-   S_d = sat_exponential(e_l)
-   S_q = S_d*GP.X_q/GP.X_d
 
    #initial conditions as derivative has to be 0
    e_q2 = 0;
@@ -805,31 +812,12 @@ function InitNode(GP::gentpj,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Arr
    e_qss = e_q1 + e_q2 - i_d * ((GP.X_d - GP.X_dss) / (1 + S_d))
    e_dss = e_d1 + e_d2 + i_q * ((GP.X_q - GP.X_qss) / (1 + S_q))
 
-   #test wg. Vr und Vi
-
-   v_test = Vr+1im*Vi
-   v_test = 1im*v_test*exp(-1im*δ)
-   Vr_trans = real(v_test)
-   Vi_trans = imag(v_test)
-
-   println("Vr = ", Vr, "   Vr_trans= ",Vr_trans,"   e_d'' = ",e_dss)
-   println("Vi = ", Vi, "   Vi_trans= ",Vi_trans,"   e_q'' = ",e_qss)
-
-
 
    e_qs = e_qss + i_d * ((GP.X_ds - GP.X_dss) / (1 + S_d))
    e_ds = e_dss - i_q * ((GP.X_qs - GP.X_qss) / (1 + S_q))
 
-   #further results
-
+   #field voltage
    v_f = (1+S_d)*e_q1
-   v_f2=abs(e_dss + 1im*e_qss)
-   println("vf = ", v_f)
-   println("vf_abs(e_dss+1ime_qss) = ",v_f2) #REVIEW
-
-#   v_f =  abs(v_d+1im*v_q)
-#   v_f = abs(e_dss + 1im*e_qss) #REVIEW (Stationary ω=0) (abs?)
-#   v_f = abs((1+S_d)*e_q1/GP.T_d0s)
 
    #Pm also needs to be initialized
    Pm = (v_q + GP.R_a * i_q) * i_q + (v_d + GP.R_a * i_d) * i_d
@@ -839,10 +827,5 @@ function InitNode(GP::gentpj,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Arr
                                            E_fd=v_f, R_a=GP.R_a, T_d0s=GP.T_d0s, T_q0s=GP.T_q0s, T_d0ss=GP.T_d0ss,
                                            T_q0ss=GP.T_q0ss, X_d=GP.X_d, X_q=GP.X_q, X_ds=GP.X_ds, X_qs=GP.X_qs,
                                            X_dss=GP.X_dss, X_qss=GP.X_qss, X_l=GP.X_l, S_10=GP.S_10, S_12=GP.S_12, K_is = GP.K_is);
-
-
-   # Structure from node: u_r, u_i, θ, ω, e_ds, e_qs, e_dss,e_qss
-   # gentpj [[θ,dθ],[ω, dω],[e_ds, de_ds],[e_qs, de_qs],[e_dss, de_dss],[e_qss, de_qss]]
-
-return [v_r_term, v_i_term, δ, 0., e_ds, e_qs, e_dss, e_qss], node_temp
+return [v_r_term, v_i_term, δ, 0., e_ds, e_qs, e_dss, e_qss,E_l], node_temp
 end

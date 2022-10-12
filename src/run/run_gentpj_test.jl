@@ -3,56 +3,49 @@ using DifferentialEquations
 using OrderedCollections: OrderedDict
 using Plots
 
-begin
-    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/include_custom_nodes_lines_utilities.jl")
+include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/include_custom_nodes_lines_utilities.jl")
+function Testgrid()
     buses=OrderedDict(
             "bus1" => SlackAlgebraic(U=1.0),
             "bus2" => VoltageDependentLoad(P=-0.5,Q=0.0,U=1.0,A=0,B=0),
-           "bus3" => gentpj(Sbase=100e6, Srated=100e6, H=6.0, P=1.0, D=0, Ω=50, E_fd=1.0, R_a=0, T_d0s=7.0, T_q0s=1.5, T_d0ss=0.05, T_q0ss=0.05, X_d=2.2, X_q=2.0, X_ds=0.3, X_qs=0.4, X_dss=0.2, X_qss=0.2, X_l=0.15, S_10=0.1, S_12=0.3,K_is=0.0))
+           "bus3" => gentpj(Sbase=100e6, Srated=100e6, H=6.0, P=1.0, D=0.1, Ω=50, E_fd=1.0, R_a=0, T_d0s=7.0, T_q0s=1.5, T_d0ss=0.05, T_q0ss=0.05, X_d=2.2, X_q=2.0, X_ds=0.3, X_qs=0.4, X_dss=0.2, X_qss=0.2, X_l=0.15, S_10=0.1, S_12=0.3,K_is=0.0))
 
 
     branches=OrderedDict(
         "Line_1-2"=> PiModelLine(from= "bus1", to = "bus2",y=1.0/(0.005+1im*0.05), y_shunt_km=0.0, y_shunt_mk=0.0),
         "Line_2-3"=> PiModelLine(from= "bus2", to = "bus3",y=1.0/(0.005+1im*0.05), y_shunt_km=0.0, y_shunt_mk=0.0),)
-        pg= PowerGrid(buses, branches);
-        nothing
+    return PowerGrid(buses, branches)
 end
 
 
 U,δ1,ic0,uc = PowerFlowClassic(pg,iwamoto = true,max_tol=1e-8)
-#display(U)
-#display(δ1)
-#display(ic)
-
 pg_tmp,ic = InitializeInternalDynamics(pg,ic0)
 
 
 prob = ODEProblem{true}(rhs(pg_tmp),ic,(0.0,100.0))
 sol = solve(prob,Rosenbrock23());
-for i=1:12
+plot(sol,vars=(12))
+plot(sol,vars=(13))
+for i=1:13
     display(plot(sol,vars=(i)))
 end
-rhs(pg).syms .=> ic
-
-Uc = U.*exp.(1im*δ1/180*pi)
-Ykk = NodalAdmittanceMatrice(pg)
-S  = Uc.*(conj.(Ykk)*conj.(Uc))
 
 
-function simTestGrid()
+function simTestGrid(;p_new = -0.5)
     #Regular and fault powergrid
-    pg_regular = gentpj_test_grid()
-    pg_fault = gentpj_test_grid(y_new = 8) #8.0
+    pg_regular = Testgrid()
 
     #parameters for simulation
     #tstep = [5,10]
-    tstep = [1.00,2.0]
+    tstep = [1.00,5.0]
     #tstep = [0.1,0.2] #time points of fault
-    timespan = (0.0,3.0) #duration of simulation #1.5
+    timespan = (0.0,10.0) #duration of simulation #1.5
 
     #Find initial condictions
     U,δ,ic0 = PowerFlowClassic(pg_regular, iwamoto = true, max_tol = 1e-7)
     pg_regular,ic = InitializeInternalDynamics(pg_regular,ic0)
+    pg_fault = deepcopy(pg_regular)
+    pg_fault.nodes["bus2"] = VoltageDependentLoad(P=p_new,Q=0.0,U=1.0,A=0,B=0)
 
     #get equations
     regular = rhs(pg_regular)
@@ -106,10 +99,10 @@ function simTestGrid()
     #returning the solution
     return PowerGridSolution(sol,pg_regular)
 end
-begin
-pgsol = simTestGrid()
 
-plot(pgsol,["bus1","bus3","bus3"],:v, legend = (0.9,0.5), label = ["U1" "U2" "U3"])
+pgsol = simTestGrid(p_new = -0.6);
+
+plot!(pgsol,["bus1","bus3","bus3"],:v, legend = (0.9,0.5), label = ["U1" "U2" "U3"])
 
 plot(pgsol,"bus1",:v, legend = (0.9,0.5), label = "U1")
 plot(pgsol,"bus2",:v, legend = (0.9,0.5), label = "U2")
@@ -118,4 +111,4 @@ plot(pgsol,"bus3",:θ, legend = (0.9,0.5), label = "θ")
 plot(pgsol,["bus3"],:p, legend = (0.9,0.5), label = "active power")
 plot(pgsol,["bus3"],:q, legend = (0.9,0.5), label = "reactive power")
 plot(pgsol,"bus3",:ω, legend = (0.9,0.5), label = "omega")
-end
+

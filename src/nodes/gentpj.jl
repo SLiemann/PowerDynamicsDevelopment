@@ -43,7 +43,7 @@ The model has the following internal dynamic variables:
 """
 =#
 @DynamicNode gentpj(Sbase, Srated, H, P, D, Ω, E_fd, R_a, T_d0s, T_q0s, T_d0ss, T_q0ss, X_d, X_q, X_ds, X_qs, X_dss, X_qss, X_l, S_10, S_12,K_is) begin
-    MassMatrix(m_int =[true,true,true,true,true,true])
+    MassMatrix(m_int =[true,true,true,true,true,true,false])
 end begin
     @assert Sbase > 0 "Base apparent power of the grid in VA, should be >0"         "// ??"
     @assert Srated > 0 "Rated apperent power of the machine in VA, should be >0"    "// ??"
@@ -78,7 +78,7 @@ end begin
     Bg = S_10 / (1-Ag)^2
 
     q = log(S_12/S_10)/log(1.2)
-end [[θ,dθ],[ω, dω],[e_ds, de_ds],[e_qs, de_qs],[e_dss, de_dss],[e_qss, de_qss]] begin
+end [[θ,dθ],[ω, dω],[e_ds, de_ds],[e_qs, de_qs],[e_dss, de_dss],[e_qss, de_qss],[el,del]] begin
 
     #current transformation to dq-system
     i_c = 1im*i*(cos(-θ)+1im*sin(-θ))/(Srated/Sbase)
@@ -94,6 +94,7 @@ end [[θ,dθ],[ω, dω],[e_ds, de_ds],[e_qs, de_qs],[e_dss, de_dss],[e_qss, de_q
 
     #start equation
     e_l = sqrt((v_q_term + (i_q * R_a) + (i_d * X_l))^2 + (v_d_term + (i_d * R_a) - (i_q * X_l))^2)
+    del = el-e_l
 
     #saturation function
     #S_d = 0.0
