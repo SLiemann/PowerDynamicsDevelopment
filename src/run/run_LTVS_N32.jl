@@ -9,23 +9,34 @@ begin
 end
 begin
     pg = LTVS_Test_System_N32()
-    Qmax   = [Inf, Inf, Inf,Inf,5300/8000*sqrt(1-0.85^2),Inf]
+    Qmax   = [Inf,Inf, Inf, Inf,Inf,5300/8000*sqrt(1-0.85^2),Inf]
     Qmin   = -Qmax
-    U,δ,ic0,cu = PowerFlowClassic(pg,iwamoto = true,max_tol = 1e-4,iter_max = 100,Qmax = Qmax, Qmin = Qmin,Qlimit_iter_check=80)
-    display(U.=> δ)
-    #pg, ic0 = InitializeInternalDynamics(pg,ic0)
-    #pgsol  = run_LTVS_N32_simulation(pg,ic0,(0.0,170.0));
-    #nothing
+    U1,δ1,ic0,cu = PowerFlowClassic(pg,iwamoto = false,max_tol = 1e-4,iter_max = 100,Qmax = Qmax, Qmin = Qmin,Qlimit_iter_check=80)
+    #display(U1.=> [1.0;U])
+    #display(U.=> δ)
+    pg, ic0 = InitializeInternalDynamics(pg,ic0)
+    #display(rhs(pg).syms .=> ic0)
+    pgsol  = run_LTVS_N32_simulation(pg,ic0,(0.0,10.0));
+    nothing
 end
 plot(cu')
-
+display(rhs(pg).syms .=> ic0)
 
 CalcEigenValues(pg,[],plot =true, output = true)
 xlims!((-3,0))
-plot(pgsol,["bus2","bus3","bus4","bus5"],:v, legend = legend=:bottomright)
-plot(pgsol,"bus5",:timer)
-plot(pgsol,"bus5",:ifd)
+plot(pgsol,["bus_ehv","bus_hv","bus_load","bus_sm"],:v, legend = legend=:bottomright)
+plot(pgsol,"bus_sm",:timer)
+plot(pgsol,"bus_sm",:ifd,xlims=(0,10))
+plot(pgsol,"bus_sm",:e_qs)
+plot(pgsol,"bus_sm",:e_ds)
+plot(pgsol,"bus_sm",:e_qss)
+plot(pgsol,"bus_sm",:e_dss)
 
+
+
+pgsol.dqsol
+
+display(U1.=> δ1)
 
 Uc = U.*exp.(1im*δ/180*pi)
 Ykk = NodalAdmittanceMatrice(pg)

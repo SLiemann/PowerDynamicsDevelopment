@@ -829,3 +829,108 @@ function InitNode(GP::gentpj,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Arr
                                            X_dss=GP.X_dss, X_qss=GP.X_qss, X_l=GP.X_l, S_10=GP.S_10, S_12=GP.S_12, K_is = GP.K_is);
 return [v_r_term, v_i_term, δ, 0., e_ds, e_qs, e_dss, e_qss,E_l], node_temp
 end
+
+function InitNode(GP::gentpjAVROEL,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)
+
+   #saturation function
+   function sat_scaled_quadratic(x1)
+       A = (1.2 - sqrt(1.2*GP.S_12/GP.S_10)) / (1.0 - sqrt(1.2*GP.S_12/GP.S_10))
+       B = GP.S_10 / (1 - A)^2
+       if x1 > A
+           return B*(x1-A)^2/x1
+       else
+           return 0.0
+       end
+   end
+   function sat_exponential(x1)
+      q = log(GP.S_12/GP.S_10)/log(1.2)
+      return GP.S_10*x1^q
+  end
+   
+   #get inital values
+   v_r_term = ic_lf[ind_offset]
+   v_i_term = ic_lf[ind_offset+1]
+   i_r = real(I_c[ind])
+   i_i = imag(I_c[ind])
+
+   #Calculate saturation
+   E_l = norm([v_i_term + i_i * GP.R_a + i_r * GP.X_l,v_r_term + i_r * GP.R_a - i_i * GP.X_l]) #magnitude not changed by dq-transformation
+   S_d = sat_exponential(E_l)
+   S_q = (GP.X_q)/(GP.X_d) * S_d
+
+   #Calulate Polradspannung
+   Xdsatss = (GP.X_dss - GP.X_l) /  (1 + S_d) + GP.X_l
+   Xqsatss = (GP.X_qss - GP.X_l) /  (1 + S_q) + GP.X_l   
+   Vr = v_r_term + GP.R_a *i_r  - Xqsatss * i_i
+   Vi = v_i_term + GP.R_a *i_i  + Xdsatss * i_r
+
+   #calculate field voltage
+   #Vr,Vi = CalcFieldVoltage(v_r_term,v_i_term,i_r,i_i) #not in dq-system
+
+   #calculate δ
+   K_temp1 = (GP.X_q-GP.X_qss)/(1 + S_q)
+   K_temp2 = (GP.X_d-GP.X_dss)/(1 + S_d)
+   K_temp = (GP.X_qs-GP.X_l)/(1 + S_d) + GP.X_l
+
+   δ = atan((v_i_term+i_r*K_temp + GP.R_a *i_i)/(v_r_term - i_i*K_temp +GP.R_a *i_r))
+   #println("delta: =", δ)
+   #println(angle(1im*(Vr+1im*Vi)*exp(-1im*δ))*180/pi)
+   #δ = angle((Vr+1im*Vi))
+   println(δ*180/pi)
+   println(Vr+1im*Vi)
+   println(1im*(Vr+1im*Vi)*exp(-1im*δ))
+
+
+   #terminal voltage transformation to local dq-system
+   v = v_r_term+1im*v_i_term
+   v = 1im*v*exp(-1im*δ)
+   v_d = real(v)
+   v_q = imag(v)
+
+   #current transformation to dq-system
+   i_c = 1im*I_c[ind]*exp(-1im*δ)/(GP.Srated/GP.Sbase)
+   i_d = real(i_c)
+   i_q = imag(i_c)
+
+   #initial conditions as derivative has to be 0
+   e_q2 = 0;
+   e_d2 = 0;
+   e_d1 = 0;
+
+   #equations
+   edqss = 1im*(Vr+1im*Vi)*exp(-1im*δ)
+   
+   e_q1 = v_q + i_q * GP.R_a + i_d * ((GP.X_d - GP.X_l) / (1 + S_d) + GP.X_l)
+   e_qss = e_q1 + e_q2 - i_d * ((GP.X_d - GP.X_dss) / (1 + S_d))
+   #e_qss = imag(edqss)
+  
+
+   e_dss = e_d1 + e_d2 + i_q * ((GP.X_q - GP.X_qss) / (1 + S_q))
+   #println(e_dss)
+   #e_dss = real(edqss)
+   #println(real(edqss))
+
+   e_qs = e_qss + i_d * ((GP.X_ds - GP.X_dss) / (1 + S_d))
+   e_ds = e_dss - i_q * ((GP.X_qs - GP.X_qss) / (1 + S_q))
+
+   #field voltage
+   v_f = (1+S_d)*e_q1
+   println(v_f)
+
+   #AVR & OEL
+   #Field current in a non-reciprocal system, otherwise would be: ifd = (E_f - T_d0s * de_qs) / (X_d - X-l)
+   ifd = v_f  #due to: ifd = (E_f - T_d0s * de_qs) de_qs = (E_f - (1 + S_d) * e_q1) * 1 / T_d0s
+   Vref = abs(v) + v_f/GP.G1
+
+   #Pm also needs to be initialized
+   Pm = (v_q + GP.R_a * i_q) * i_q + (v_d + GP.R_a * i_d) * i_d
+
+   #Create new bus
+   node_temp = gentpjAVROEL(Sbase=GP.Sbase,Srated=GP.Srated,H=GP.H, P=Pm, D=GP.D, Ω=GP.Ω,
+                                           R_a=GP.R_a, T_d0s=GP.T_d0s, T_q0s=GP.T_q0s, T_d0ss=GP.T_d0ss,
+                                           T_q0ss=GP.T_q0ss, X_d=GP.X_d, X_q=GP.X_q, X_ds=GP.X_ds, X_qs=GP.X_qs,
+                                           X_dss=GP.X_dss, X_qss=GP.X_qss, X_l=GP.X_l, S_10=GP.S_10, S_12=GP.S_12, K_is = GP.K_is,
+                                           V0 = Vref, Ifdlim = GP.Ifdlim, L1 = GP.L1, G1 = GP.G1, Ta = GP.Ta, Tb = GP.Tb,
+                                           G2 = GP.G2, L2 = GP.L2);
+return [v_r_term, v_i_term, δ, 0., e_ds, e_qs, e_dss, e_qss,E_l,ifd,GP.L1,v_f,v_f], node_temp
+end

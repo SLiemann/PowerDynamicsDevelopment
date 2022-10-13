@@ -1,17 +1,13 @@
-using IfElse
 #= Sebastian Liemann, ie3 TU Dortmund, based on F. Milano, Power System Modelling and Scripting, Springer Verlag, 2010
 @doc doc"""
 ```Julia
-SixOrderMarconatoMachineAVROEL(Sbase,Srated,H, P, D, Ω, R_a,T_ds,T_qs,T_dss,T_qss,X_d,X_q,X_ds,X_qs,X_dss,X_qss,T_AA,V0,Ifdlim,L1,G1,Ta,Tb,G2,L2)
+SixOrderMarconatoMachine(Sbase,Srated,H, P, D, Ω, E_f, R_a,T_ds,T_qs,T_dss,T_qss,X_d,X_q,X_ds,X_qs,X_dss,X_qss,T_AA)
 ```
 
 A node type that applies the 6th-order (sometimes also called 4th-order if ω and δ are not counted)
 synchronous machine model which is implemented according to
 F. Milano, "Power System Modelling and Scripting", Springer Verlag, 2010
 The main equations are on page 331, cf. Table 15.2 Model 6.b
-
-Also the model includes an Automatic Voltage Regulator and Overexcitation Limiter (OEL) from (see Fig. 2.6).
-PES Technical Report 19 : "Test Systems for Voltage Stability Analysis and Security Assessment", 2015.
 
 The model has the following internal dynamic variables:
 * ``u`` is here an algebraic constraint
@@ -20,11 +16,7 @@ The model has the following internal dynamic variables:
 * ``e_dss`` subtransient magnetic state in d-axis
 * ``e_qss`` subtransient magnetic state in q-axis
 * ``ω`` representing the frequency of the rotator (not relative)
-* ``θ`` representing the angle of the rotor with respect to the voltage angle ``ϕ``
-* ``ifd`` field current - algebraic constraint.
-* ``Timer`` Timer inside OEL.
-* ``x1`` state inside transient gain reduction (PDT1).
-* ``E_f`` Field voltage, output of Exciter.
+* ``θ`` representing the angle of the rotor with respect to the voltage angle ``ϕ``.
 
 # Keyword Arguments
 - `Sbase`: "Base apparent power of the grid in VA, should be >0"
@@ -33,6 +25,7 @@ The model has the following internal dynamic variables:
 - `P`: active (real) power output, also called the mechanical torque applied to the shaft, given in [pu]
 - `D`: damping coefficient, given in [s] (here D(ω-1.) is used)
 - `Ω`: rated frequency of the power grid, often ``2π⋅50Hz``
+- `E_f`: field voltage in [pu.]
 - `R_a` : armature resistance, given in [pu]
 - `T_ds` : short-circuit transient time constant of d-axis, given in [s]
 - `T_qs` : short-circuit transient time constant of q-axis, given in [s]
@@ -45,38 +38,35 @@ The model has the following internal dynamic variables:
 - `X_dss`: subtransient reactance of d-axis, given in [pu]
 - `X_qss`: subtransient reactance of d-axis, given in [pu]
 - `T_AA` : additional leakage time constant in d-axis, given in [s]
-- `V0` : Reference Voltage of AVR
-- `Ifdlim` : Maximum field current
-- `L1` : Lower Limit of Timer-Integrator
-- `G1` : Gain before Transient Gain Reduction (PDT1)
-- `Ta` : Nominator Time Constant of PDT1
-- `Tb` : Nominator Time Constant of PDT1
-- `G2` : Gain of PT1
-- `L2` : Upper Limit of Anti-Windup Integrator inside of the PT1
+- `X_l`: What is IT??? leakage reactance
 
 """
 =#
-@DynamicNode SixOrderMarconatoMachineAVROEL(Sbase,Srated,H, P, D, Ω, R_a,T_ds,T_qs,T_dss,T_qss,X_d,X_q,X_ds,X_qs,X_dss,X_qss,T_AA,V0,Ifdlim,L1,G1,Ta,Tb,G2,L2) begin
-    MassMatrix(m_int =[true,true,true,true,true,true,false,true,true,true])
+@DynamicNode gentpjAVROEL(Sbase, Srated, H, P, D, Ω, R_a, T_d0s, T_q0s, T_d0ss, T_q0ss, X_d, X_q, X_ds, X_qs, X_dss, X_qss, X_l, S_10, S_12,K_is,V0,Ifdlim,L1,G1,Ta,Tb,G2,L2) begin
+    MassMatrix(m_int =[true,true,true,true,true,true,false,false,true,true,true])
 end begin
-    @assert Sbase > 0 "Base apparent power of the grid in VA, should be >0"
-    @assert Srated > 0 "Rated apperent power of the machine in VA, should be >0"
-    @assert H > 0 "inertia (H) should be >0"
-    @assert P >= 0 "Active power (P) should be >=0"
-    @assert D >= 0 "damping (D) should be >=0"
-    #@assert E_f >= 0 "Field Voltage (E_f) should be >=0"
+    @assert Sbase > 0 "Base apparent power of the grid in VA, should be >0"         "// ??"
+    @assert Srated > 0 "Rated apperent power of the machine in VA, should be >0"    "// ??"
+    @assert H > 0 "inertia (H) should be >0"                                        "// ??"
+    @assert P >= 0 "Active power (P) should be >=0"                                 "// ??"
+    @assert D >= 0 "damping (D) should be >=0"                                      "// ??"
     @assert R_a >= 0 "armature resistance (R_a) should be >=0"
-    @assert T_ds > 0 "time constant of d-axis (T_ds) should be >0"
-    @assert T_qs > 0 "time constant of q-axis (T_qs) should be >0"
-    @assert T_dss > 0 "time constant of d-axis (T_dss) should be >0"
-    @assert T_qss > 0 "time constant of q-axis (T_qss) should be >0"
     @assert X_d >= 0 "reactance of d-axis (X_d) should be >=0"
     @assert X_q >= 0 "reactance of q-axis (X_q) should be >=0"
     @assert X_ds > 0 "transient reactance of d-axis (X_ds) should be >0"
     @assert X_qs > 0 "transient reactance of q-axis (X_qs) should be >0"
     @assert X_dss > 0 "subtransient reactance of d-axis (X_dss) should be >0"
     @assert X_qss > 0 "subtransient reactance of q-axis (X_qss) should be >0"
-    @assert T_AA >= 0 "additional leakage time constant of d-axis (T_AA) should be >=0"
+    @assert X_l > 0 "NEU!"
+
+    @assert T_d0s > 0 "time constant of d-axis (T_ds) should be >0"
+    @assert T_q0s > 0 "time constant of q-axis (T_qs) should be >0"
+    @assert T_d0ss > 0 "time constant of d-axis (T_dss) should be >0"
+    @assert T_q0ss > 0 "time constant of q-axis (T_qss) should be >0"
+
+    @assert S_10 >= 0 "saturation factor at 1.0 pu must be >= 0"
+    @assert S_12 >= 0 "saturation factor at 1.2 pu must be >= 0"
+    @assert K_is >= 0 "gentpj current depend saturation konstant"
 
     #AVR & OEL
     @assert V0 >= 0 "Reference Voltage of AVR"
@@ -88,43 +78,69 @@ end begin
     @assert G2 >= 0 "Gain of PT1 (Exciter)"
     @assert L2 >= 0 "Upper Limit of Anti-Windup Integrator inside of the PT1 (Exciter)"
 
-    #Converstion of short-circuit time constants to open-loop time constants
-    T_d0s = T_ds*(X_d/X_ds)
-    T_q0s = T_qs*(X_q/X_qs)
-    T_d0ss = T_dss*(X_ds/X_dss)
-    T_q0ss = T_qss*(X_qs/X_qss)
+    #auxillary variables
 
-    #Auxillary variables
-    γ_d = T_d0ss * X_dss * (X_d - X_ds) / (T_d0s * X_ds)
-    γ_q = T_q0ss * X_qss * (X_q - X_qs) / (T_q0s * X_qs)
+    Ag = (1.2 - sqrt(1.2*S_12/S_10))/(1 - sqrt(1.2*S_12/S_10))
+    Bg = S_10 / (1-Ag)^2
 
-end [[θ,dθ],[ω, dω],[e_ds, de_ds],[e_qs, de_qs],[e_dss, de_dss],[e_qss, de_qss],[ifd,difd],[timer,dtimer],[x1,dx1],[E_f,dE_f]] begin
-    #i_c = 1im*i*exp(-1im*θ)
+    q = log(S_12/S_10)/log(1.2)
+end [[θ,dθ],[ω, dω],[e_ds, de_ds],[e_qs, de_qs],[e_dss, de_dss],[e_qss, de_qss],[el,del],[ifd,difd],[timer,dtimer],[x1,dx1],[E_f,dE_f]] begin
+
+    #current transformation to dq-system
     i_c = 1im*i*(cos(-θ)+1im*sin(-θ))/(Srated/Sbase)
     i_d = real(i_c)
     i_q = imag(i_c)
-    pe = real(u * conj(i))
 
-    de_ds = (1 / T_q0s) * (- e_ds + (X_q - X_qs - γ_q) * i_q)
-    de_qs = (1 / T_d0s) * (- e_qs - (X_d - X_ds - γ_d) * i_d + (1 - T_AA/T_d0s) * E_f)
+    #terminal voltage transformation to local dq-system
+    v = 1im*u*(cos(-θ)+1im*sin(-θ))
+    v_d_term = real(v)
+    v_q_term = imag(v)
 
-    de_dss = (1 / T_q0ss) * (- e_dss + e_ds + (X_qs - X_qss + γ_q) * i_q)
-    de_qss = (1 / T_d0ss) * (- e_qss + e_qs - (X_ds - X_dss + γ_d) * i_d + (T_AA/T_d0s) * E_f)
+    #pe = real(u * conj(i))
 
-    v_d = -R_a * i_d + (ω + 1.) * (e_dss  + X_qss * i_q)
-    v_q = -R_a * i_q + (ω + 1.) * (e_qss - X_dss * i_d)
+    #start equation
+    e_l = sqrt((v_q_term + (i_q * R_a) + (i_d * X_l))^2 + (v_d_term + (i_d * R_a) - (i_q * X_l))^2)
+    del = el-e_l
 
-    v  = v_d + 1im*v_q
-    #du = u - -1im*v*exp(1im*θ) #algebraic constraint
-    du = u - -1im*v*(cos(θ)+1im*sin(θ)) #algebraic constraint
+    #saturation function
+    #S_d = 0.0
+    #S_q = 0.0
 
-    pe = (ω + 1.0) * ((v_q + R_a * i_q) * i_q + (v_d + R_a * i_d) * i_d)
+    #if e_l > Ag
+        #S_d = Bg*(e_l+K_is*abs(i_c)-Ag)^2/(e_l+K_is*abs(i_c))
+        #S_q = S_d*X_q/X_d
+    #end
+    
+    S_d = S_10*e_l^q 
+    S_q = S_d*X_q/X_d
+
+    #further equations
+    e_q2 = (e_qss - e_qs + i_d * ((X_ds - X_dss) / (1 + S_d))) * ((X_d - X_dss) / (X_ds - X_dss))
+    e_q1 = e_qss - e_q2 + i_d * ((X_d - X_dss) / (1 + S_d))
+
+    e_d2 = (e_dss - e_ds - i_q * ((X_qs - X_qss) / (1 + S_q))) * ((X_q - X_qss) / (X_qs - X_qss))
+    e_d1 = e_dss - e_d2 - i_q * ((X_q - X_qss) / (1 + S_q))
+
+    de_qs = (E_f - (1 + S_d) * e_q1) * 1 / T_d0s
+    de_ds = - (1 + S_q) * e_d1 / T_q0s
+
+    de_qss = - (1 + S_d) * ((X_ds - X_dss) / (X_d - X_dss)) * (e_q2 / T_d0ss)
+    de_dss = - (1 + S_q) * ((X_qs - X_qss) / (X_q - X_qss)) * (e_d2 / T_q0ss)
+
+    v_q_term1 = e_q1 + e_q2 - i_q * R_a - i_d * ((X_d - X_l) / (1 + S_d) + X_l)
+    v_d_term1 = e_d1 + e_d2 - i_d * R_a + i_q * ((X_q - X_l) / (1 + S_q) + X_l)
+
+    #retransformation
+    v1  = v_d_term1 + 1im*v_q_term1
+    du = u - -1im*v1*(cos(θ)+1im*sin(θ)) #algebraic constraint (Ausgang)
+
+    pe = (ω + 1.0) * ((v_q_term1 + R_a * i_q) * i_q + (v_d_term1 + R_a * i_d) * i_d)
 
     dθ = Ω * 2*pi * ω
-    dω = (P - D * ω - pe) / (2*H)
+    dω = (P - D * ω - pe) / (2*H) #P turbine
 
     #Field current in a non-reciprocal system, otherwise would be: ifd = (E_f - T_d0s * de_qs) / (X_d - X_l)
-    difd = ifd - (E_f - T_d0s * de_qs) / (X_d - 0.15)  #algebraic constraint for output
+    difd = ifd - (E_f - T_d0s * de_qs) #/ (X_d - X_l)  #algebraic constraint for output
 
     #AVR error
     V_error = V0 - abs(u)
@@ -145,4 +161,4 @@ end [[θ,dθ],[ω, dω],[e_ds, de_ds],[e_qs, de_qs],[e_dss, de_dss],[e_qss, de_q
     dE_f = IfElse.ifelse(lowlimit==true,0.0,IfElse.ifelse(highlimit==true,0.0,e))
 end
 
-export SixOrderMarconatoMachineAVROEL
+export gentpjAVROEL

@@ -10,8 +10,8 @@ Ibase = Sbase/Ubase/sqrt(3)
 Zbase = Ubase^2/Sbase
 
 zfault() = (20+1im*20)/Zbase
-tfault_on() = 1.0
-tfault_off() = 1.1
+tfault_on() = 100.0
+tfault_off() = 100.1
 dt_max() = 1e-3
 
 function LTVS_Test_System_N32()
@@ -25,17 +25,21 @@ function LTVS_Test_System_N32()
     position_fault = 0.9 #0 at slack 1.0 at bus 2
 
     buses=OrderedDict(
-        "bus1" => SlackAlgebraic(U=1.036),
-        "bus2" => VoltageDependentLoad(P=0.0, Q=Q_Shunt_EHV, U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),
-        "bus3" => VoltageDependentLoad(P=0.0, Q=Q_Shunt_HV,  U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),
-        "bus4" => GeneralVoltageDependentLoad(P=Pload, Q = QLoad, U=1.0, Ap=0.0, Bp=1.0,Aq = 1.0, Bq= 0.0,Y_n = complex(0.0)),
+        "bus0" => SlackAlgebraic(U=1.05717),
+        "bus1" => VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),
+        "bus_ehv" => VoltageDependentLoad(P=0.0, Q=Q_Shunt_EHV, U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),
+        "bus_hv" => VoltageDependentLoad(P=0.0, Q=Q_Shunt_HV,  U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),
+        "bus_load" => GeneralVoltageDependentLoad(P=Pload, Q = QLoad, U=1.0, Ap=0.0, Bp=1.0,Aq = 1.0, Bq= 0.0,Y_n = complex(0.0)),
         #="bus5" => VoltageDependentLoad(P=4400e6/Sbase, Q=2942.4191e6/Sbase,  U=1.0, A=0.0, B=0.0,Y_n = complex(0.0)),=#
-        "bus5" => SixOrderMarconatoMachineAVROEL(Sbase=Sbase,Srated=5300e6,H = 3, P=4400e6/Sbase, D=0., Ω=50, R_a = 0.0,
-                                             T_ds=0.9545455,T_qs=0.3,T_dss=0.0333333,T_qss=0.025,
-                                             X_d=2.2,X_q=2.0, X_ds=0.3,X_qs=0.4, X_dss=0.2,
-                                             X_qss=0.2,T_AA=0.,V0 = 1.0, Ifdlim = 3.0618/(2.2-0.15),
-                                             L1 = -18.0, G1 = 120.0, Ta = 5.0, Tb = 12.5,
-                                             G2 = 10.0, L2 = 5.0),
+        #"bus_sm" => SixOrderMarconatoMachineAVROEL(Sbase=Sbase,Srated=5300e6,H = 3, P=4400e6/Sbase, D=0., Ω=50, R_a = 0.0,
+        #                                     T_ds=0.9545455,T_qs=0.3,T_dss=0.0333333,T_qss=0.025,
+        #                                     X_d=2.2,X_q=2.0, X_ds=0.3,X_qs=0.4, X_dss=0.2,
+        #                                     X_qss=0.2,T_AA=0.,V0 = 1.1, Ifdlim = 3.0618/(2.2-0.15),
+        #                                     L1 = -20.0, G1 = 120.0, Ta = 5.0, Tb = 12.5,
+        #                                     G2 = 10.0, L2 = 5.0),
+        "bus_sm" => gentpjAVROEL(Sbase=Sbase,Srated=5300e6, H=6.0, P=4400e6/Sbase, D=0.0, Ω=50, R_a=0, T_d0s=7.0, T_q0s=1.5, T_d0ss=0.05,
+                                 T_q0ss=0.05, X_d=2.2, X_q=2.0, X_ds=0.3, X_qs=0.4, X_dss=0.2, X_qss=0.2, X_l=0.15, S_10=0.1, S_12=0.3,K_is=0.0,
+                                 V0 = 1.0, Ifdlim = 3.0618, L1 = -20.0, G1 = 120.0, Ta = 5.0, Tb = 12.5, G2 = 10.0, L2 = 5.0),
        "busv" => VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=0., B=0.,Y_n = complex(0.0)))
     #Lines
     Z_SumLine = (3.140255 + 1im*17.48548)/Zbase
@@ -46,15 +50,18 @@ function LTVS_Test_System_N32()
     Z_Trafo_Netz = 0.13*(400e3)^2/7580e6/Zbase #same base power
     Z_OLTC= 0.1*(130e3)^2/7580e6 * (400/130)^2 / Zbase
     Z_Trafo_SM= 0.15*(130e3)^2/5300e6 * (400/130)^2 / Zbase
+    R1 = 1.514082/Zbase
+    X1 = 17.24593/Zbase
     branches=OrderedDict(
-        "Line_1-2"=> PiModelLine(from= "bus1", to = "bus2",y=1.0/Z_SumLine, y_shunt_km=B_half_SumLine, y_shunt_mk=B_half_SumLine),
+        "Line_0-1"=> PiModelLine(from= "bus0", to = "bus1",y=1.0/(R1+1im*X1), y_shunt_km=0.0, y_shunt_mk=0.0),
+        "Line_1-2"=> PiModelLine(from= "bus1", to = "bus_ehv",y=1.0/Z_SumLine, y_shunt_km=B_half_SumLine, y_shunt_mk=B_half_SumLine),
         "Line_1-v"=> PiModelLine(from= "bus1", to = "busv",y=1.0/(Z_4032_4044*position_fault), y_shunt_km=B_half_4032_4044, y_shunt_mk=0.0),
-        "Line_v-2"=> PiModelLine(from= "bus2", to = "busv",y=1.0/(Z_4032_4044*(1.0-position_fault)), y_shunt_km=B_half_4032_4044, y_shunt_mk=0),
-        "Trafo_Netz"=> StaticPowerTransformer(from="bus2",to="bus3",Sbase=Sbase,Srated=8000e6,uk=0.15,XR_ratio=Inf,
+        "Line_v-2"=> PiModelLine(from= "bus_ehv", to = "busv",y=1.0/(Z_4032_4044*(1.0-position_fault)), y_shunt_km=B_half_4032_4044, y_shunt_mk=0),
+        "Trafo_Netz"=> StaticPowerTransformer(from="bus_ehv",to="bus_hv",Sbase=Sbase,Srated=8000e6,uk=0.15,XR_ratio=Inf,
                                            i0=0.0,Pv0=0.0,tap_side = "HV",tap_pos = 5,tap_inc = 1.0),
-        "OLTC"=> StaticPowerTransformer(from="bus3",to="bus4",Sbase=Sbase,Srated=8000e6,uk=0.105,XR_ratio=Inf,
+        "OLTC"=> StaticPowerTransformer(from="bus_hv",to="bus_load",Sbase=Sbase,Srated=8000e6,uk=0.105,XR_ratio=Inf,
                                            i0=0.0,Pv0=0.0,tap_side = "LV",tap_pos = 6,tap_inc = 1.0),
-        "Trafo_SM"=> StaticPowerTransformer(from="bus3",to="bus5",Sbase=Sbase,Srated=5300e6,uk=0.15,XR_ratio=Inf,
+        "Trafo_SM"=> StaticPowerTransformer(from="bus_hv",to="bus_sm",Sbase=Sbase,Srated=5300e6,uk=0.15,XR_ratio=Inf,
                                           i0=0.0,Pv0=0.0,tap_side = "HV",tap_pos = 5,tap_inc = 1.0))
         return PowerGrid(buses, branches)
 end
@@ -91,13 +98,13 @@ function run_LTVS_N32_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tupl
     fault_state = false
     #index_U_oltc = getNodeVoltageSymbolPosition(pg,pg.lines[branch_oltc].to)
     index_U_oltc = PowerDynamics.variable_index(pg.nodes,pg.lines[branch_oltc].to,:u_r)
-    index_U_load = PowerDynamics.variable_index(pg.nodes,"bus4",:u_r)
+    index_U_load = PowerDynamics.variable_index(pg.nodes,"bus_load",:u_r)
     #event_recorder = Array{Float64,2}(undef,0,4+length(params))
     function TapState(integrator)
         timer_start = integrator.t
         sol1 = integrator.sol
         if tap < tap_max
-            tap -= 1
+            tap += 1
             node = StaticPowerTransformer(from=OLTC.from,to=OLTC.to,Srated=OLTC.Srated,
                                           uk=OLTC.uk,XR_ratio=OLTC.XR_ratio,i0=OLTC.i0,
                                           Pv0=OLTC.Pv0,Sbase=OLTC.Sbase,
@@ -188,7 +195,7 @@ function run_LTVS_N32_simulation(pg::PowerGrid,ic1::Array{Float64,1},tspan::Tupl
         integrator.u = x3#sol2[end]
 
         index_U_oltc = PowerDynamics.variable_index(pg_postfault.nodes,pg_postfault.lines[branch_oltc].to,:u_r)
-        index_U_load = PowerDynamics.variable_index(pg_postfault.nodes,"bus3",:u_r)
+        index_U_load = PowerDynamics.variable_index(pg_postfault.nodes,"bus_load",:u_r)
         postfault_state = true
         fault_state = false
         #active_pg = GetActivePG(fault_state,postfault_state)

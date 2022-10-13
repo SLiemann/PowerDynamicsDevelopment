@@ -33,6 +33,7 @@ include("nodes/droop.jl")
 include("nodes/VSM.jl")
 include("nodes/GeneralVoltageDependentLoad.jl")
 include("nodes/gentpj.jl")
+include("nodes/gentpjAVROEL.jl")
 
 #Operation Point
 include("operationpoint/PowerFlow.jl")

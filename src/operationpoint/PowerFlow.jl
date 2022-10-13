@@ -92,7 +92,7 @@ NodeType(L::Union{MatchingControl,MatchingControlRed}) = 1
 NodeType(L::dVOC) = 1
 NodeType(L::droop) = 1
 NodeType(L::VSM) = 1
-NodeType(L::gentpj) = 1
+NodeType(L::Union{gentpj,gentpjAVROEL}) = 1
 NodeType(L::GeneralVoltageDependentLoad) = 2
 
 #note: only loads are treated with voltage depency and are called every iteration
@@ -149,7 +149,7 @@ PowerNodeLoad(L::Union{MatchingControl,MatchingControlRed},U) = 0.
 PowerNodeLoad(L::dVOC,U) = 0.
 PowerNodeLoad(L::droop,U) = 0.
 PowerNodeLoad(L::VSM,U) = 0.
-PowerNodeLoad(L::gentpj,U) = 0.
+PowerNodeLoad(L::Union{gentpj,gentpjAVROEL},U) = 0.
 function PowerNodeLoad(L::GeneralVoltageDependentLoad,U)
     u_rel = abs(U)/L.U
     Pv = L.P * (L.Ap * u_rel^2 + L.Bp * u_rel + 1.0 - L.Ap - L.Bp)
@@ -192,7 +192,7 @@ PowerNodeGeneration(M::Union{MatchingControl,MatchingControlRed}) = M.p0set
 PowerNodeGeneration(V::dVOC) = V.p0set
 PowerNodeGeneration(V::droop) = V.p0set
 PowerNodeGeneration(V::VSM) = V.p0set
-PowerNodeGeneration(V::gentpj) = V.P
+PowerNodeGeneration(V::Union{gentpj,gentpjAVROEL}) = V.P
 PowerNodeGeneration(V::GeneralVoltageDependentLoad) = 0.0
 
 
@@ -520,7 +520,7 @@ function GetInitialVoltages(pg::PowerGrid, ind_sl::Int64,number_nodes::Int64)
     if SixOrderMarconatoMachineAVROEL ∈ collect(values(pg.nodes)) .|> typeof
         pv = findall(collect(values(pg.nodes).|> typeof).== SixOrderMarconatoMachineAVROEL)
         for i in pv
-            U[i] = 1.0
+            U[i] = collect(values(pg.nodes))[i].V0
         end
     end
 
@@ -528,6 +528,13 @@ function GetInitialVoltages(pg::PowerGrid, ind_sl::Int64,number_nodes::Int64)
         pv = findall(collect(values(pg.nodes).|> typeof).== gentpj)
         for i in pv
             U[i] = 1.0
+        end
+    end
+
+    if gentpjAVROEL ∈ collect(values(pg.nodes)) .|> typeof
+        pv = findall(collect(values(pg.nodes).|> typeof).== gentpjAVROEL)
+        for i in pv
+            U[i] = collect(values(pg.nodes))[i].V0
         end
     end
     return U
