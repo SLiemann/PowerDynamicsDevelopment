@@ -10,8 +10,8 @@ Ibase = Sbase/Ubase/sqrt(3)
 Zbase = Ubase^2/Sbase
 
 zfault() = (20+1im*20)/Zbase
-tfault_on() = 100.0
-tfault_off() = 100.1
+tfault_on() = 1.0
+tfault_off() = 1.1
 dt_max() = 1e-3
 
 function LTVS_Test_System_N32()
@@ -77,6 +77,7 @@ function GetPostFaultLTVSPG(pg::PowerGrid)
     #delete!(nodes_postfault,"busv")
     #delete!(branches_postfault,"Line_1-v")
     delete!(branches_postfault,"Line_v-2")
+    branches_postfault["Line_1-v"] = PiModelLine(from= "bus_ehv", to = "busv",y=1.0/(1*(1.0-0.1)), y_shunt_km=0.0, y_shunt_mk=0)
     return PowerGrid(nodes_postfault,branches_postfault)
 end
 

@@ -850,8 +850,8 @@ function InitNode(GP::gentpjAVROEL,ind::Int64,I_c::Vector{Complex{Float64}},ic_l
    #get inital values
    v_r_term = ic_lf[ind_offset]
    v_i_term = ic_lf[ind_offset+1]
-   i_r = real(I_c[ind])
-   i_i = imag(I_c[ind])
+   i_r = real(I_c[ind])/(GP.Srated/GP.Sbase)
+   i_i = imag(I_c[ind])/(GP.Srated/GP.Sbase)
 
    #Calculate saturation
    E_l = norm([v_i_term + i_i * GP.R_a + i_r * GP.X_l,v_r_term + i_r * GP.R_a - i_i * GP.X_l]) #magnitude not changed by dq-transformation
@@ -864,22 +864,9 @@ function InitNode(GP::gentpjAVROEL,ind::Int64,I_c::Vector{Complex{Float64}},ic_l
    Vr = v_r_term + GP.R_a *i_r  - Xqsatss * i_i
    Vi = v_i_term + GP.R_a *i_i  + Xdsatss * i_r
 
-   #calculate field voltage
-   #Vr,Vi = CalcFieldVoltage(v_r_term,v_i_term,i_r,i_i) #not in dq-system
-
    #calculate δ
-   K_temp1 = (GP.X_q-GP.X_qss)/(1 + S_q)
-   K_temp2 = (GP.X_d-GP.X_dss)/(1 + S_d)
-   K_temp = (GP.X_qs-GP.X_l)/(1 + S_d) + GP.X_l
-
+   K_temp = (GP.X_q-GP.X_l)/(1 + S_q) + GP.X_l
    δ = atan((v_i_term+i_r*K_temp + GP.R_a *i_i)/(v_r_term - i_i*K_temp +GP.R_a *i_r))
-   #println("delta: =", δ)
-   #println(angle(1im*(Vr+1im*Vi)*exp(-1im*δ))*180/pi)
-   #δ = angle((Vr+1im*Vi))
-   println(δ*180/pi)
-   println(Vr+1im*Vi)
-   println(1im*(Vr+1im*Vi)*exp(-1im*δ))
-
 
    #terminal voltage transformation to local dq-system
    v = v_r_term+1im*v_i_term

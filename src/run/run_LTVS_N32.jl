@@ -16,7 +16,7 @@ begin
     #display(U.=> δ)
     pg, ic0 = InitializeInternalDynamics(pg,ic0)
     #display(rhs(pg).syms .=> ic0)
-    pgsol  = run_LTVS_N32_simulation(pg,ic0,(0.0,10.0));
+    pgsol  = run_LTVS_N32_simulation(pg,ic0,(0.0,165.0));
     nothing
 end
 plot(cu')
@@ -26,11 +26,13 @@ CalcEigenValues(pg,[],plot =true, output = true)
 xlims!((-3,0))
 plot(pgsol,["bus_ehv","bus_hv","bus_load","bus_sm"],:v, legend = legend=:bottomright)
 plot(pgsol,"bus_sm",:timer)
-plot(pgsol,"bus_sm",:ifd,xlims=(0,10))
+plot(pgsol,"bus_sm",:ifd)
 plot(pgsol,"bus_sm",:e_qs)
 plot(pgsol,"bus_sm",:e_ds)
 plot(pgsol,"bus_sm",:e_qss)
 plot(pgsol,"bus_sm",:e_dss)
+plot!(pgsol,"bus_load",:v,ylims=(0.98,1),xlims=(0,150))
+
 
 
 
