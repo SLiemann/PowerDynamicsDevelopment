@@ -110,10 +110,10 @@ end [[θ,dθ],[ω, dω],[e_ds, de_ds],[e_qs, de_qs],[e_dss, de_dss],[e_qss, de_q
 
     #further equations
     e_q2 = (e_qss - e_qs + i_d * ((X_ds - X_dss) / (1 + S_d))) * ((X_d - X_dss) / (X_ds - X_dss))
-    e_q1 = e_qss - e_q2 + i_d * ((X_d - X_dss) / (1 + S_d))
+    e_q1 = e_qss  - e_q2 + i_d * ((X_d - X_dss) / (1 + S_d))
 
     e_d2 = (e_dss - e_ds - i_q * ((X_qs - X_qss) / (1 + S_q))) * ((X_q - X_qss) / (X_qs - X_qss))
-    e_d1 = e_dss - e_d2 - i_q * ((X_q - X_qss) / (1 + S_q))
+    e_d1 = e_dss  - e_d2 - i_q * ((X_q - X_qss) / (1 + S_q))
 
     de_qs = (E_fd - (1 + S_d) * e_q1) * 1 / T_d0s
     de_ds = - (1 + S_q) * e_d1 / T_q0s
@@ -121,17 +121,17 @@ end [[θ,dθ],[ω, dω],[e_ds, de_ds],[e_qs, de_qs],[e_dss, de_dss],[e_qss, de_q
     de_qss = - (1 + S_d) * ((X_ds - X_dss) / (X_d - X_dss)) * (e_q2 / T_d0ss)
     de_dss = - (1 + S_q) * ((X_qs - X_qss) / (X_q - X_qss)) * (e_d2 / T_q0ss)
 
-    v_q_term1 = e_q1 + e_q2 - i_q * R_a - i_d * ((X_d - X_l) / (1 + S_d) + X_l)
-    v_d_term1 = e_d1 + e_d2 - i_d * R_a + i_q * ((X_q - X_l) / (1 + S_q) + X_l)
+    v_q_term1 = (e_q1 + e_q2)*(1+ω) - i_q * R_a - i_d * ((X_d - X_l) / (1 + S_d) + X_l)
+    v_d_term1 = (e_d1 + e_d2)*(1+ω) - i_d * R_a + i_q * ((X_q - X_l) / (1 + S_q) + X_l)
 
     #retransformation
     v1  = v_d_term1 + 1im*v_q_term1
     du = u - -1im*v1*(cos(θ)+1im*sin(θ)) #algebraic constraint (Ausgang)
 
-    pe = (ω + 1.0) * ((v_q_term1 + R_a * i_q) * i_q + (v_d_term1 + R_a * i_d) * i_d)
+    te = ((v_q_term1 + R_a * i_q) * i_q + (v_d_term1 + R_a * i_d) * i_d) /(ω + 1.0) 
 
     dθ = Ω * 2*pi * ω
-    dω = (P - D * ω - pe) / (2*H) #P turbine
+    dω = ((P - D * ω)/(1+ω) - te) / (2*H) #P turbine
 
 end
 

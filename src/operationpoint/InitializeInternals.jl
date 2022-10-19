@@ -748,29 +748,12 @@ function InitNode(GP::gentpj,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Arr
       q = log(GP.S_12/GP.S_10)/log(1.2)
       return GP.S_10*x1^q
   end
-
-   #= field voltage calculation
-   function CalcFieldVoltage(Vrterm,Viterm,Ir,Ii) #vd&Vq ausrechnen ohne Sättigung zu bestimmen - muss aber in einem Rutsch sein (nichtl.)
-       function f!(F,x)
-            E_l = norm([Viterm + Ii * GP.R_a + Ir * GP.X_l,Vrterm + Ir * GP.R_a - Ii * GP.X_l])
-            S_d = sat_exponential(E_l)
-            S_q = (GP.X_q)/(GP.X_d) * S_d
-            Xdsatss = (GP.X_dss - GP.X_l) /  (1 + S_d) + GP.X_l
-            Xqsatss = (GP.X_qss - GP.X_l) /  (1 + S_q) + GP.X_l
-
-            #Formel soll null ergeben
-            F[1] = Vrterm + GP.R_a*Ir - Xqsatss * Ii - x[1] #x[1] entspricht Vr oder Ed''
-            F[2] = Viterm + GP.R_a*Ii + Xdsatss * Ir - x[2] #x[2] entspricht Vi oder Eq''
-       end
-       sol = nlsolve(f!, [Vrterm,Viterm],ftol = 1e-12)
-       return sol.zero
-   end=#
    
    #get inital values
    v_r_term = ic_lf[ind_offset]
    v_i_term = ic_lf[ind_offset+1]
-   i_r = real(I_c[ind])
-   i_i = imag(I_c[ind])
+   i_r = real(I_c[ind])/(GP.Srated/GP.Sbase)
+   i_i = imag(I_c[ind])/(GP.Srated/GP.Sbase)
 
    #Calculate saturation
    E_l = norm([v_i_term + i_i * GP.R_a + i_r * GP.X_l,v_r_term + i_r * GP.R_a - i_i * GP.X_l]) #magnitude not changed by dq-transformation
@@ -783,12 +766,9 @@ function InitNode(GP::gentpj,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Arr
    Vr = v_r_term + GP.R_a *i_r  - Xqsatss * i_i
    Vi = v_i_term + GP.R_a *i_i  + Xdsatss * i_r
 
-   #calculate field voltage
-   #Vr,Vi = CalcFieldVoltage(v_r_term,v_i_term,i_r,i_i) #not in dq-system
-
    #calculate δ
-   K_temp = (GP.X_q-GP.X_qss)/(1 + S_q)
-   δ = atan((Vi+i_r*K_temp)/(Vr-i_i*K_temp))
+   K_temp = (GP.X_q-GP.X_l)/(1 + S_q) + GP.X_l
+   δ = atan((v_i_term+i_r*K_temp + GP.R_a *i_i)/(v_r_term - i_i*K_temp +GP.R_a *i_r))
 
    #terminal voltage transformation to local dq-system
    v = v_r_term+1im*v_i_term
@@ -806,12 +786,11 @@ function InitNode(GP::gentpj,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Arr
    e_d2 = 0;
    e_d1 = 0;
 
-   #equations
+   #equations 
    e_q1 = v_q + i_q * GP.R_a + i_d * ((GP.X_d - GP.X_l) / (1 + S_d) + GP.X_l)
+   e_qss = e_q1 + e_q2 - i_d * ((GP.X_d - GP.X_dss) / (1 + S_d))  
 
-   e_qss = e_q1 + e_q2 - i_d * ((GP.X_d - GP.X_dss) / (1 + S_d))
    e_dss = e_d1 + e_d2 + i_q * ((GP.X_q - GP.X_qss) / (1 + S_q))
-
 
    e_qs = e_qss + i_d * ((GP.X_ds - GP.X_dss) / (1 + S_d))
    e_ds = e_dss - i_q * ((GP.X_qs - GP.X_qss) / (1 + S_q))

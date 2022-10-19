@@ -16,7 +16,7 @@ begin
     #display(U.=> δ)
     pg, ic0 = InitializeInternalDynamics(pg,ic0)
     #display(rhs(pg).syms .=> ic0)
-    pgsol  = run_LTVS_N32_simulation(pg,ic0,(0.0,165.0));
+    pgsol  = run_LTVS_N32_simulation(pg,ic0,(0.0,1.0));
     nothing
 end
 plot(cu')
