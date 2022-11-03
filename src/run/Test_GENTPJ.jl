@@ -26,7 +26,7 @@ U1,δ1,ic0,cu = PowerFlowClassic(pg,iwamoto = false,max_tol = 1e-7)
 display(U1.=> δ1)
 pg, ic0 = InitializeInternalDynamics(pg,ic0)
 
-#problem = ODEProblem(rhs(pg),ic0,(0,10))
+problem = ODEProblem(rhs(pg),ic0,(0,10))
 #sol = solve(problem,Rodas4(),dtmax=1e-3)
 #plot(sol)
 
@@ -79,6 +79,14 @@ um = CSV.read("C:\\Users\\liemann\\Desktop\\vgl dirty\\data.csv", DataFrame)
 plot(pgsol,["bus_sm"],:v,label="julia")
 plot!(upf[:,1],upf[:,2],label="PF")
 xlims!((4.9,10))
+
+dm =  CSV.read("C:\\Users\\liemann\\Desktop\\vgl dirty\\deltam.csv", DataFrame)
+dpf =  CSV.read("C:\\Users\\liemann\\Desktop\\del.csv", DataFrame)
+δj = ExtractResult(pgsol,:θ_3).*180/pi
+plot(dpf[:,1],dpf[:,2],linewidth=2,label="PF")
+plot!(dm[:,1],dm[:,2],linewidth=2,label="MATLAB")
+plot!(pgsol.dqsol.t,δj,label="Julia")
+
 #=
 xlims!((4.9,5.3))
 

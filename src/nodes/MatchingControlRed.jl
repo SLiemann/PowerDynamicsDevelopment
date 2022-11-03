@@ -62,6 +62,7 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
     #σXR = p[p_ind[14]]
     imax_csa = p[p_ind[14]]
     imax_dc = p[p_ind[15]]
+    p_red = p[p_ind[16]]
 
 
     #after filter

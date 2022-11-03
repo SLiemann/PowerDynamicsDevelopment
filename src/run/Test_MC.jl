@@ -125,10 +125,13 @@ begin
     #sol = solve(prob, Rodas4(),dtmax = 1e-3,progress=true)
     #pgsol = PowerGridSolution(sol,pg1)
     #pgsol = simMatchingNEW(pg1,(0.0,0.3),ic)
-    pgsol = simMatching(prob)
+    #pgsol = simMatching(prob);
+    nothing
 end
 
-plot(pgsol,vars=(8))
+plot(pgsol.dqsol,vars=(13))
+
+println.(rhs(pg).syms .=> ic)
 
 plot(pgsol.dqsol,vars=(7:13))
 plot(pgsol.dqsol,vars=(9))
@@ -138,7 +141,7 @@ plot(pgsol,["bus3"],:iabs)
 plot(pgsol,["bus3"],:i_abs)
 
 ylims!((0.8975,0.91))
-plot(pgsol,["bus3"],:v)
+plot(pgsol,["bus_load"],:v)
 plot(pgsol,["bus3"],:Pf)
 plot!(pgsol,["bus3"],:v12)
 plot(pgsol,["bus3"],:vd)

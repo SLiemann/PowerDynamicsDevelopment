@@ -555,6 +555,7 @@ function InitNode(VOC::dVOC,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Arra
    umd = real(E0)
    umq = imag(E0)
 
+
    e_id = (umd - udmeas + iq * VOC.xlf ) #- id*VOC.rf
    e_iq = (umq - uqmeas - id * VOC.xlf )#- iq*VOC.rf
 
@@ -868,20 +869,14 @@ function InitNode(GP::gentpjAVROEL,ind::Int64,I_c::Vector{Complex{Float64}},ic_l
    
    e_q1 = v_q + i_q * GP.R_a + i_d * ((GP.X_d - GP.X_l) / (1 + S_d) + GP.X_l)
    e_qss = e_q1 + e_q2 - i_d * ((GP.X_d - GP.X_dss) / (1 + S_d))
-   #e_qss = imag(edqss)
   
-
    e_dss = e_d1 + e_d2 + i_q * ((GP.X_q - GP.X_qss) / (1 + S_q))
-   #println(e_dss)
-   #e_dss = real(edqss)
-   #println(real(edqss))
 
    e_qs = e_qss + i_d * ((GP.X_ds - GP.X_dss) / (1 + S_d))
    e_ds = e_dss - i_q * ((GP.X_qs - GP.X_qss) / (1 + S_q))
 
    #field voltage
    v_f = (1+S_d)*e_q1
-   println(v_f)
 
    #AVR & OEL
    #Field current in a non-reciprocal system, otherwise would be: ifd = (E_f - T_d0s * de_qs) / (X_d - X-l)
