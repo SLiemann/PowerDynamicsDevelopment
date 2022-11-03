@@ -658,7 +658,7 @@ function InitNode(DR::droop,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Arra
           p_ind = DR.p_ind,
           )
 
-    return [v_d_temp, v_q_temp,θ,udc,idc0,abs(U0),e_ud,e_uq,e_id,e_iq,p,dP,abs(idq),0.0,idc0], droop_new #,idmeas,iqmeas,id,iq
+    return [v_d_temp, v_q_temp,θ,udc,idc0,abs(U0),e_ud,e_uq,e_id,e_iq,p,dP,abs(idq),0.0,idc0,abs(E0)], droop_new #,idmeas,iqmeas,id,iq
 end
 
 function InitNode(VSM0::VSM,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)

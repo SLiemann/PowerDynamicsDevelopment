@@ -22,8 +22,8 @@ function LTVS_Test_System_N32_GFM(;gfm=1) #1 = droop, 2 = matching, 3 = dVOC, 4 
 
     Srated = 5300e6
     pref = 4400e6/Sbase
-    imax_csa = 1.25
-    imax_dc = 1.2
+    imax_csa = 1.1
+    imax_dc = 1.0
     anti_windup = 1.0
 
     Ubase_gfm = 1e3
@@ -130,7 +130,7 @@ function run_LTVS_N32_simulation(gfm_choice,tspan::Tuple{Float64,Float64})
     Qmax   = [Inf,Inf, Inf, Inf,Inf,5300/8000*sqrt(1-0.85^2),Inf]
     Qmin   = -Qmax
     U1,δ1,ic0,cu = PowerFlowClassic(pg,iwamoto = false,max_tol = 1e-4,iter_max = 100,Qmax = Qmax, Qmin = Qmin,Qlimit_iter_check=80)
-    println.(keys(pg.nodes) .=> U1)
+    #println.(keys(pg.nodes) .=> U1)
     pg, ic1 = InitializeInternalDynamics(pg,ic0)
 
     tfault = [tfault_on(), tfault_off()]
@@ -234,7 +234,7 @@ function run_LTVS_N32_simulation(gfm_choice,tspan::Tuple{Float64,Float64})
     end
 
     function check_voltage(u,t,integrator)
-            sqrt(u[index_U_load]*u[index_U_load] + u[index_U_load+1]*u[index_U_load+1]) < 0.3
+            sqrt(u[index_U_load]*u[index_U_load] + u[index_U_load+1]*u[index_U_load+1]) < 0.3 && t > 5.0
     end
 
     function stop_integration(integrator)

@@ -3,6 +3,7 @@ using DifferentialEquations
 using PowerDynamics
 using FFTW
 using LinearAlgebra
+import PlotlyJS: plot
 
 function getPreFaultVoltages(pg::PowerGrid,ic_prefault::Array{Float64,1},ic_endfault::Array{Float64,1})
     ind = getVoltageSymbolPositions(pg)
@@ -311,4 +312,64 @@ function getallParameters(node)
         end
     end
     param[1:end-1] #last entry is Y_n from PowerDynamics
+end
+
+function Sol2DF(pgsol::PowerGridSolution)
+    sol = DataFrame(pgsol.dqsol)
+
+    for (ind,val) in enumerate(pgsol.powergrid.nodes)
+        ur = ExtractResult(pgsol,Symbol("u_r_"*string(ind)))
+        ui = ExtractResult(pgsol,Symbol("u_i_"*string(ind)))
+        u = sqrt.(ur.^2 + ui.^2)
+        sol[!,Symbol("uabs_"*string(ind))] = u;
+    end
+    return sol
+end
+
+
+function plotallvoltages(pgsol::PowerGridSolution)
+    newdf = Sol2DF(pgsol)
+    p = Vector{GenericTrace}()
+    for (ind,val) in enumerate(pgsol.powergrid.nodes)
+        tmp = scatter(x=newdf.timestamp,y=newdf[:,"uabs_"*string(ind)],name=val[1])
+        push!(p,tmp)
+    end
+    display(plot(p))
+    return p
+end
+
+function plot(pgsol::PowerGridSolution,sym::Symbol)
+    ind = findfirst(x->x==sym,collect(rhs(pgsol.powergrid).syms))
+    t = pgsol.dqsol.t
+    y =  pgsol.dqsol[ind,:]
+    sc = scatter(x=t,y=y,name=String(sym))
+    display(plot(sc))
+    return sc
+end
+
+function plot(pgsol::PowerGridSolution,bus::String,sym::Symbol)
+    ind_bus = findfirst(x->x==bus,collect(keys(pgsol.powergrid.nodes)))
+    sym = Symbol(string(sym)*"_"*string(ind_bus))
+    myplot(pgsol,sym)
+end
+
+function plotv(pgsol,bus::String)
+    ind = findfirst(x->x==bus,collect(keys(pgsol.powergrid.nodes)))
+    ur = ExtractResult(pgsol,Symbol("u_r_"*string(ind)))
+    ui = ExtractResult(pgsol,Symbol("u_i_"*string(ind)))
+    t = pgsol.dqsol.t
+    y =  sqrt.(ur.^2 + ui.^2)
+    sc = scatter(x=t,y=y,name=bus)
+    display(plot(sc))
+    return sc
+end
+
+function plotv(pgsol,bus::Vector{String})
+    p = Vector{GenericTrace}()
+    for (ind,val) in enumerate(bus)
+        tmp = plotv(pgsol,val)
+        push!(p,tmp)
+    end
+    display(plot(p))
+    return p
 end
