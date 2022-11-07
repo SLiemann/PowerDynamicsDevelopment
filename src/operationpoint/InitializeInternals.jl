@@ -597,12 +597,12 @@ function InitNode(DR::droop,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Arra
    U0 = v_d_temp+1im*v_q_temp
    θ = angle(U0)
 
-   s = U0 * conj(I_c[ind]) #/ (DR.Srated/DR.Sbase)
+   s = U0 * conj(I_c[ind]) / (DR.Srated/DR.Sbase)
    p = real(s)
    q = imag(s)
 
    #The current of the capacitor has to be related, since rf,xlf and xcf are related to Sbase!!!
-   i1 = I_c[ind] / (DR.Srated/DR.Sbase) + U0/(-1im*DR.xcf) /(DR.Srated/DR.Sbase)
+   i1 = I_c[ind] / (DR.Srated/DR.Sbase) + U0/(-1im*DR.xcf) #/(DR.Srated/DR.Sbase)
    E = U0 + (DR.rf + 1im*DR.xlf) * i1
 
    idqmeas = I_c[ind]*(cos(-θ)+1im*sin(-θ)) / (DR.Srated/DR.Sbase) #1im*
@@ -614,8 +614,9 @@ function InitNode(DR::droop,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Arra
    iq = imag(idq)
 
    P_before = real(conj(i1) * E)
+   Q_before = imag(conj(i1) * E)
    dP =  P_before - p
-   idc0 = DR.gdc + DR.p0set + dP
+   idc0 = DR.gdc + DR.p0set/ (DR.Srated/DR.Sbase)  + dP
    p0_new = idc0 - DR.gdc - dP
    udc = 0.0 #ist hier nur das delta
 
@@ -658,7 +659,7 @@ function InitNode(DR::droop,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Arra
           p_ind = DR.p_ind,
           )
 
-    return [v_d_temp, v_q_temp,θ,udc,idc0,abs(U0),e_ud,e_uq,e_id,e_iq,p,dP,abs(idq),0.0,idc0,abs(E0)], droop_new #,idmeas,iqmeas,id,iq
+    return [v_d_temp, v_q_temp,θ,udc,idc0,abs(U0),e_ud,e_uq,e_id,e_iq,p,dP,abs(idq),0.0,idc0,abs(E0),P_before,Q_before,p,q], droop_new #,idmeas,iqmeas,id,iq
 end
 
 function InitNode(VSM0::VSM,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)
@@ -684,6 +685,7 @@ function InitNode(VSM0::VSM,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Arra
    iq = imag(idq)
 
    P_before = real(conj(i1) * E)
+   
    dP =  P_before - p
    idc0 = VSM0.gdc + VSM0.p0set + dP
    p0_new = idc0 - VSM0.gdc - dP

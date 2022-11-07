@@ -72,12 +72,12 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
     imeas = i*(cos(-θ)+1im*sin(-θ))/(Srated/Sbase) #1im*
     idmeas = real(imeas)
     iqmeas = imag(imeas)
-    pmeas = real(u * conj(i))
-    qmeas = imag(u * conj(i))
+    pmeas = real(umeas * conj(imeas))
+    qmeas = imag(umeas * conj(imeas))
 
     #before filter
     #The current of the capacitor has to be related, since rf,xlf and xcf are related to Sbase!!!
-    idq =  imeas + umeas / (-1im * xcf) / (Srated/Sbase)
+    idq =  imeas + umeas / (-1im * xcf) #/ (Srated/Sbase)
     id = real(idq)
     iq = imag(idq)
 
@@ -105,7 +105,7 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
 
     #Current saturation algorithm
     iset_abs = hypot(idset,iqset)
-    iset_lim = IfElse.ifelse(iset_abs > imax_csa,imax_csa,iset_abs)
+    iset_lim = IfElse.ifelse(iset_abs >= imax_csa,imax_csa,iset_abs)
     ϕ1 = atan(iqset,idset)
     idset_csa = iset_lim*cos(ϕ1)
     iqset_csa = iset_lim*sin(ϕ1)

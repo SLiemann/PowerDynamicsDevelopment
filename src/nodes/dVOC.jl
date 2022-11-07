@@ -70,12 +70,12 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[vd,dvd],[e_ud,de_ud],[e_uq,de_uq],[e_id,d
     imeas = i*(cos(-θ)+1im*sin(-θ))/(Srated/Sbase) #1im*
     idmeas = real(imeas)
     iqmeas = imag(imeas)
-    pmeas = real(u * conj(i))
-    qmeas = imag(u * conj(i))
+    pmeas = real(umeas * conj(imeas))
+    qmeas = imag(umeas * conj(imeas))
 
     #before filter
     #The current of the capacitor has to be related, since rf,xlf and xcf are related to Sbase!!!
-    idq =  imeas + umeas / (-1im * xcf) / (Srated/Sbase)
+    idq =  imeas + umeas / (-1im * xcf) #/ (Srated/Sbase)
     id = real(idq)
     iq = imag(idq)
 
@@ -151,7 +151,7 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[vd,dvd],[e_ud,de_ud],[e_uq,de_uq],[e_id,d
 
     #Power Reduction in case of limited current
     pmax = idset_csa * real(E) + iqset_csa * imag(E)
-    dP = IfElse.ifelse(iset_abs > imax_csa,p_red*(p0set -pmax), 0.0)
+    dP = IfElse.ifelse(iset_abs >= imax_csa,p_red*(p0set -pmax), 0.0)
 
     #dVOC frequency /active power control
     dw = w - eta * ((p0set - dP) / u0set^2 - Pf / vd_e^2)

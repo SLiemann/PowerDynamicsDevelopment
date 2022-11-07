@@ -8,12 +8,12 @@ Ubase = 400e3
 Ibase = Sbase/Ubase/sqrt(3)
 Zbase = Ubase^2/Sbase
 
-zfault() = (20+1im*20)/Zbase
-tfault_on() = 1.0
-tfault_off() = 1.1
-dt_max() = 1e-3
-include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/include_custom_nodes_lines_utilities.jl")
-function LTVS_Test_System_N32_GFM(;gfm=1) #1 = droop, 2 = matching, 3 = dVOC, 4 = VSM
+zfault() = 5*(20+1im*20)/Zbase
+tfault_on() = 0.5
+tfault_off() = 0.6
+dt_max() = 1e-4/2
+
+function LTVS_Test_System_N32_GFM(;gfm=1,awu=1.0) #1 = droop, 2 = matching, 3 = dVOC, 4 = VSM
     Q_Shunt_EHV = 600e6/Sbase
     Q_Shunt_HV = 850e6/Sbase
     Pload = -7580e6 /Sbase
@@ -22,9 +22,9 @@ function LTVS_Test_System_N32_GFM(;gfm=1) #1 = droop, 2 = matching, 3 = dVOC, 4 
 
     Srated = 5300e6
     pref = 4400e6/Sbase
-    imax_csa = 1.1
-    imax_dc = 1.0
-    anti_windup = 1.0
+    imax_csa = 1.0
+    imax_dc = 1.2
+    anti_windup = awu
 
     Ubase_gfm = 1e3
     Sbase_gfm = 100e6
@@ -52,7 +52,7 @@ function LTVS_Test_System_N32_GFM(;gfm=1) #1 = droop, 2 = matching, 3 = dVOC, 4 
         "busv" => VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=0., B=0.,Y_n = complex(0.0)))
 
     if gfm == 1
-        buses["bus_gfm"] = droop(Sbase = Sbase,Srated = Srated, p0set = pref, u0set = 1.00,Kp_droop = 1.0,Kp_uset = 0.001, Ki_uset = 0.5,
+        buses["bus_gfm"] = droop(Sbase = Sbase,Srated = Srated, p0set = pref, u0set = 1.00,Kp_droop = pi,Kp_uset = 0.001, Ki_uset = 0.5,
                                  Kdc = 100.0, gdc = Gdc, cdc = Cdc, xlf = Xlf, rf = R_f, xcf =  Xcf, Tdc = 0.05, Kp_u = 0.52,
                                  Ki_u = 1.161022, Kp_i = 0.738891, Ki_i = 1.19, imax_csa = imax_csa, imax_dc = imax_dc, p_red = anti_windup, 
                                  p_ind = collect(1:17))
@@ -125,12 +125,13 @@ function GetParamsGFM(pg::PowerGrid)
     return params
 end
 
-function run_LTVS_N32_simulation(gfm_choice,tspan::Tuple{Float64,Float64})
-    pg = LTVS_Test_System_N32_GFM(gfm=gfm_choice)
+function run_LTVS_N32_simulation(gfm_choice,awu_choice,tspan::Tuple{Float64,Float64})
+    pg = LTVS_Test_System_N32_GFM(gfm=gfm_choice,awu=awu_choice)
     Qmax   = [Inf,Inf, Inf, Inf,Inf,5300/8000*sqrt(1-0.85^2),Inf]
     Qmin   = -Qmax
     U1,δ1,ic0,cu = PowerFlowClassic(pg,iwamoto = false,max_tol = 1e-4,iter_max = 100,Qmax = Qmax, Qmin = Qmin,Qlimit_iter_check=80)
     #println.(keys(pg.nodes) .=> U1)
+    #println.(keys(pg.nodes) .=> δ1)
     pg, ic1 = InitializeInternalDynamics(pg,ic0)
 
     tfault = [tfault_on(), tfault_off()]
@@ -208,9 +209,10 @@ function run_LTVS_N32_simulation(gfm_choice,tspan::Tuple{Float64,Float64})
         sol1 = integrator.sol
         ode = rhs(pg_fault)
         op_prob = ODEProblem(ode, sol1[end], (0.0, 1e-6), params, initializealg = BrownFullBasicInit())
-        x2 = solve(op_prob,Rodas5())
+        x2 = solve(op_prob,Rodas4())
+        
         x2 = x2.u[end]
-
+        #println(x2)
         integrator.f = ode
         integrator.cache.tf.f = integrator.f
         integrator.u = x2
@@ -222,7 +224,7 @@ function run_LTVS_N32_simulation(gfm_choice,tspan::Tuple{Float64,Float64})
         ic_tmp = deepcopy(integrator.sol.u[indexin(tfault[1],integrator.sol.t)[1]])
         ic_tmp = getPreFaultVoltages(pg,ic_tmp,deepcopy(sol[end]))
         op_prob = ODEProblem(ode, ic_tmp, (0.0, 1e-6), params, initializealg = BrownFullBasicInit())
-        x3 = solve(op_prob,Rodas5())
+        x3 = solve(op_prob,Rodas4())
         x3 = x3.u[end]
 
         integrator.f = rhs(pg_postfault)
@@ -251,8 +253,10 @@ function run_LTVS_N32_simulation(gfm_choice,tspan::Tuple{Float64,Float64})
     cb5 = DiscreteCallback(((u,t,integrator) -> t in tfault[2]), regularState)
     cb6 = DiscreteCallback(check_voltage, stop_integration)
 
-    sol = solve(problem, Rodas4(), callback = CallbackSet(cb1,cb2,cb3,cb4,cb5,cb6), tstops=[tfault[1],tfault[2]], dtmax = dt_max(),progress =true)
+    sol = solve(problem, Rosenbrock23(), callback = CallbackSet(cb1,cb2,cb3,cb4,cb5,cb6), tstops=[tfault[1],tfault[2]], dtmax = dt_max(),progress =true,force_dtmin=false,maxiters=1e5, initializealg = BrownFullBasicInit())
     #sol = AddNaNsIntoSolution(pg,pg_postfault,deepcopy(sol))
-
-    return PowerGridSolution(sol, pg)#, event_recorder
+    if sol.retcode != :Success
+        sol = DiffEqBase.solution_new_retcode(sol, :Success)
+    end
+    return PowerGridSolution(sol, pg)
 end
