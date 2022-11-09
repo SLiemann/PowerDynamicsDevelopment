@@ -151,7 +151,7 @@ for i in collect(2:16)
     display(plot!(pgsol.dqsol.t[1:end-1],sens_ui4[:,i].*params[i]))
 end
 
-plot(pgsol.dqsol.t[1:end-1],sqrt.(sens_ui4[:,1])
+plot(pgsol.dqsol.t[1:end-1],sqrt.(sens_ui4[:,1]))
 
 for i in collect(2:16)
     display(plot!(pgsol.dqsol.t[1:end-1],sens_ui4[:,i].*params[i]))

@@ -370,7 +370,6 @@ function plotv(pgsol,bus::String)
     t = pgsol.dqsol.t
     y =  sqrt.(ur.^2 + ui.^2)
     sc = scatter(x=t,y=y,name=bus)
-    display(plot(sc))
     return sc
 end
 
@@ -380,6 +379,15 @@ function plotv(pgsol,bus::Vector{String})
         tmp = plotv(pgsol,val)
         push!(p,tmp)
     end
-    display(plot(p))
     return p
 end
+
+function plotv(pgsol::Vector{PowerGridSolution},bus::String)
+    p = Vector{GenericTrace}()
+    for i in pgsol
+        tmp  = plotv(i,bus)
+        push!(p,tmp)
+    end
+    return p
+end
+

@@ -14,7 +14,7 @@ tfault_on() = 1.0
 tfault_off() = 1.1
 dt_max() = 1e-3
 
-function LTVS_Test_System_N32()
+function LTVS_Test_System_N32(;tap=6)
     Ybase = 1.0/Zbase
     #Yshunt = (400e3)^2*1im*100*pi*273.1061e-6*(400/130)^2/Ybase
     Q_Shunt_EHV = 600e6/Sbase
@@ -33,7 +33,7 @@ function LTVS_Test_System_N32()
  
 
         
-        "bus_sm" => gentpjAVROEL(Sbase=Sbase,Srated=5300e6, H=6.0, P=4400e6/Sbase, D=0.0, Ω=50, R_a=0, T_d0s=7.0, T_q0s=1.5, T_d0ss=0.05,
+        "bus_sm" => gentpjAVROEL(Sbase=Sbase,Srated=5300e6, H=6.0, P=4440e6/Sbase, D=0.0, Ω=50, R_a=0, T_d0s=7.0, T_q0s=1.5, T_d0ss=0.05,
                                  T_q0ss=0.05, X_d=2.2, X_q=2.0, X_ds=0.3, X_qs=0.4, X_dss=0.2, X_qss=0.2, X_l=0.15, S_10=0.1, S_12=0.3,K_is=0.0,
                                  V0 = 1.0, Ifdlim = 3.0618, L1 = -20.0, G1 = 120.0, Ta = 5.0, Tb = 12.5, G2 = 10.0, L2 = 5.0),
        "busv" => VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=0., B=0.,Y_n = complex(0.0)))
@@ -53,10 +53,10 @@ function LTVS_Test_System_N32()
         "Line_1-2"=> PiModelLine(from= "bus1", to = "bus_ehv",y=1.0/Z_SumLine, y_shunt_km=B_half_SumLine, y_shunt_mk=B_half_SumLine),
         "Line_1-v"=> PiModelLine(from= "bus1", to = "busv",y=1.0/(Z_4032_4044*position_fault), y_shunt_km=B_half_4032_4044, y_shunt_mk=0.0),
         "Line_v-2"=> PiModelLine(from= "bus_ehv", to = "busv",y=1.0/(Z_4032_4044*(1.0-position_fault)), y_shunt_km=B_half_4032_4044, y_shunt_mk=0),
-        "Trafo_Netz"=> StaticPowerTransformer(from="bus_ehv",to="bus_hv",Sbase=Sbase,Srated=8000e6,uk=0.15,XR_ratio=Inf,
+        "Trafo_Netz"=> StaticPowerTransformer(from="bus_ehv",to="bus_hv",Sbase=Sbase,Srated=8000e6,uk=0.12,XR_ratio=Inf,
                                            i0=0.0,Pv0=0.0,tap_side = "HV",tap_pos = 5,tap_inc = 1.0),
-        "OLTC"=> StaticPowerTransformer(from="bus_hv",to="bus_load",Sbase=Sbase,Srated=8000e6,uk=0.105,XR_ratio=Inf,
-                                           i0=0.0,Pv0=0.0,tap_side = "LV",tap_pos = 6,tap_inc = 1.0),
+        "OLTC"=> StaticPowerTransformer(from="bus_hv",to="bus_load",Sbase=Sbase,Srated=8000e6,uk=0.11,XR_ratio=Inf,
+                                           i0=0.0,Pv0=0.0,tap_side = "LV",tap_pos = tap,tap_inc = 1.0),
         "Trafo_SM"=> StaticPowerTransformer(from="bus_hv",to="bus_sm",Sbase=Sbase,Srated=5300e6,uk=0.15,XR_ratio=Inf,
                                           i0=0.0,Pv0=0.0,tap_side = "HV",tap_pos = 5,tap_inc = 1.0))
         return PowerGrid(buses, branches)

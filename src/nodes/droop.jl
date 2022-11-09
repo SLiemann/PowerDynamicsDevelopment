@@ -126,9 +126,10 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
 
     di_abs = i_abs - I_abs
 
-    #dx_uabs = IfElse.ifelse(iset_abs >= imax_csa ,0.0,Ki_uset * Δuabs)
+    dx_uabs = IfElse.ifelse(iset_abs >= imax_csa && p_red > 0,0.0,Ki_uset * Δuabs)
     #DC current control
-    pmax = idset_csa * real(E) + iqset_csa * imag(E)
+    plim = idset_csa * real(E) + iqset_csa * imag(E)
+    pmax = IfElse.ifelse(plim > p0set, p0set, IfElse.ifelse(plim < 0.0, 0.0, plim))
     dP = IfElse.ifelse(iset_abs >= imax_csa,p_red*(p0set -pmax), 0.0)
 
     dPdelta = 10.0*pi*(p_before_filter - pmeas - Pdelta)
@@ -143,7 +144,7 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
     #filtered power
     dPf = 10.0*pi*(pmeas - Pf)
     dw = w - (p0set - dP - Pf) * Kp_droop
-    dθ = w 
+    dθ = w
 
     dPs = Ps - p_before_filter
     dQs = Qs - q_before_filter

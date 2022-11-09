@@ -6,20 +6,23 @@ begin
     nothing
 end
 
-pgsol = run_LTVS_N32_simulation(1,0,(0.0,2.0));
+pgsol = run_LTVS_N32_simulation(4,0,(0.0,2.0));
 
 plot([myplot(pgsol,"bus_gfm",:Ps),myplot(pgsol,"bus_gfm",:P0)])
 plot([myplot(pgsol,"bus_gfm",:Qs),myplot(pgsol,"bus_gfm",:Q0)])
-plotv(pgsol,["bus_gfm"])Pdelta
-plot(myplot(pgsol,"bus_gfm",:θ,y_norm=1/(180/pi)))
-plot(myplot(pgsol,"bus_gfm",:w))
+plot(plotv(pgsol,["bus_gfm"]))
+plot(myplot(spgsol,"bus_gfm",:θ,y_norm=1/(180/pi)))
+plot(myplot(pgsol,"bus_gfm",:w,y_norm=50/2/pi,y_bias=50.0))
+plot(myplot(pgsol,"bus_gfm",:i_abs))
 plot(myplot(pgsol,"bus_gfm",:udc))
 plot(myplot(pgsol,"bus_gfm",:idc0_lim))
+plot(plotv(sol[2:2:8],"bus_gfm"))
+
 
 sol = Vector{PowerGridSolution}()
 for i=1:4
     for j=1:-1:0
-        pgsol = run_LTVS_N32_simulation(i,0,(0.0,2.0));
+        pgsol = run_LTVS_N32_simulation(i,j,(0.0,2.0));
         push!(sol,pgsol);
     end
 end
@@ -56,15 +59,19 @@ close(file)
 file = matopen(dir*"iabs.mat")
 iabs = read(file, "i_abs")
 close(file)
-
-
+file = matopen(dir*"udc.mat")
+udc = read(file, "udc")
+close(file)
+file = matopen(dir*"dw.mat")
+dw = read(file, "dw")
+close(file)
 
 
 pm = scatter(x=tm[:,1],y=vm[:,4],label="Matlab")
 jm = plotv(pgsol,["bus_gfm"])
 plot([pm,jm[1]])
 
-pm = scatter(x=tm[:,1],y=θm[:,1].-19.095781601625703,label="Matlab")
+pm = scatter(x=tm[:,1],y=θm[:,1].-18.882651941871828,label="Matlab")# 19.095781601625703
 jm = myplot(pgsol,"bus_gfm",:θ,y_norm=1/180*pi)
 plot([pm,jm])
 
@@ -88,12 +95,22 @@ pm = scatter(x=tm[:,1],y=pqs[:,2],label="Matlab")
 jm = myplot(pgsol,"bus_gfm",:Qs)
 plot([pm,jm])
 
-pm = scatter(x=tm[:,1],y=iabs[:,1]./(5300e6/(15e3*sqrt(3))*sqrt(2)),label="Matlab")
+pm = scatter(x=tm[:,1],y=iabs[:,1],label="Matlab")
 jm = myplot(pgsol,"bus_gfm",:i_abs)
 plot([pm,jm])
 
+pm = scatter(x=tm[:,1],y=udc[:,1],label="Matlab")
+jm = myplot(pgsol,"bus_gfm",:udc,y_bias=1.0)
+plot([pm,jm])
+
+pm = scatter(x=tm[:,1],y=-dw[:,1],label="Matlab")
+jm = myplot(pgsol,"bus_gfm",:w)
 
 
-
-
-plot([myplot(pgsol,"bus_gfm",:Pf),myplot(pgsol,"bus_gfm",:Ps)])
+p4 = Vector{PlotlyJS.SyncPlot}() 
+for i=2:2:8
+    pm  = scatter(x=tm[:,1],y=vm[:,4+(i-1)*5],label="Matlab")
+    jm = plotv(sol[i],"bus_gfm")
+    push!(p4,plot([pm,jm]))
+end
+[p4[1] p4[2];p4[3] p4[4]]

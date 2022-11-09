@@ -427,12 +427,12 @@ function InitNode(MC::Union{MatchingControl,MatchingControlRed},ind::Int64,I_c::
    U0 = v_d_temp+1im*v_q_temp
    θ = angle(U0)
 
-   s = U0 * conj(I_c[ind]) #/ (MC.Srated/MC.Sbase)
+   s = U0 * conj(I_c[ind])/ (MC.Srated/MC.Sbase)
    p = real(s)
    q = imag(s)
 
    #The current of the capacitor has to be related, since rf,xlf and xcf are related to Sbase!!!
-   i1 = I_c[ind] / (MC.Srated/MC.Sbase) + U0/(-1im*MC.xcf) /(MC.Srated/MC.Sbase)
+   i1 = I_c[ind] / (MC.Srated/MC.Sbase) + U0/(-1im*MC.xcf) #/(MC.Srated/MC.Sbase)
    E = U0 + (MC.rf + 1im*MC.xlf) * i1
 
    idqmeas = I_c[ind]*(cos(-θ)+1im*sin(-θ)) / (MC.Srated/MC.Sbase) #1im*
@@ -444,8 +444,9 @@ function InitNode(MC::Union{MatchingControl,MatchingControlRed},ind::Int64,I_c::
    iq = imag(idq)
 
    P_before = real(conj(i1) * E)
+   Q_before = imag(conj(i1) * E)
    dP =  P_before - p
-   idc0 = MC.gdc + MC.p0set + dP
+   idc0 = MC.gdc + MC.p0set/ (MC.Srated/MC.Sbase) + dP
    p0_new = idc0 - MC.gdc - dP
    udc = 0.0 #ist hier nur das delta
 
@@ -513,7 +514,7 @@ function InitNode(MC::Union{MatchingControl,MatchingControlRed},ind::Int64,I_c::
       )
   end
 
-    return [v_d_temp, v_q_temp,θ,udc,idc0,abs(U0),e_ud,e_uq,e_id,e_iq,dP,abs(idq)], MC_new #,idmeas,iqmeas,id,iq
+    return [v_d_temp, v_q_temp,θ,udc,idc0,abs(U0),e_ud,e_uq,e_id,e_iq,dP,abs(idq),P_before,Q_before,p,q], MC_new #,idmeas,iqmeas,id,iq
 end
 
 function InitNode(VOC::dVOC,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)
@@ -522,12 +523,12 @@ function InitNode(VOC::dVOC,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Arra
    U0 = v_d_temp+1im*v_q_temp
    θ = angle(U0)
 
-   s = U0 * conj(I_c[ind]) #/ (VOC.Srated/VOC.Sbase)
+   s = U0 * conj(I_c[ind]) / (VOC.Srated/VOC.Sbase)
    p = real(s)
    q = imag(s)
 
    #The current of the capacitor has to be related, since rf,xlf and xcf are related to Sbase!!!
-   i1 = I_c[ind] / (VOC.Srated/VOC.Sbase) + U0/(-1im*VOC.xcf) /(VOC.Srated/VOC.Sbase)
+   i1 = I_c[ind] / (VOC.Srated/VOC.Sbase) + U0/(-1im*VOC.xcf) #/(VOC.Srated/VOC.Sbase)
    E = U0 + (VOC.rf + 1im*VOC.xlf) * i1
 
    idqmeas = I_c[ind]*(cos(-θ)+1im*sin(-θ)) / (VOC.Srated/VOC.Sbase) #1im*
@@ -539,8 +540,9 @@ function InitNode(VOC::dVOC,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Arra
    iq = imag(idq)
 
    P_before = real(conj(i1) * E)
+   Q_before = imag(conj(i1) * E)
    dP =  P_before - p
-   idc0 = VOC.gdc + VOC.p0set + dP
+   idc0 = VOC.gdc + VOC.p0set/ (VOC.Srated/VOC.Sbase)  + dP
    p0_new = idc0 - VOC.gdc - dP
    udc = 0.0 #ist hier nur das delta
 
@@ -588,7 +590,7 @@ function InitNode(VOC::dVOC,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Arra
           p_ind = VOC.p_ind,
           )
 
-    return [v_d_temp, v_q_temp,θ,udc,idc0,vd_int,e_ud,e_uq,e_id,e_iq,p,q,dP,abs(idq),0.0,0.0], VOC_new #,idmeas,iqmeas,id,iq
+    return [v_d_temp, v_q_temp,θ,udc,idc0,vd_int,e_ud,e_uq,e_id,e_iq,p,q,dP,abs(idq),0.0,0.0,P_before,Q_before,p,q], VOC_new #,idmeas,iqmeas,id,iq
 end
 
 function InitNode(DR::droop,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)
@@ -668,12 +670,12 @@ function InitNode(VSM0::VSM,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Arra
    U0 = v_d_temp+1im*v_q_temp
    θ = angle(U0)
 
-   s = U0 * conj(I_c[ind]) #/ (VSM0.Srated/VSM0.Sbase)
+   s = U0 * conj(I_c[ind]) / (VSM0.Srated/VSM0.Sbase)
    p = real(s)
    q = imag(s)
 
    #The current of the capacitor has to be related, since rf,xlf and xcf are related to Sbase!!!
-   i1 = I_c[ind] / (VSM0.Srated/VSM0.Sbase) + U0/(-1im*VSM0.xcf) /(VSM0.Srated/VSM0.Sbase)
+   i1 = I_c[ind] / (VSM0.Srated/VSM0.Sbase) + U0/(-1im*VSM0.xcf) #/(VSM0.Srated/VSM0.Sbase)
    E = U0 + (VSM0.rf + 1im*VSM0.xlf) * i1
 
    idqmeas = I_c[ind]*(cos(-θ)+1im*sin(-θ)) / (VSM0.Srated/VSM0.Sbase) #1im*
@@ -685,9 +687,10 @@ function InitNode(VSM0::VSM,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Arra
    iq = imag(idq)
 
    P_before = real(conj(i1) * E)
+   Q_before = imag(conj(i1) * E)
    
    dP =  P_before - p
-   idc0 = VSM0.gdc + VSM0.p0set + dP
+   idc0 = VSM0.gdc + VSM0.p0set/ (VSM0.Srated/VSM0.Sbase) + dP
    p0_new = idc0 - VSM0.gdc - dP
    udc = 0.0 #ist hier nur das delta
 
@@ -731,7 +734,7 @@ function InitNode(VSM0::VSM,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Arra
           p_ind = VSM0.p_ind,
           )
 
-    return [v_d_temp, v_q_temp,θ,0.0,udc,idc0,abs(U0),e_ud,e_uq,e_id,e_iq,p,dP,abs(idq)], vsm_new #,idmeas,iqmeas,id,iq
+    return [v_d_temp, v_q_temp,θ,0.0,udc,idc0,abs(U0),e_ud,e_uq,e_id,e_iq,p,dP,abs(idq),P_before,Q_before,p,q], vsm_new #,idmeas,iqmeas,id,iq
 end
 
 ##gentpj

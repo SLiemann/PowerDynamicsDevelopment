@@ -9,7 +9,7 @@ begin
 end
 begin
     pg = LTVS_Test_System_N32()
-    Qmax   = [Inf,Inf, Inf, Inf,Inf,5300/8000*sqrt(1-0.85^2),Inf]
+    Qmax   = [Inf,Inf, Inf, Inf,Inf,5300/8000*sqrt(1-0.8378^2),Inf]
     Qmin   = -Qmax
     U1,δ1,ic0,cu = PowerFlowClassic(pg,iwamoto = false,max_tol = 1e-4,iter_max = 100,Qmax = Qmax, Qmin = Qmin,Qlimit_iter_check=80)
     #display(U1.=> [1.0;U])

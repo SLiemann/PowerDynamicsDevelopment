@@ -8,7 +8,7 @@ Ubase = 400e3
 Ibase = Sbase/Ubase/sqrt(3)
 Zbase = Ubase^2/Sbase
 
-zfault() = 5*(20+1im*20)/Zbase
+zfault() = (20+1im*20)/Zbase
 tfault_on() = 0.5
 tfault_off() = 0.6
 dt_max() = 1e-4/2
@@ -21,7 +21,7 @@ function LTVS_Test_System_N32_GFM(;gfm=1,awu=1.0) #1 = droop, 2 = matching, 3 = 
     position_fault = 0.9 #0 at slack 1.0 at bus 2
 
     Srated = 5300e6
-    pref = 4400e6/Sbase
+    pref = 4440e6/Sbase
     imax_csa = 1.0
     imax_dc = 1.2
     anti_windup = awu
@@ -44,11 +44,11 @@ function LTVS_Test_System_N32_GFM(;gfm=1,awu=1.0) #1 = droop, 2 = matching, 3 = 
     Xcf = 1.0/(100*pi*C_f) /Zbase_gfm
 
     buses=OrderedDict(
-        "bus0" => SlackAlgebraic(U=1.05717),
+        "bus0" => SlackAlgebraic(U=1.0532), # 
         "bus1" => VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),
         "bus_ehv" => VoltageDependentLoad(P=0.0, Q=Q_Shunt_EHV, U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),
         "bus_hv" => VoltageDependentLoad(P=0.0, Q=Q_Shunt_HV,  U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),
-        "bus_load" => GeneralVoltageDependentLoad(P=Pload, Q = QLoad, U=1.0, Ap=0.0, Bp=1.0,Aq = 1.0, Bq= 0.0,Y_n = complex(0.0)),
+        "bus_load" => GeneralVoltageDependentLoad(P=Pload, Q = QLoad, U=1.0, Ap=1.0, Bp=0.0,Aq = 1.0, Bq= 0.0,Y_n = complex(0.0)),
         "busv" => VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=0., B=0.,Y_n = complex(0.0)))
 
     if gfm == 1
@@ -66,7 +66,7 @@ function LTVS_Test_System_N32_GFM(;gfm=1,awu=1.0) #1 = droop, 2 = matching, 3 = 
                                 Kdc = 100.0, gdc = Gdc,cdc = Cdc,xlf = Xlf,rf = R_f, xcf =  Xcf,Tdc = 0.05,Kp_u = 0.52,Ki_u = 1.161022,
                                 Kp_i = 0.738891,Ki_i = 1.19,imax_csa = imax_csa,imax_dc = imax_dc,p_red = anti_windup,ϵ = 1e-9*0, p_ind = collect(1:17))
     elseif gfm == 4
-        buses["bus_gfm"] = VSM(Sbase = Sbase, Srated = Srated, p0set = pref, u0set = 1.00, J = 2.0, Dp = 100.0, Kp_uset = 0.001, Ki_uset = 0.5^2,
+        buses["bus_gfm"] = VSM(Sbase = Sbase, Srated = Srated, p0set = pref, u0set = 1.00, J = 2, Dp = 100, Kp_uset = 0.001, Ki_uset = 0.5,
                                Kdc = 100.0, gdc = Gdc, cdc = Cdc, xlf = Xlf, rf = R_f, xcf =  Xcf, Tdc = 0.05, Kp_u = 0.52, Ki_u = 1.161022,
                                Kp_i = 0.738891, Ki_i = 1.19, imax_csa = imax_csa, imax_dc = imax_dc, p_red = anti_windup, p_ind = collect(1:18))
     else
@@ -78,7 +78,7 @@ function LTVS_Test_System_N32_GFM(;gfm=1,awu=1.0) #1 = droop, 2 = matching, 3 = 
     B_half_SumLine = 1im*100*pi*19.49005*1e-6/2.0*Zbase
     Z_4032_4044 = (9.6 + 1im*80.0)/Zbase
     B_half_4032_4044 = 1im*100*pi*4.770001*1e-6/2.0*Zbase
-    #Slack internal resistance
+    #Slack internal resistance  
     R1 = 1.514082/Zbase
     X1 = 17.24593/Zbase
     branches=OrderedDict(
@@ -86,9 +86,9 @@ function LTVS_Test_System_N32_GFM(;gfm=1,awu=1.0) #1 = droop, 2 = matching, 3 = 
         "Line_1-2"=> PiModelLine(from= "bus1", to = "bus_ehv",y=1.0/Z_SumLine, y_shunt_km=B_half_SumLine, y_shunt_mk=B_half_SumLine),
         "Line_1-v"=> PiModelLine(from= "bus1", to = "busv",y=1.0/(Z_4032_4044*position_fault), y_shunt_km=B_half_4032_4044, y_shunt_mk=0.0),
         "Line_v-2"=> PiModelLine(from= "bus_ehv", to = "busv",y=1.0/(Z_4032_4044*(1.0-position_fault)), y_shunt_km=B_half_4032_4044, y_shunt_mk=0),
-        "Trafo_Netz"=> StaticPowerTransformer(from="bus_ehv",to="bus_hv",Sbase=Sbase,Srated=8000e6,uk=0.15,XR_ratio=Inf,
+        "Trafo_Netz"=> StaticPowerTransformer(from="bus_ehv",to="bus_hv",Sbase=Sbase,Srated=8000e6,uk=0.12,XR_ratio=Inf,
                                            i0=0.0,Pv0=0.0,tap_side = "HV",tap_pos = 5,tap_inc = 1.0),
-        "OLTC"=> StaticPowerTransformer(from="bus_hv",to="bus_load",Sbase=Sbase,Srated=8000e6,uk=0.105,XR_ratio=Inf,
+        "OLTC"=> StaticPowerTransformer(from="bus_hv",to="bus_load",Sbase=Sbase,Srated=8000e6,uk=0.11,XR_ratio=Inf,
                                            i0=0.0,Pv0=0.0,tap_side = "LV",tap_pos = 6,tap_inc = 1.0),
         "Trafo_SM"=> StaticPowerTransformer(from="bus_hv",to="bus_gfm",Sbase=Sbase,Srated=5300e6,uk=0.15,XR_ratio=Inf,
                                           i0=0.0,Pv0=0.0,tap_side = "HV",tap_pos = 5,tap_inc = 1.0))
@@ -253,7 +253,7 @@ function run_LTVS_N32_simulation(gfm_choice,awu_choice,tspan::Tuple{Float64,Floa
     cb5 = DiscreteCallback(((u,t,integrator) -> t in tfault[2]), regularState)
     cb6 = DiscreteCallback(check_voltage, stop_integration)
 
-    sol = solve(problem, Rosenbrock23(), callback = CallbackSet(cb1,cb2,cb3,cb4,cb5,cb6), tstops=[tfault[1],tfault[2]], dtmax = dt_max(),progress =true,force_dtmin=false,maxiters=1e5, initializealg = BrownFullBasicInit())
+    sol = solve(problem, Rodas4(), callback = CallbackSet(cb1,cb2,cb3,cb4,cb5,cb6), tstops=[tfault[1],tfault[2]], dtmax = dt_max(),force_dtmin=false,maxiters=5e5, initializealg = BrownFullBasicInit())
     #sol = AddNaNsIntoSolution(pg,pg_postfault,deepcopy(sol))
     if sol.retcode != :Success
         sol = DiffEqBase.solution_new_retcode(sol, :Success)
