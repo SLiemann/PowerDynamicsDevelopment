@@ -900,3 +900,14 @@ function InitNode(GP::gentpjAVROEL,ind::Int64,I_c::Vector{Complex{Float64}},ic_l
                                            G2 = GP.G2, L2 = GP.L2);
 return [v_r_term, v_i_term, δ, 0., e_ds, e_qs, e_dss, e_qss,E_l,ifd,GP.L1,v_f,v_f], node_temp
 end
+
+function InitNode(load::ThreePhaseFault,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)
+   v_d_temp = ic_lf[ind_offset]
+   v_q_temp = ic_lf[ind_offset+1]
+   U0 = v_d_temp+1im*v_q_temp
+
+   s = U0 * conj(I_c[ind])
+   p = real(s)
+   q = imag(s)
+   return [v_d_temp, v_q_temp], load #, p,q]
+end

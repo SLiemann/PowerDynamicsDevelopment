@@ -22,10 +22,11 @@ See also the Chapter 2 in
 """
 =#
 @Line PiModelLineParam(from, to, y, y_shunt_km, y_shunt_mk,p_ind) begin
-    # If current is flowing away from the source, it is negative at the source.
-    Y = PiModel(1.0/(1im*p[p_ind]), y_shunt_km, y_shunt_mk, 1, 1)
+    Y = PiModel(y, y_shunt_km, y_shunt_mk, 1, 1)
+end begin
+    active = p[p_ind]
     voltage_vector = [source_voltage,destination_voltage]
-    current_vector = Y * voltage_vector
+    current_vector = active .* Y * voltage_vector
 end
 
 export PiModelLineParam

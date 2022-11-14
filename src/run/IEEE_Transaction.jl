@@ -6,18 +6,18 @@ begin
     nothing
 end
 
-pgsol = run_LTVS_N32_simulation(4,0,(0.0,2.0));
+pgsol = run_LTVS_N32_simulation(1,1,(0.0,50.0));
 
 plot([myplot(pgsol,"bus_gfm",:Ps),myplot(pgsol,"bus_gfm",:P0)])
 plot([myplot(pgsol,"bus_gfm",:Qs),myplot(pgsol,"bus_gfm",:Q0)])
-plot(plotv(pgsol,["bus_gfm"]))
-plot(myplot(spgsol,"bus_gfm",:θ,y_norm=1/(180/pi)))
+plot(plotv(pgsol,["bus_load"]))
+plot(myplot(pgsol,"bus_gfm",:θ,y_norm=1/(180/pi)))
 plot(myplot(pgsol,"bus_gfm",:w,y_norm=50/2/pi,y_bias=50.0))
 plot(myplot(pgsol,"bus_gfm",:i_abs))
 plot(myplot(pgsol,"bus_gfm",:udc))
 plot(myplot(pgsol,"bus_gfm",:idc0_lim))
 plot(plotv(sol[2:2:8],"bus_gfm"))
-
+plot([myplot(pgsol,"busv",:P),myplot(pgsol,"busv",:Q)])
 
 sol = Vector{PowerGridSolution}()
 for i=1:4
@@ -108,9 +108,16 @@ jm = myplot(pgsol,"bus_gfm",:w)
 
 
 p4 = Vector{PlotlyJS.SyncPlot}() 
-for i=2:2:8
+for i=1:2:8
     pm  = scatter(x=tm[:,1],y=vm[:,4+(i-1)*5],label="Matlab")
     jm = plotv(sol[i],"bus_gfm")
     push!(p4,plot([pm,jm]))
 end
 [p4[1] p4[2];p4[3] p4[4]]
+
+
+try
+    gen += 1
+catch
+    a = 5
+end

@@ -94,6 +94,7 @@ NodeType(L::droop) = 1
 NodeType(L::VSM) = 1
 NodeType(L::Union{gentpj,gentpjAVROEL}) = 1
 NodeType(L::GeneralVoltageDependentLoad) = 2
+NodeType(L::ThreePhaseFault) = 2
 
 #note: only loads are treated with voltage depency and are called every iteration
 PowerNodeLoad(S::SlackAlgebraic,U) = 0. #treated as generation
@@ -150,6 +151,7 @@ PowerNodeLoad(L::dVOC,U) = 0.
 PowerNodeLoad(L::droop,U) = 0.
 PowerNodeLoad(L::VSM,U) = 0.
 PowerNodeLoad(L::Union{gentpj,gentpjAVROEL},U) = 0.
+PowerNodeLoad(L::ThreePhaseFault,U) = 0. #could be changed in future
 function PowerNodeLoad(L::GeneralVoltageDependentLoad,U)
     u_rel = abs(U)/L.U
     Pv = L.P * (L.Ap * u_rel^2 + L.Bp * u_rel + 1.0 - L.Ap - L.Bp)
@@ -194,6 +196,7 @@ PowerNodeGeneration(V::droop) = V.p0set
 PowerNodeGeneration(V::VSM) = V.p0set
 PowerNodeGeneration(V::Union{gentpj,gentpjAVROEL}) = V.P
 PowerNodeGeneration(V::GeneralVoltageDependentLoad) = 0.0
+PowerNodeGeneration(V::ThreePhaseFault) = 0.0
 
 
 function PowerFlowClassic(pg::PowerGrid; ind_sl::Int64 = 0,max_tol::Float64 = 1e-7,iter_max::Int64  = 30,iwamoto::Bool =false, Qmax = -1, Qmin = -1, Qlimit_iter_check::Int64 = 3)
