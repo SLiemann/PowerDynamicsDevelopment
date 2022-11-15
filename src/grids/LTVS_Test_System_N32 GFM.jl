@@ -9,8 +9,8 @@ Ibase = Sbase/Ubase/sqrt(3)
 Zbase = Ubase^2/Sbase
 
 zfault() = (20+1im*20)/Zbase
-tfault_on() = 0.5
-tfault_off() = 0.6
+tfault_on() = 0.1
+tfault_off() = 0.2
 dt_max() = 1e-2
 
 function LTVS_Test_System_N32_GFM(;gfm=1,awu=1.0) #1 = droop, 2 = matching, 3 = dVOC, 4 = VSM
@@ -49,26 +49,26 @@ function LTVS_Test_System_N32_GFM(;gfm=1,awu=1.0) #1 = droop, 2 = matching, 3 = 
         "bus_ehv" => VoltageDependentLoad(P=0.0, Q=Q_Shunt_EHV, U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),
         "bus_hv" => VoltageDependentLoad(P=0.0, Q=Q_Shunt_HV,  U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),
         "bus_load" => GeneralVoltageDependentLoad(P=Pload, Q = QLoad, U=1.0, Ap=0.0, Bp=1.0,Aq = 1.0, Bq= 0.0,Y_n = complex(0.0)),
-        "busv" => ThreePhaseFault(Yfault = 1.0/zfault(),p_ind=1))
+        "busv" => ThreePhaseFault(p_ind=collect(1:2)))
 
     if gfm == 1
         buses["bus_gfm"] = droop(Sbase = Sbase,Srated = Srated, p0set = pref, u0set = 1.00,Kp_droop = pi,Kp_uset = 0.001, Ki_uset = 0.5,
                                  Kdc = 100.0, gdc = Gdc, cdc = Cdc, xlf = Xlf, rf = R_f, xcf =  Xcf, Tdc = 0.05, Kp_u = 0.52,
                                  Ki_u = 1.161022, Kp_i = 0.738891, Ki_i = 1.19, imax_csa = imax_csa, imax_dc = imax_dc, p_red = anti_windup, 
-                                 p_ind = collect(5:21))
+                                 p_ind = collect(6:22))
     elseif gfm == 2 
         buses["bus_gfm"] = MatchingControlRed(Sbase = Sbase,Srated = Srated,p0set = pref,u0set = 1.00,Kp_uset = 0.001, Ki_uset = 0.5,
                                               Kdc = 100.0, gdc = Gdc,cdc = Cdc,xlf = Xlf,rf = R_f, xcf =  Xcf,Tdc = 0.05,Kp_u = 0.52,
                                               Ki_u = 1.161022,Kp_i = 0.738891,Ki_i = 1.19,imax_csa = imax_csa,imax_dc = imax_dc,p_red = anti_windup,
-                                                p_ind = collect(5:20))
+                                                p_ind = collect(6:21))
     elseif gfm == 3
         buses["bus_gfm"] = dVOC(Sbase = Sbase,Srated = Srated,p0set = pref, q0set = 0.0,u0set = 1.00,eta = pi,alpha = 0.1*2/3*1000^2,
                                 Kdc = 100.0, gdc = Gdc,cdc = Cdc,xlf = Xlf,rf = R_f, xcf =  Xcf,Tdc = 0.05,Kp_u = 0.52,Ki_u = 1.161022,
-                                Kp_i = 0.738891,Ki_i = 1.19,imax_csa = imax_csa,imax_dc = imax_dc,p_red = anti_windup,ϵ = 1e-9*0, p_ind = collect(5:21))
+                                Kp_i = 0.738891,Ki_i = 1.19,imax_csa = imax_csa,imax_dc = imax_dc,p_red = anti_windup,ϵ = 1e-9*0, p_ind = collect(6:22))
     elseif gfm == 4
         buses["bus_gfm"] = VSM(Sbase = Sbase, Srated = Srated, p0set = pref, u0set = 1.00, J = 2, Dp = 100, Kp_uset = 0.001, Ki_uset = 0.5,
                                Kdc = 100.0, gdc = Gdc, cdc = Cdc, xlf = Xlf, rf = R_f, xcf =  Xcf, Tdc = 0.05, Kp_u = 0.52, Ki_u = 1.161022,
-                               Kp_i = 0.738891, Ki_i = 1.19, imax_csa = imax_csa, imax_dc = imax_dc, p_red = anti_windup, p_ind = collect(5:22))
+                               Kp_i = 0.738891, Ki_i = 1.19, imax_csa = imax_csa, imax_dc = imax_dc, p_red = anti_windup, p_ind = collect(6:23))
     else
         error("wrong number, gfm should be between 1-4")
     end
@@ -84,12 +84,12 @@ function LTVS_Test_System_N32_GFM(;gfm=1,awu=1.0) #1 = droop, 2 = matching, 3 = 
     branches=OrderedDict(
         "Line_0-1"=> PiModelLine(from= "bus0", to = "bus1",y=1.0/(R1+1im*X1), y_shunt_km=0.0, y_shunt_mk=0.0),
         "Line_1-2"=> PiModelLine(from= "bus1", to = "bus_ehv",y=1.0/Z_SumLine, y_shunt_km=B_half_SumLine, y_shunt_mk=B_half_SumLine),
-        "Line_1-v"=> PiModelLineParam(from= "bus1", to = "busv",y=1.0/(Z_4032_4044*position_fault), y_shunt_km=B_half_4032_4044, y_shunt_mk=0.0,p_ind=2),
-        "Line_v-2"=> PiModelLineParam(from= "bus_ehv", to = "busv",y=1.0/(Z_4032_4044*(1.0-position_fault)), y_shunt_km=B_half_4032_4044, y_shunt_mk=0,p_ind=3),
+        "Line_1-v"=> PiModelLineParam(from= "bus1", to = "busv",y=1.0/(Z_4032_4044*position_fault), y_shunt_km=B_half_4032_4044, y_shunt_mk=0.0,p_ind=3),
+        "Line_v-2"=> PiModelLineParam(from= "bus_ehv", to = "busv",y=1.0/(Z_4032_4044*(1.0-position_fault)), y_shunt_km=B_half_4032_4044, y_shunt_mk=0,p_ind=4),
         "Trafo_Netz"=> StaticPowerTransformer(from="bus_ehv",to="bus_hv",Sbase=Sbase,Srated=8000e6,uk=0.12,XR_ratio=Inf,
                                            i0=0.0,Pv0=0.0,tap_side = "HV",tap_pos = 5,tap_inc = 1.0),
         "OLTC"=> StaticPowerTransformerTapParam(from="bus_hv",to="bus_load",Sbase=Sbase,Srated=8000e6,uk=0.11,XR_ratio=Inf,
-                                           i0=0.0,Pv0=0.0,tap_side = "LV",tap_pos = 6,tap_inc = 1.0,tap_max=20,tap_min=-20,p_ind=4),
+                                           i0=0.0,Pv0=0.0,tap_side = "LV",tap_pos = 6,tap_inc = 1.0,tap_max=20,tap_min=-20,p_ind=5),
         "Trafo_SM"=> StaticPowerTransformer(from="bus_hv",to="bus_gfm",Sbase=Sbase,Srated=5300e6,uk=0.15,XR_ratio=Inf,
                                           i0=0.0,Pv0=0.0,tap_side = "HV",tap_pos = 5,tap_inc = 1.0))
         return PowerGrid(buses, branches)
@@ -98,9 +98,9 @@ end
 function GetParamsGFM(pg::PowerGrid)
     node = pg.nodes["bus_gfm"]
     tap = pg.lines["OLTC"].tap_pos
-    println(tap)
     params = Vector{Float64}()
-    push!(params,0.0) #for 3ph fault, start without fault
+    push!(params,Inf) #for 3ph fault, start without fault
+    push!(params,Inf) #for 3ph fault, start without fault
     push!(params,1) # for 1st PiModelLineParam
     push!(params,1) # for 2nd PiModelLineParam
     push!(params,0) # for OLTC
@@ -117,19 +117,51 @@ function GetParamsGFM(pg::PowerGrid)
     end
 end
 
-function run_LTVS_N32_simulation(gfm_choice,awu_choice,tspan::Tuple{Float64,Float64})
+function GetFaultLTVSPG(pg::PowerGrid)
+    pg_fault = deepcopy(pg)
+    pg_fault.nodes["busv"] = VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=0., B=0.,Y_n = complex(1.0/(zfault())))
+    return pg_fault
+end
+
+function GetPostFaultLTVSPG(pg::PowerGrid)
+    nodes_postfault = deepcopy(pg.nodes)
+    branches_postfault = deepcopy(pg.lines)
+    delete!(branches_postfault,"Line_v-2")
+    branches_postfault["Line_1-v"] = PiModelLineParam(from= "bus_ehv", to = "busv",y=1.0/(1*(1.0-0.1)), y_shunt_km=0.0, y_shunt_mk=0,p_ind=3)
+    return PowerGrid(nodes_postfault,branches_postfault)
+end
+
+function Initialize_N32_GFM(gfm_choice,awu_choice)
     pg = LTVS_Test_System_N32_GFM(gfm=gfm_choice,awu=awu_choice)
     Qmax   = [Inf,Inf, Inf, Inf,Inf,5300/8000*sqrt(1-0.85^2),Inf]
     Qmin   = -Qmax
     U1,δ1,ic0,cu = PowerFlowClassic(pg,iwamoto = false,max_tol = 1e-4,iter_max = 100,Qmax = Qmax, Qmin = Qmin,Qlimit_iter_check=80)
-    #println.(keys(pg.nodes) .=> U1)
-    #println.(keys(pg.nodes) .=> δ1)
-    pg, ic1 = InitializeInternalDynamics(pg,ic0)
+    pg, ic = InitializeInternalDynamics(pg,ic0)
+    return pg,ic
+end
 
-    tfault = [tfault_on(), tfault_off()]
+function MakeODEProblemN32(pg::PowerGrid,ic::Vector{Float64},params::Vector{Float64},tspan::Tuple{Float64,Float64})
+    return ODEProblem{true}(rhs(pg),ic,tspan,params)
+end
+
+function run_LTVS_N32_simulation(gfm_choice,awu_choice,tspan::Tuple{Float64,Float64})
+    pg,ic = Initialize_N32_GFM(gfm_choice,awu_choice)
     params = GetParamsGFM(pg)
-    problem = ODEProblem{true}(rhs(pg),ic1,tspan,params)
+    prob = MakeODEProblemN32(pg,ic,params,tspan)
+
+    pg_post = GetPostFaultLTVSPG(pg)
+    return simulate_LTVS_N32_simulation(prob,pg_post,zfault())
+end
+
+function simulate_LTVS_N32_simulation(pg::PowerGrid,ic::Vector{Float64},tspan::Tuple{Float64,Float64},zfault::Union{Float64,Complex{Float64},Complex{Int64}})
+    pg_postfault = GetPostFaultLTVSPG(pg)
+    params = GetParamsGFM(pg)
+    problem= ODEProblem{true}(rhs(pg),ic,tspan,params)
+    tfault = [tfault_on(), tfault_off()]
     timer_start = -1.0
+
+    rfault = real(zfault)
+    xfault = imag(zfault)
 
     branch_oltc = "OLTC"
     index_U_oltc = PowerDynamics.variable_index(pg.nodes,pg.lines[branch_oltc].to,:u_r)
@@ -138,7 +170,7 @@ function run_LTVS_N32_simulation(gfm_choice,awu_choice,tspan::Tuple{Float64,Floa
     function TapState(integrator)
         timer_start = integrator.t
         sol1 = integrator.sol
-        integrator.p[4] += 1 
+        integrator.p[5] += 1 
         op_prob = ODEProblem(integrator.f, sol1[end], (0.0, 1e-6), integrator.p, initializealg = BrownFullBasicInit())
         x2 = solve(op_prob,Rodas4())
         x2 = x2.u[end]
@@ -175,7 +207,9 @@ function run_LTVS_N32_simulation(gfm_choice,awu_choice,tspan::Tuple{Float64,Floa
     end
 
     function errorState(integrator)
-        integrator.p[1] = 1
+        integrator.p[1] = rfault
+        integrator.p[2] = xfault
+
         sol1 = integrator.sol
         ode =integrator.f
         op_prob = ODEProblem(ode, sol1[end], (0.0, 1e-6), integrator.p, initializealg = BrownFullBasicInit())
@@ -186,19 +220,21 @@ function run_LTVS_N32_simulation(gfm_choice,awu_choice,tspan::Tuple{Float64,Floa
     end
 
     function regularState(integrator)
-        integrator.p[1] = 0.0
-        integrator.p[2] = 1e-10
-        integrator.p[3] = 1e-10
+        integrator.p[1] = Inf #fault is zero again
+        integrator.p[2] = Inf #fault is zero again
+        #integrator.p[3] = 1e-5*0 #disable line
+        #integrator.p[4] = 1e-5*0 #disable line
 
         sol = integrator.sol
-        #ode   = rhs(pg_postfault)
+        ode   = rhs(pg_postfault)
         ic_tmp = deepcopy(integrator.sol.u[indexin(tfault[1],integrator.sol.t)[1]])
         ic_tmp = getPreFaultVoltages(pg,ic_tmp,deepcopy(sol[end]))
-        op_prob = ODEProblem(integrator.f, ic_tmp, (0.0, 1e-6), integrator.p, initializealg = BrownFullBasicInit())
+        op_prob = ODEProblem(ode, ic_tmp, (0.0, 1e-6), integrator.p, initializealg = BrownFullBasicInit())
         x3 = solve(op_prob,Rodas4())
         x3 = x3.u[end]
         integrator.u = deepcopy(x3)
-    
+        integrator.f = ode
+        integrator.cache.tf.f = integrator.f
         auto_dt_reset!(integrator)
     end
 
@@ -220,10 +256,12 @@ function run_LTVS_N32_simulation(gfm_choice,awu_choice,tspan::Tuple{Float64,Floa
     cb5 = DiscreteCallback(((u,t,integrator) -> t in tfault[2]), regularState)
     cb6 = DiscreteCallback(check_voltage, stop_integration)
 
-    sol = solve(problem, Rodas4(), callback = CallbackSet(cb1,cb2,cb3,cb4,cb5,cb6), tstops=[tfault[1],tfault[2]], dtmax = dt_max(),force_dtmin=false,maxiters=1e5, initializealg = BrownFullBasicInit())
+    sol = solve(problem, Rodas5(autodiff=true), callback = CallbackSet(cb1,cb2,cb3,cb4,cb5,cb6), tstops=[tfault[1],tfault[2]], dtmax = dt_max(),force_dtmin=false,maxiters=1e5, initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-9,reltol=1e-8)
     #sol = AddNaNsIntoSolution(pg,pg_postfault,deepcopy(sol))
+    success = deepcopy(sol.retcode)
     if sol.retcode != :Success
+        println(sol.retcode)
         sol = DiffEqBase.solution_new_retcode(sol, :Success)
     end
-    return PowerGridSolution(sol, pg)
+    return PowerGridSolution(sol, pg), success
 end

@@ -26,7 +26,7 @@ See also the Chapter 2 in
 end begin
     active = p[p_ind]
     voltage_vector = [source_voltage,destination_voltage]
-    current_vector = active .* Y * voltage_vector
+    current_vector = Y * voltage_vector
 end
 
 export PiModelLineParam

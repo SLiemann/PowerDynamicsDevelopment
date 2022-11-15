@@ -6,11 +6,11 @@ begin
     nothing
 end
 
-pgsol = run_LTVS_N32_simulation(1,1,(0.0,50.0));
+pgsol = run_LTVS_N32_simulation(1,1,(0.0,2.0));
 
 plot([myplot(pgsol,"bus_gfm",:Ps),myplot(pgsol,"bus_gfm",:P0)])
 plot([myplot(pgsol,"bus_gfm",:Qs),myplot(pgsol,"bus_gfm",:Q0)])
-plot(plotv(pgsol,["bus_load"]))
+plot(plotv(pgsol,["bus_gfm"]))
 plot(myplot(pgsol,"bus_gfm",:θ,y_norm=1/(180/pi)))
 plot(myplot(pgsol,"bus_gfm",:w,y_norm=50/2/pi,y_bias=50.0))
 plot(myplot(pgsol,"bus_gfm",:i_abs))
