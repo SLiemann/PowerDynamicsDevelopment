@@ -256,8 +256,8 @@ function simulate_LTVS_N32_simulation(pg::PowerGrid,ic::Vector{Float64},tspan::T
     cb5 = DiscreteCallback(((u,t,integrator) -> t in tfault[2]), regularState)
     cb6 = DiscreteCallback(check_voltage, stop_integration)
 
-    sol = solve(problem, Rodas5(autodiff=true), callback = CallbackSet(cb1,cb2,cb3,cb4,cb5,cb6), tstops=[tfault[1],tfault[2]], dtmax = dt_max(),force_dtmin=false,maxiters=1e5, initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-8,reltol=1e-9)
-    # good values abstol=1e-8,reltol=1e-9 and Rodas5(autodiff=true)
+    sol = solve(problem, Rodas5(autodiff=true), callback = CallbackSet(cb1,cb2,cb3,cb4,cb5,cb6), tstops=[tfault[1],tfault[2]], dtmax = dt_max(),force_dtmin=false,maxiters=1e5, initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-8,reltol=1e-8)
+    # good values abstol=1e-8,reltol=1e-8 and Rodas5(autodiff=true) for droop
     success = deepcopy(sol.retcode)
     if sol.retcode != :Success
         println(sol.retcode)
