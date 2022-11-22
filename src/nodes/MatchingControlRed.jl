@@ -17,8 +17,8 @@ The model has the following internal dynamic variables:
 
 """
 =#
-@DynamicNode MatchingControlRed(Sbase,Srated,p0set,u0set,Kp_uset,Ki_uset,Kdc,gdc,cdc,xlf,rf,xcf,Tdc,Kp_u,Ki_u,Kp_i,Ki_i,imax_csa,imax_dc,p_red,p_ind) begin
-    MassMatrix(m_int =[true,true,true,true,true,true,true,true,true,false,false,false,false,false])#,false,false,false,false
+@DynamicNode MatchingControlRed(Sbase,Srated,p0set,u0set,Kp_uset,Ki_uset,Kdc,gdc,cdc,xlf,rf,xcf,Tdc,Kp_u,Ki_u,Kp_i,Ki_i,imax_csa,imax_dc,p_red,LVRT_on,p_ind) begin
+    MassMatrix(m_int =[true,true,true,true,true,true,true,true,true,false,true])#,false,false,false,false
 end begin
     @assert Sbase > 0 "Base apparent power of the grid in VA, should be >0"
     @assert Srated > 0 "Rated apperent power of the machine in VA, should be >0"
@@ -42,7 +42,7 @@ end begin
     @assert p_red == 0 || p_red == 1 "Boolean value vor activating or deactivating power reduction in case of limited current"
 
 
-end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_iq],[Pdelta,dPdelta],[i_abs,di_abs],[Ps,dPs],[Qs,dQs],[P0,dP0],[Q0,dQ0]] begin #[id0,did0],[iq0,diq0],[ids,dids],[iqs,diqs]
+end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_iq],[Pdelta,dPdelta],[iset_abs,diset_abs],[LVRT,dLVRT]] begin #[Ps,dPs],[Qs,dQs],[P0,dP0],[Q0,dQ0] #,[i_abs,di_abs]
     Kp_uset = p[p_ind[1]]
     Ki_uset = p[p_ind[2]]
     Kdc = p[p_ind[3]]
@@ -57,12 +57,10 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
     Ki_u = p[p_ind[11]]
     Kp_i = p[p_ind[12]]
     Ki_i = p[p_ind[13]]
-    #imax = p[p_ind[12]]
-    #Kvi = p[p_ind[13]]
-    #σXR = p[p_ind[14]]
     imax_csa = p[p_ind[14]]
     imax_dc = p[p_ind[15]]
     p_red = p[p_ind[16]]
+    LVRT_on = p[p_ind[17]]
 
 
     #after filter
@@ -105,14 +103,14 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
     iqset = iqmeas + udmeas / xcf + Kp_u * (uqset - uqmeas) + e_uq
 
     #Current saturation algorithm
-    iset_abs = hypot(idset,iqset)
+    diset_abs = iset_abs - hypot(idset,iqset)
     iset_lim = IfElse.ifelse(iset_abs >= imax_csa,imax_csa,iset_abs)
     ϕ1 = atan(iqset,idset)
     idset_csa = iset_lim*cos(ϕ1)
     iqset_csa = iset_lim*sin(ϕ1)
 
     #experimentell
-    anti_windup = IfElse.ifelse(iset_abs > imax_csa && p_red > 0,true,false)
+    anti_windup = IfElse.ifelse(iset_abs >= imax_csa && p_red > 0,true,false)
     de_ud = IfElse.ifelse(anti_windup,0.0, (udset - udmeas) * Ki_u)
     de_uq = IfElse.ifelse(anti_windup,0.0, (uqset - uqmeas) * Ki_u)
 
@@ -149,25 +147,26 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
 
     du = u - u0 #algebraic constraint
 
-    di_abs = i_abs - I_abs
-
-    dx_uabs = IfElse.ifelse(iset_abs > imax_csa && p_red > 0,0.0,Ki_uset * Δuabs)
+    dx_uabs = IfElse.ifelse(iset_abs >=  imax_csa && p_red > 0,0.0,Ki_uset * Δuabs)
     #DC current control
     plim = idset_csa * real(E) + iqset_csa * imag(E)
-    pmax = IfElse.ifelse(plim > p0set, p0set, IfElse.ifelse(plim < 0.0, 0.0, plim))
-    dP = IfElse.ifelse(iset_abs > imax_csa && p_red > 0,p_red*(p0set -pmax), 0.0)
+    pmax = IfElse.ifelse(plim >=  p0set, p0set, IfElse.ifelse(plim < 0.0, 0.0, plim))
+    dP = IfElse.ifelse(iset_abs >=  imax_csa && p_red > 0,p_red*(p0set -pmax), 0.0)
     #idc = Kdc * (1.0 - udc) + p0set/1.0 + udc*gdc + (p_before_filter - pmeas)
     dPdelta = 10.0*pi*(p_before_filter - pmeas - Pdelta)
     idc = -Kdc * udc + p0set - dP + (1.0+udc)*gdc + Pdelta
     didc0 = (idc - idc0) / Tdc
 
-    idc0_lim = IfElse.ifelse(idc0 > imax_dc, imax_dc, IfElse.ifelse(idc0 < -imax_dc,-imax_dc,idc0))
+    idc0_lim = IfElse.ifelse(idc0 >=  imax_dc, imax_dc, IfElse.ifelse(idc0 < -imax_dc,-imax_dc,idc0))
     #DC circuit
     dudc = (idc0_lim - gdc * (1.0+udc) - ix) / cdc
-    dPs = Ps - p_before_filter
-    dQs = Qs - q_before_filter
-    dP0 = P0 - pmeas
-    dQ0 = Q0 - qmeas
+
+    #di_abs = i_abs - I_abs
+    #dPs = Ps - p_before_filter
+    #dQs = Qs - q_before_filter
+    #dP0 = P0 - pmeas
+    #dQ0 = Q0 - qmeas
+    dLVRT = LVRT_on
 end
 
 export MatchingControlRed

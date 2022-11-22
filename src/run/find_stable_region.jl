@@ -10,75 +10,56 @@ begin
     nothing
 end
 
-pg0, ic0 =  Initialize_N32_GFM(1,0);
-pg_post0 = GetPostFaultLTVSPG(pg0);
+pg0, ic0 =  Initialize_N32_GFM(2,0);
+
+@time pgsol0, suc0,FRT0 = simulate_LTVS_N32_simulation(pg0,ic0,(0.0,4.0),(134+0im)/Zbase);
+plot([myplot(pgsol0,"bus_gfm",:LVRT),plotv(pgsol0,["bus_gfm"])[1]])
+plot(myplot(pgsol0,"bus_gfm",:iset_abs))
+plot(myplot(pgsol0,"bus_gfm",:idc0))
+plot(myplot(pgsol0,"bus_gfm",:udc))
 
 
-params0 = GetParamsGFM(pg0)
-prob0 = ODEProblem(rhs(pg0),ic0,(0.0,2.0),params0)
-@time pgsol0, suc0 = simulate_LTVS_N32_simulation(pg0,ic0,(0.0,5.0),(60+1im*75.0)/Zbase);
-plot(plotv(pgsol0,["bus_gfm"]))
+function CalcXRMap(Rrange, Xrange)
+    pg, ic =  Initialize_N32_GFM(2,0);
 
-
-function CalcXRMap(Rstart,dRstart,Xstart,dXstart;nenner=2.0,limit=1e-2)
-    pg, ic =  Initialize_N32_GFM(3,0);
-    R = Rstart
-    X = Xstart
-    dR = dRstart
-    dX = dXstart
-
-    length_dr = length(Rstart:-dR:0.0)
-    length_dx = length(Xstart:-dX:0.0)
-    Verlauf = zeros(length_dr,length_dx)
+    length_dr = length(Rrange)
+    length_dx = length(Xrange)
+    XR = zeros(length_dr,length_dx)
+    XR_tend = similar(XR)
     cache_xrkrit = Matrix{Float64}(undef,1,2)
 
-    ind_r = length_dr
-    ind_x = length_dx
-
-    for R=Rstart:-dR:0.0
-        ind_x  = length_dx
-        suc_tmp = :Success
-
-        for X=Xstart:-dX:0.0
-
-            pgsol, suc = simulate_LTVS_N32_simulation(pg,ic,(0.0,2.0),(R+1im*X)/Zbase);
-            if suc == :DtLessThanMin
-                println(R," ",X)
-                Verlauf[ind_r,ind_x] = -1
-                break;
+    for (indR,R) = enumerate(Rrange)
+        println(R)
+        for (indX,X) = enumerate(Xrange)
+            pgsol, suc,FRT_tmp = simulate_LTVS_N32_simulation(pg,ic,(0.0,4.0),(R+1im*X)/Zbase);
+            if  suc == :DtLessThanMin 
+                XR[indR,indX] = -3;
             elseif suc == :Unstable
-                Verlauf[ind_r,ind_x] = 0
-                if suc_tmp == :Success
-                    cache_xrkrit = vcat(cache_xrkrit,[R X+dX])
-                end
-                break
-            elseif suc == :Success
-                Verlauf[ind_r,ind_x] = 1
-                if X == 0.0
-                    cache_xrkrit = vcat(cache_xrkrit,[R X])
-                end
+                XR[indR,indX] = -2;
+            elseif suc != :Success && FRT_tmp == 1 
+                XR[indR,indX] = -4;
             else
-                Verlauf[ind_r,ind_x] = -10
+                XR[indR,indX] = FRT_tmp;
             end
-            ind_x  = ind_x -1
-            suc_tmp = deepcopy(suc)
+            XR_tend[indR,indX] = pgsol.dqsol.t[end]
         end
-        ind_r  = ind_r -1
     end
-    return Verlauf, cache_xrkrit[2:end,:]
+    return XR, XR_tend
 end
 
-@time vl, xr = CalcXRMap(100.0,5.0,80.0,5.0);
+Rverlauf = 90:-1:45
+Xverlauf = 98:-1:95.0
+
+@time xr, xrt = CalcXRMap(Rverlauf,Xverlauf);
 
 #droop = R=103, x=66
-#mathing R=136, X = 88
-#dVOC R=100, X = 65
+#mathing R=135, X = 87 ODER R=150, X = 98
+#dVOC R=100, X = 65 (not finished)
 plot(xr[:,1],xr[:,2])
+plot(Rverlauf,xr)
+plot(surface(x=Rverlauf,y=Xverlauf,z=xr))
 
-xdata = 0:5:100
-ydata = 0:5:80
-
-plot(surface(x=xdata,y=ydata,z=vl))
+droop_save = ["Rverlauf" => Rverlauf, "Xverlauf"=>Xverlauf,"XR"=>xr]
 
 function plotxkrit(vl_,xdata,ydata)
     x = Vector{Float64}()

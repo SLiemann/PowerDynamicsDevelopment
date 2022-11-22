@@ -486,6 +486,7 @@ function InitNode(MC::Union{MatchingControl,MatchingControlRed},ind::Int64,I_c::
       imax_csa = MC.imax_csa,
       imax_dc = MC.imax_dc,
       p_red = MC.p_red,
+      LVRT_on = MC.LVRT_on,
       p_ind = MC.p_ind,
       )
   else
@@ -514,7 +515,7 @@ function InitNode(MC::Union{MatchingControl,MatchingControlRed},ind::Int64,I_c::
       )
   end
 
-    return [v_d_temp, v_q_temp,θ,udc,idc0,abs(U0),e_ud,e_uq,e_id,e_iq,dP,abs(idq),P_before,Q_before,p,q], MC_new #,idmeas,iqmeas,id,iq
+    return [v_d_temp, v_q_temp,θ,udc,idc0,abs(U0),e_ud,e_uq,e_id,e_iq,dP,real(i1)/(MC.Srated/MC.Sbase),0.0], MC_new #P_before,Q_before,p,q,abs(idq)
 end
 
 function InitNode(VOC::dVOC,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)
@@ -587,6 +588,7 @@ function InitNode(VOC::dVOC,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Arra
           imax_dc = VOC.imax_dc,
           p_red = VOC.p_red,
           ϵ = VOC.ϵ,
+          LVRT_on = DR.LVRT_on,
           p_ind = VOC.p_ind,
           )
 
@@ -658,10 +660,11 @@ function InitNode(DR::droop,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Arra
           imax_csa = DR.imax_csa,
           imax_dc = DR.imax_dc,
           p_red = DR.p_red,
+          LVRT_on = DR.LVRT_on,
           p_ind = DR.p_ind,
           )
 
-    return [v_d_temp, v_q_temp,θ,udc,idc0,abs(U0),e_ud,e_uq,e_id,e_iq,p,dP,abs(idq),0.0,idc0,abs(E0),P_before,Q_before,p,q], droop_new #,idmeas,iqmeas,id,iq
+    return [v_d_temp, v_q_temp,θ,udc,idc0,abs(U0),e_ud,e_uq,e_id,e_iq,p,dP,abs(idq),0.0,0.0], droop_new #,idc0,abs(E0),P_before,Q_before,p,q
 end
 
 function InitNode(VSM0::VSM,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)

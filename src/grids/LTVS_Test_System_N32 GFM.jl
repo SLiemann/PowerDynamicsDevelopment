@@ -54,21 +54,20 @@ function LTVS_Test_System_N32_GFM(;gfm=1,awu=1.0) #1 = droop, 2 = matching, 3 = 
     if gfm == 1
         buses["bus_gfm"] = droop(Sbase = Sbase,Srated = Srated, p0set = pref, u0set = 1.00,Kp_droop = pi,Kp_uset = 0.001, Ki_uset = 0.5,
                                  Kdc = 100.0, gdc = Gdc, cdc = Cdc, xlf = Xlf, rf = R_f, xcf =  Xcf, Tdc = 0.05, Kp_u = 0.52,
-                                 Ki_u = 1.161022, Kp_i = 0.738891, Ki_i = 1.19, imax_csa = imax_csa, imax_dc = imax_dc, p_red = anti_windup, 
-                                 p_ind = collect(6:22))
+                                 Ki_u = 1.161022, Kp_i = 0.738891, Ki_i = 1.19, imax_csa = imax_csa, imax_dc = imax_dc, p_red = anti_windup, LVRT_on = 0.0,
+                                 p_ind = collect(6:23))
     elseif gfm == 2 
         buses["bus_gfm"] = MatchingControlRed(Sbase = Sbase,Srated = Srated,p0set = pref,u0set = 1.00,Kp_uset = 0.001, Ki_uset = 0.5,
                                               Kdc = 100.0, gdc = Gdc,cdc = Cdc,xlf = Xlf,rf = R_f, xcf =  Xcf,Tdc = 0.05,Kp_u = 0.52,
-                                              Ki_u = 1.161022,Kp_i = 0.738891,Ki_i = 1.19,imax_csa = imax_csa,imax_dc = imax_dc,p_red = anti_windup,
-                                                p_ind = collect(6:21))
+                                              Ki_u = 1.161022,Kp_i = 0.738891,Ki_i = 1.19,imax_csa = imax_csa,imax_dc = imax_dc,p_red = anti_windup,LVRT_on = 0.0, p_ind = collect(6:22))
     elseif gfm == 3
         buses["bus_gfm"] = dVOC(Sbase = Sbase,Srated = Srated,p0set = pref, q0set = 0.0,u0set = 1.00,eta = pi,alpha = 0.1*2/3*1000^2,
                                 Kdc = 100.0, gdc = Gdc,cdc = Cdc,xlf = Xlf,rf = R_f, xcf =  Xcf,Tdc = 0.05,Kp_u = 0.52,Ki_u = 1.161022,
-                                Kp_i = 0.738891,Ki_i = 1.19,imax_csa = imax_csa,imax_dc = imax_dc,p_red = anti_windup,ϵ = 1e-9*0, p_ind = collect(6:22))
+                                Kp_i = 0.738891,Ki_i = 1.19,imax_csa = imax_csa,imax_dc = imax_dc,p_red = anti_windup,ϵ = 1e-9*0,LVRT_on = 0.0, p_ind = collect(6:23))
     elseif gfm == 4
         buses["bus_gfm"] = VSM(Sbase = Sbase, Srated = Srated, p0set = pref, u0set = 1.00, J = 2, Dp = 100, Kp_uset = 0.001, Ki_uset = 0.5,
                                Kdc = 100.0, gdc = Gdc, cdc = Cdc, xlf = Xlf, rf = R_f, xcf =  Xcf, Tdc = 0.05, Kp_u = 0.52, Ki_u = 1.161022,
-                               Kp_i = 0.738891, Ki_i = 1.19, imax_csa = imax_csa, imax_dc = imax_dc, p_red = anti_windup, p_ind = collect(6:23))
+                               Kp_i = 0.738891, Ki_i = 1.19, imax_csa = imax_csa, imax_dc = imax_dc, p_red = anti_windup,LVRT_on = 0.0, p_ind = collect(6:24))
     else
         error("wrong number, gfm should be between 1-4")
     end
@@ -105,16 +104,17 @@ function GetParamsGFM(pg::PowerGrid)
     push!(params,1) # for 2nd PiModelLineParam
     push!(params,0) # for OLTC
     if typeof(node) == droop
-        return vcat(params,getallParameters(node)[5:21])
+        params = vcat(params,getallParameters(node)[5:22])
     elseif typeof(node) == MatchingControlRed
-        return vcat(params,getallParameters(node)[5:20])
+        params = vcat(params,getallParameters(node)[5:21])
     elseif typeof(node) == dVOC
-        return vcat(params,getallParameters(node)[6:22])
+        params = vcat(params,getallParameters(node)[6:23])
     elseif typeof(node) == VSM
-        return vcat(params,getallParameters(node)[5:22])
+        params = vcat(params,getallParameters(node)[5:24])
     else
         error("bus_gfm is not a valid GFM node")
     end
+    return params
 end
 
 function GetFaultLTVSPG(pg::PowerGrid)
@@ -146,11 +146,7 @@ end
 
 function run_LTVS_N32_simulation(gfm_choice,awu_choice,tspan::Tuple{Float64,Float64})
     pg,ic = Initialize_N32_GFM(gfm_choice,awu_choice)
-    params = GetParamsGFM(pg)
-    prob = MakeODEProblemN32(pg,ic,params,tspan)
-
-    pg_post = GetPostFaultLTVSPG(pg)
-    return simulate_LTVS_N32_simulation(prob,pg_post,zfault())
+    return simulate_LTVS_N32_simulation(pg,ic,tspan,zfault())
 end
 
 function simulate_LTVS_N32_simulation(pg::PowerGrid,ic::Vector{Float64},tspan::Tuple{Float64,Float64},zfault::Union{Float64,Complex{Float64},Complex{Int64}})
@@ -159,12 +155,14 @@ function simulate_LTVS_N32_simulation(pg::PowerGrid,ic::Vector{Float64},tspan::T
     problem= ODEProblem{true}(rhs(pg),ic,tspan,params)
     tfault = [tfault_on(), tfault_off()]
     timer_start = -1.0
+    FRT = 1.0 # -1 for LVRT, 0 for HVRT, 1.0 for stable
 
-    rfault = real(zfault)
-    xfault = imag(zfault)
+    rfault = real(zfault) <= 0.0 ? 1e-3 : real(zfault)
+    xfault = imag(zfault) <= 0.0 ? 1e-3 : imag(zfault)
 
     branch_oltc = "OLTC"
     index_U_oltc = PowerDynamics.variable_index(pg.nodes,pg.lines[branch_oltc].to,:u_r)
+    index_U_gfm = PowerDynamics.variable_index(pg.nodes,"bus_gfm",:u_r)
     index_U_load = PowerDynamics.variable_index(pg.nodes,"bus_load",:u_r)
 
     function TapState(integrator)
@@ -213,7 +211,7 @@ function simulate_LTVS_N32_simulation(pg::PowerGrid,ic::Vector{Float64},tspan::T
         sol1 = integrator.sol
         ode =integrator.f
         op_prob = ODEProblem(ode, sol1[end], (0.0, 1e-6), integrator.p, initializealg = BrownFullBasicInit())
-        x2 = solve(op_prob,Rodas4())
+        x2 = solve(op_prob,Rodas5(),initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-8,reltol=1e-8)
         x2 = x2.u[end]
         integrator.u = deepcopy(x2)
         auto_dt_reset!(integrator)
@@ -228,9 +226,10 @@ function simulate_LTVS_N32_simulation(pg::PowerGrid,ic::Vector{Float64},tspan::T
         sol = integrator.sol
         ode   = rhs(pg_postfault)
         ic_tmp = deepcopy(integrator.sol.u[indexin(tfault[1],integrator.sol.t)[1]])
-        ic_tmp = getPreFaultVoltages(pg,ic_tmp,deepcopy(sol[end]))
+        #ic_tmp = getPreFaultVoltages(pg,ic_tmp,deepcopy(sol[end]))
+        ic_tmp = getPreFaultAlgebraicStates(pg,ic_tmp,deepcopy(sol[end]))
         op_prob = ODEProblem(ode, ic_tmp, (0.0, 1e-6), integrator.p, initializealg = BrownFullBasicInit())
-        x3 = solve(op_prob,Rodas4())
+        x3 = solve(op_prob,Rodas5(),initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-8,reltol=1e-8)
         x3 = x3.u[end]
         integrator.u = deepcopy(x3)
         integrator.f = ode
@@ -238,7 +237,7 @@ function simulate_LTVS_N32_simulation(pg::PowerGrid,ic::Vector{Float64},tspan::T
         auto_dt_reset!(integrator)
     end
 
-    function check_voltage(u,t,integrator)
+    function check_OLTC_voltage(u,t,integrator)
             sqrt(u[index_U_load]*u[index_U_load] + u[index_U_load+1]*u[index_U_load+1]) < 0.3 && t > 5.0
     end
 
@@ -249,19 +248,86 @@ function simulate_LTVS_N32_simulation(pg::PowerGrid,ic::Vector{Float64},tspan::T
         integrator.sol = DiffEqBase.solution_new_retcode(integrator.sol, :Success)
     end
 
+    function stop_integration_LVRT(integrator)
+        FRT = -1.0
+        println("Terminated at $(integrator.t) due to LVRT")
+        terminate!(integrator)
+        integrator.sol = DiffEqBase.solution_new_retcode(integrator.sol, :Success)
+    end
+
+    function stop_integration_HVRT(integrator)
+        FRT = 0.0
+        println("Terminated at $(integrator.t) due to HVRT")
+        terminate!(integrator)
+        integrator.sol = DiffEqBase.solution_new_retcode(integrator.sol, :Success)
+    end
+
+    function start_LVRT(integrator)
+        integrator.p[end] = 0.85/2.85
+    end
+    
+    function end_LVRT(integrator)
+        integrator.p[end] = 0.0
+    end
+
+    function check_GFM_voltage_LVRT(u,t,integrator)
+        sqrt(u[index_U_gfm]*u[index_U_gfm] + u[index_U_gfm+1]*u[index_U_gfm+1]) < integrator.u[end]
+    end
+
+    function check_GFM_voltage_HVRT13(u,t,integrator)
+        sqrt(u[index_U_gfm]*u[index_U_gfm] + u[index_U_gfm+1]*u[index_U_gfm+1]) > 1.3  && t < tfault[1]+0.1
+    end
+
+    function check_GFM_voltage_HVRT12(u,t,integrator)
+        sqrt(u[index_U_gfm]*u[index_U_gfm] + u[index_U_gfm+1]*u[index_U_gfm+1]) > 1.2  && t > tfault[1]+0.1
+    end
+
+
+    ind_iset_abs = PowerDynamics.variable_index(pg.nodes,"bus_gfm",:iset_abs)
+    ind_idc0 = PowerDynamics.variable_index(pg.nodes,"bus_gfm",:idc0)
+    imax_csa_tmp = pg.nodes["bus_gfm"].imax_csa
+    imax_dc_tmp = pg.nodes["bus_gfm"].imax_dc
+
+    println(ind_iset_abs)
+    println(ind_idc0)
+    println(imax_csa_tmp)
+    println(imax_dc_tmp)
+
+    function disc_current(u,t,integrator)
+        u[ind_iset_abs] - 1.2
+    end
+
+    function disc_dc_current(u,t,integrator)
+        u[ind_idc0] - imax_dc_tmp
+    end
+
+    function affect_current(integrator)
+        println("AHAAA")
+        println(integrator.u[ind_iset_abs])
+        nothing
+    end
+
     cb1 = DiscreteCallback(voltage_deadband, timer_off)
     cb2 = DiscreteCallback(voltage_outside, timer_on)
     cb3 = DiscreteCallback(timer_hit, TapState)
-    cb4 = DiscreteCallback(((u,t,integrator) -> t in tfault[1]), errorState)
-    cb5 = DiscreteCallback(((u,t,integrator) -> t in tfault[2]), regularState)
-    cb6 = DiscreteCallback(check_voltage, stop_integration)
+    cb4 = PresetTimeCallback(tfault[1], errorState)
+    cb5 = PresetTimeCallback(tfault[2], regularState)
+    #cb6 = DiscreteCallback(check_OLTC_voltage, stop_integration)
+    cb7 = PresetTimeCallback(tfault[2]+0.05, start_LVRT)
+    cb8 = PresetTimeCallback(tfault[2]+2.85+0.05,end_LVRT)
+    cb9 = DiscreteCallback(check_GFM_voltage_LVRT, stop_integration_LVRT)
+    cb10 = DiscreteCallback(check_GFM_voltage_HVRT13, stop_integration_HVRT)
+    cb11 = DiscreteCallback(check_GFM_voltage_HVRT12, stop_integration_HVRT)
+    cb12 = ContinuousCallback(disc_current, affect_current)
+    cb13 = ContinuousCallback(disc_dc_current, affect_current)
 
-    sol = solve(problem, Rodas5(autodiff=true), callback = CallbackSet(cb1,cb2,cb3,cb4,cb5,cb6), tstops=[tfault[1],tfault[2]], dtmax = dt_max(),force_dtmin=false,maxiters=1e5, initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-8,reltol=1e-8)
+    stiff  = repeat([:stiff],length(ic))
+
+    sol = solve(problem, Rodas5(autodiff=true), callback = CallbackSet(cb1,cb2,cb3,cb4,cb5,cb7,cb8,cb9,cb10,cb11,cb12,cb13), tstops=[tfault[1],tfault[2]], dtmax = dt_max(),force_dtmin=false,maxiters=1e5, initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-8,reltol=1e-8) #
     # good values abstol=1e-8,reltol=1e-8 and Rodas5(autodiff=true) for droop
     success = deepcopy(sol.retcode)
     if sol.retcode != :Success
-        println(sol.retcode)
         sol = DiffEqBase.solution_new_retcode(sol, :Success)
     end
-    return PowerGridSolution(sol, pg), success
+    return PowerGridSolution(sol, pg), success, FRT
 end
