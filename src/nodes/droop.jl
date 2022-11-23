@@ -23,7 +23,7 @@ end begin
     @assert imax_dc >= 0 "max. current of dc source in p.u., should be >=0"
     @assert p_red == 0 || p_red == 1 "Boolean value vor activating or deactivating power reduction in case of limited current"
 
-end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_iq],[Pf,dPf],[Pdelta,dPdelta],[i_abs,di_abs],[w,dw],[LVRT,dLVRT]] begin #,[idc0_lim,didc0_lim],[Um,dUm],[Ps,dPs],[Qs,dQs],[P0,dP0],[Q0,dQ0]
+end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_iq],[Pf,dPf],[Pdelta,dPdelta],[iset_abs,diset_abs],[w,dw],[LVRT,dLVRT]] begin #,[idc0_lim,didc0_lim],[Um,dUm],[Ps,dPs],[Qs,dQs],[P0,dP0],[Q0,dQ0]
     Kp_droop = p[p_ind[1]]
     Kp_uset = p[p_ind[2]]
     Ki_uset = p[p_ind[3]]
@@ -82,7 +82,7 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
     iqset = iqmeas + udmeas / xcf + Kp_u * (uqset - uqmeas) + e_uq
 
     #Current saturation algorithm
-    iset_abs = hypot(idset,iqset)
+    diset_abs = iset_abs - hypot(idset,iqset)
     iset_lim = IfElse.ifelse(iset_abs >= imax_csa,imax_csa,iset_abs)
     ϕ1 = atan(iqset,idset)
     idset_csa = iset_lim*cos(ϕ1)
@@ -124,7 +124,7 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
 
     du = u - u0 #algebraic constraint
 
-    di_abs = i_abs - I_abs
+    #di_abs = i_abs - I_abs
 
     dx_uabs = IfElse.ifelse(iset_abs >= imax_csa && p_red > 0,0.0,Ki_uset * Δuabs)
     #DC current control

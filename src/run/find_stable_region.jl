@@ -10,9 +10,9 @@ begin
     nothing
 end
 
-pg0, ic0 =  Initialize_N32_GFM(2,0);
+pg0, ic0 =  Initialize_N32_GFM(1,0);
 
-@time pgsol0, suc0,FRT0 = simulate_LTVS_N32_simulation(pg0,ic0,(0.0,4.0),(134+0im)/Zbase);
+@time pgsol0, suc0,FRT0 = simulate_LTVS_N32_simulation(pg0,ic0,(0.0,4.0),(40+0im)/Zbase);
 plot([myplot(pgsol0,"bus_gfm",:LVRT),plotv(pgsol0,["bus_gfm"])[1]])
 plot(myplot(pgsol0,"bus_gfm",:iset_abs))
 plot(myplot(pgsol0,"bus_gfm",:idc0))
@@ -20,7 +20,7 @@ plot(myplot(pgsol0,"bus_gfm",:udc))
 
 
 function CalcXRMap(Rrange, Xrange)
-    pg, ic =  Initialize_N32_GFM(2,0);
+    pg, ic =  Initialize_N32_GFM(1,0);
 
     length_dr = length(Rrange)
     length_dx = length(Xrange)
@@ -47,8 +47,8 @@ function CalcXRMap(Rrange, Xrange)
     return XR, XR_tend
 end
 
-Rverlauf = 90:-1:45
-Xverlauf = 98:-1:95.0
+Rverlauf = 25:-1:0.0
+Xverlauf = 15:-1:0.0
 
 @time xr, xrt = CalcXRMap(Rverlauf,Xverlauf);
 
@@ -59,7 +59,8 @@ plot(xr[:,1],xr[:,2])
 plot(Rverlauf,xr)
 plot(surface(x=Rverlauf,y=Xverlauf,z=xr))
 
-droop_save = ["Rverlauf" => Rverlauf, "Xverlauf"=>Xverlauf,"XR"=>xr]
+using FileIO
+save("droop_I025_R_25_1_0_X_15_1_0.jld","Rverlauf",Rverlauf,"Xverlauf",Xverlauf,"XR",xr,"XR_t","xrt")
 
 function plotxkrit(vl_,xdata,ydata)
     x = Vector{Float64}()
@@ -90,79 +91,31 @@ function plotxkrit(vl_,xdata,ydata)
             push!(x,xdata[i+1])
             push!(y,ydata[ind1])
         end
-        if i == size(vl)[2]-1
+        if i == size(vl_)[2]-1
             push!(x,xdata[i+1])
             push!(y,ydata[ind2])
         end
     end
     return x,y
 end
-px,py = plotxkrit(vl,collect(xdata),collect(ydata));
+px,py = plotxkrit(reverse(xr),collect(reverse(Rverlauf)),collect(reverse(Xverlauf)));
 plot(px,py)
 
-vl_match = deepcopy(vl)
-px_match = deepcopy(px)
-py_match = deepcopy(py)
 
-function CalcRkrit(Rstart,dRstart;nenner=2.0,limit=1e-2)
-    pg, ic =  Initialize_N32_GFM(1,0);
-    R = Rstart
-    Rkrit = R
-    dR = dRstart
-    Verlauf = Matrix{ComplexF64}(undef,1,3)
-    while abs(dR) > limit
-        params = GetParamsGFM(pg)
-        prob = ODEProblem(rhs(pg),ic,(0.0,2.0),params)
-        pgsol, suc = simulate_LTVS_N32_simulation(prob,(R)/Zbase);
-        Verlauf = vcat(Verlauf,[imag(R) real(R) suc])
-        if suc == 0
-            R = R + dR/nenner
-            dR = dR/nenner
-        else
-            Rkrit = R
-            R = R - dR 
-        end
-    end
-    return Rkrit,dR*nenner,Verlauf
-end
+tmp = load("droop_R_110_1_0_X_70_1_0.jld")
+tmp = load("matching_R_136_1_0_X_88_1_0.jld")
 
+Rv= tmp["Rverlauf"]
+Xv = tmp["Xverlauf"]
+XRv= tmp["XR"]
+px,py = plotxkrit(reverse(XRv),collect(reverse(Rv)),collect(reverse(Xv)));
 
+using MAT
+dir = "C:\\Users\\liemann\\Desktop\\"
+file = matopen(dir*"droop.mat")
+XRm = read(file, "res")
+close(file)
 
-function CalcXRMapNEW(Rstart,Xstart)
-    pg, ic =  Initialize_N32_GFM(1,0);
-
-    cache_xrkrit = Matrix{Float64}(undef,1,2)
-
-    R = Rstart
-    Rtmp = Inf
-    X = Xstart
-    Xtmp = 0
-    #while abs(R-Rtmp) > 1
-    for R=Rstart:-1.0:0.0
-        println(R)
-        while abs(X-Xtmp) > 1
-            pgsol, suc = simulate_LTVS_N32_simulation(pg,ic,(0.0,2.0),(R+1im*X)/Zbase);
-            if Xtmp == 0
-                dX = X/5
-            else
-                dX = abs(X-Xtmp)/5
-            end
-            Xtmp = deepcopy(X)
-            if suc == :Success
-                X = X - dX
-            else
-                X = X + dX
-            end         
-        end
-        cache_xrkrit = vcat(cache_xrkrit,[R X])
-        X= Xstart
-        Xtmp = 0
-    end
-    return cache_xrkrit[2:end,:]
-end
-tmp = 4
-@time tmp = CalcXRMapNEW(103,66);
-p1 = scatter(x=tmp[:,1],y=tmp[:,2])
-p2 = scatter(x=px_droop,y=py_droop)
+p1 = scatter(x=px,y=py,name="PD")
+p2 = scatter(x=XRm[:,1],y=XRm[:,2],name="MATLAB")
 plot([p1,p2])
-

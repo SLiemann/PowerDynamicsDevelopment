@@ -48,7 +48,7 @@ function LTVS_Test_System_N32_GFM(;gfm=1,awu=1.0) #1 = droop, 2 = matching, 3 = 
         "bus1" => VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),
         "bus_ehv" => VoltageDependentLoad(P=0.0, Q=Q_Shunt_EHV, U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),
         "bus_hv" => VoltageDependentLoad(P=0.0, Q=Q_Shunt_HV,  U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),
-        "bus_load" => GeneralVoltageDependentLoad(P=Pload, Q = QLoad, U=1.0, Ap=0.0, Bp=1.0,Aq = 1.0, Bq= 0.0,Y_n = complex(0.0)),
+        "bus_load" => GeneralVoltageDependentLoad(P=Pload, Q = QLoad, U=1.0, Ap=0.25, Bp=0.75,Aq = 1.0, Bq= 0.0,Y_n = complex(0.0)),
         "busv" => ThreePhaseFault(p_ind=collect(1:2)))
 
     if gfm == 1
@@ -288,13 +288,8 @@ function simulate_LTVS_N32_simulation(pg::PowerGrid,ic::Vector{Float64},tspan::T
     imax_csa_tmp = pg.nodes["bus_gfm"].imax_csa
     imax_dc_tmp = pg.nodes["bus_gfm"].imax_dc
 
-    println(ind_iset_abs)
-    println(ind_idc0)
-    println(imax_csa_tmp)
-    println(imax_dc_tmp)
-
     function disc_current(u,t,integrator)
-        u[ind_iset_abs] - 1.2
+        u[ind_iset_abs] - imax_csa_tmp
     end
 
     function disc_dc_current(u,t,integrator)
@@ -302,8 +297,6 @@ function simulate_LTVS_N32_simulation(pg::PowerGrid,ic::Vector{Float64},tspan::T
     end
 
     function affect_current(integrator)
-        println("AHAAA")
-        println(integrator.u[ind_iset_abs])
         nothing
     end
 
