@@ -11,7 +11,7 @@ Zbase = Ubase^2/Sbase
 zfault() = (20+1im*20)/Zbase
 tfault_on() = 0.1
 tfault_off() = 0.2
-dt_max() = 1e-2
+dt_max() = 1e-3
 
 function LTVS_Test_System_N32_GFM(;gfm=1,awu=1.0) #1 = droop, 2 = matching, 3 = dVOC, 4 = VSM
     Q_Shunt_EHV = 600e6/Sbase
@@ -48,7 +48,7 @@ function LTVS_Test_System_N32_GFM(;gfm=1,awu=1.0) #1 = droop, 2 = matching, 3 = 
         "bus1" => VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),
         "bus_ehv" => VoltageDependentLoad(P=0.0, Q=Q_Shunt_EHV, U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),
         "bus_hv" => VoltageDependentLoad(P=0.0, Q=Q_Shunt_HV,  U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),
-        "bus_load" => GeneralVoltageDependentLoad(P=Pload, Q = QLoad, U=1.0, Ap=0.25, Bp=0.75,Aq = 1.0, Bq= 0.0,Y_n = complex(0.0)),
+        "bus_load" => GeneralVoltageDependentLoad(P=Pload, Q = QLoad, U=1.0, Ap=0.0, Bp=0.5,Aq = 1.0, Bq= 0.0,Y_n = complex(0.0)),
         "busv" => ThreePhaseFault(p_ind=collect(1:2)))
 
     if gfm == 1
@@ -110,7 +110,7 @@ function GetParamsGFM(pg::PowerGrid)
     elseif typeof(node) == dVOC
         params = vcat(params,getallParameters(node)[6:23])
     elseif typeof(node) == VSM
-        params = vcat(params,getallParameters(node)[5:24])
+        params = vcat(params,getallParameters(node)[5:23])
     else
         error("bus_gfm is not a valid GFM node")
     end

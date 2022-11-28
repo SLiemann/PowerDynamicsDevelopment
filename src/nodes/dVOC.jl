@@ -17,8 +17,8 @@ The model has the following internal dynamic variables:
 
 """
 =#
-@DynamicNode dVOC(Sbase,Srated,p0set,q0set,u0set,eta,alpha,Kdc,gdc,cdc,xlf,rf,xcf,Tdc,Kp_u,Ki_u,Kp_i,Ki_i,imax_csa,imax_dc,p_red,ϵ,p_ind) begin
-    MassMatrix(m_int =[true,true,true,true,true,true,true,true,true,true,true,false,false,false,false,false,false,false])#,false,false,false,false
+@DynamicNode dVOC(Sbase,Srated,p0set,q0set,u0set,eta,alpha,Kdc,gdc,cdc,xlf,rf,xcf,Tdc,Kp_u,Ki_u,Kp_i,Ki_i,imax_csa,imax_dc,p_red,ϵ,LVRT_on,p_ind) begin
+    MassMatrix(m_int =[true,true,true,true,true,true,true,true,true,true,true,false,false,true])#,false,false,false,false
 end begin
     @assert Sbase > 0 "Base apparent power of the grid in VA, should be >0"
     @assert Srated > 0 "Rated apperent power of the machine in VA, should be >0"
@@ -43,7 +43,7 @@ end begin
     @assert p_red == 0 || p_red == 1 "Boolean value vor activating or deactivating power reduction in case of limited current"
     @assert ϵ >= 0 "Small epsilon for controlled voltage to prevent singularity at zero voltage, should be around 1e-4"
 
-end [[θ,dθ],[udc,dudc],[idc0,didc0],[vd,dvd],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_iq],[Pf,dPf],[Qf,dQf],[Pdelta,dPdelta],[i_abs,di_abs],[w,dw],[v12,dv12],[Ps,dPs],[Qs,dQs],[P0,dP0],[Q0,dQ0]] begin #[id0,did0],[iq0,diq0],[ids,dids],[iqs,diqs]
+end [[θ,dθ],[udc,dudc],[idc0,didc0],[vd,dvd],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_iq],[Pf,dPf],[Qf,dQf],[Pdelta,dPdelta],[iset_abs,diset_abs],[w,dw],[LVRT,dLVRT]] begin #
     eta = p[p_ind[1]]
     alpha = p[p_ind[2]]
     Kdc = p[p_ind[3]]
@@ -61,6 +61,7 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[vd,dvd],[e_ud,de_ud],[e_uq,de_uq],[e_id,d
     imax_dc = p[p_ind[15]]
     p_red = p[p_ind[16]]
     ϵ = p[p_ind[17]]
+    LVRT_on = p[p_ind[18]]
     vd_e = vd + ϵ #to prevent singularity at zero voltage
 
     #after filter
@@ -91,7 +92,6 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[vd,dvd],[e_ud,de_ud],[e_uq,de_uq],[e_id,d
     #dVOC voltage control
     v1 = eta * (q0set / u0set^2 - Qf / vd_e^2)
     v2 = ((u0set^2 - vd_e^2) * eta * alpha) / (u0set^2)
-    dv12 = v12 - v2
     dvd = (v1+v2) * vd_e
 
     #Building voltage reference
@@ -106,14 +106,14 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[vd,dvd],[e_ud,de_ud],[e_uq,de_uq],[e_id,d
     iqset = iqmeas + udmeas / xcf + Kp_u * (uqset - uqmeas) + e_uq
 
     #Current saturation algorithm
-    iset_abs = hypot(idset,iqset)
-    iset_lim = IfElse.ifelse(iset_abs > imax_csa,imax_csa,iset_abs)
+    diset_abs = iset_abs - hypot(idset,iqset)
+    iset_lim = IfElse.ifelse(iset_abs >= imax_csa,imax_csa,iset_abs)
     ϕ1 = atan(iqset,idset)
     idset_csa = iset_lim*cos(ϕ1)
     iqset_csa = iset_lim*sin(ϕ1)
 
     #experimentell
-    anti_windup = IfElse.ifelse(iset_abs > imax_csa && p_red > 0,true,false)
+    anti_windup = IfElse.ifelse(iset_abs >= imax_csa && p_red > 0,true,false)
     de_ud = IfElse.ifelse(anti_windup,0.0, (udset - udmeas) * Ki_u)
     de_uq = IfElse.ifelse(anti_windup,0.0, (uqset - uqmeas) * Ki_u)
 
@@ -148,7 +148,7 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[vd,dvd],[e_ud,de_ud],[e_uq,de_uq],[e_id,d
 
     du = u - u0 #algebraic constraint
 
-    di_abs = i_abs - I_abs
+    #di_abs = i_abs - I_abs
 
     #Power Reduction in case of limited current
     plim = idset_csa * real(E) + iqset_csa * imag(E)
@@ -164,14 +164,15 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[vd,dvd],[e_ud,de_ud],[e_uq,de_uq],[e_id,d
     idc = -Kdc * udc + p0set - dP + (1.0+udc)*gdc + Pdelta
     didc0 = (idc - idc0) / Tdc
 
-    idc0_lim = IfElse.ifelse(idc0 > imax_dc, imax_dc, IfElse.ifelse(idc0 < -imax_dc,-imax_dc,idc0))
+    idc0_lim = IfElse.ifelse(idc0 >= imax_dc, imax_dc, IfElse.ifelse(idc0 <= -imax_dc,-imax_dc,idc0))
     #DC circuit
     dudc = (idc0_lim - gdc * (1.0+udc) - ix) / cdc
     
-    dPs = Ps - p_before_filter
-    dQs = Qs - q_before_filter
-    dP0 = P0 - pmeas
-    dQ0 = Q0 - qmeas
+    #dPs = Ps - p_before_filter
+    #dQs = Qs - q_before_filter
+    #dP0 = P0 - pmeas
+    #dQ0 = Q0 - qmeas
+    dLVRT = LVRT_on
 end
 
 export dVOC

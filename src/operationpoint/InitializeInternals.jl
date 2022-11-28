@@ -515,7 +515,7 @@ function InitNode(MC::Union{MatchingControl,MatchingControlRed},ind::Int64,I_c::
       )
   end
 
-    return [v_d_temp, v_q_temp,θ,udc,idc0,abs(U0),e_ud,e_uq,e_id,e_iq,dP,real(i1)/(MC.Srated/MC.Sbase),0.0], MC_new #P_before,Q_before,p,q,abs(idq)
+    return [v_d_temp, v_q_temp,θ,udc,idc0,abs(U0),e_ud,e_uq,e_id,e_iq,dP,abs(i1),0.0], MC_new #P_before,Q_before,p,q,abs(idq)
 end
 
 function InitNode(VOC::dVOC,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)
@@ -588,11 +588,11 @@ function InitNode(VOC::dVOC,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Arra
           imax_dc = VOC.imax_dc,
           p_red = VOC.p_red,
           ϵ = VOC.ϵ,
-          LVRT_on = DR.LVRT_on,
+          LVRT_on = VOC.LVRT_on,
           p_ind = VOC.p_ind,
           )
 
-    return [v_d_temp, v_q_temp,θ,udc,idc0,vd_int,e_ud,e_uq,e_id,e_iq,p,q,dP,abs(idq),0.0,0.0,P_before,Q_before,p,q], VOC_new #,idmeas,iqmeas,id,iq
+    return [v_d_temp, v_q_temp,θ,udc,idc0,vd_int,e_ud,e_uq,e_id,e_iq,p,q,dP,abs(i1),0.0,0.0], VOC_new #,idmeas,iqmeas,id,iq
 end
 
 function InitNode(DR::droop,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)
@@ -664,7 +664,7 @@ function InitNode(DR::droop,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Arra
           p_ind = DR.p_ind,
           )
 
-    return [v_d_temp, v_q_temp,θ,udc,idc0,abs(U0),e_ud,e_uq,e_id,e_iq,p,dP,real(i1)/(DR.Srated/DR.Sbase),0.0,0.0], droop_new #,idc0,abs(E0),P_before,Q_before,p,q
+    return [v_d_temp, v_q_temp,θ,udc,idc0,abs(U0),e_ud,e_uq,e_id,e_iq,p,dP,abs(i1),0.0,0.0], droop_new #,idc0,abs(E0),P_before,Q_before,p,q
 end
 
 function InitNode(VSM0::VSM,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)
@@ -734,10 +734,11 @@ function InitNode(VSM0::VSM,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Arra
           imax_csa = VSM0.imax_csa,
           imax_dc = VSM0.imax_dc,
           p_red = VSM0.p_red,
+          LVRT_on = VSM0.LVRT_on,
           p_ind = VSM0.p_ind,
           )
 
-    return [v_d_temp, v_q_temp,θ,0.0,udc,idc0,abs(U0),e_ud,e_uq,e_id,e_iq,p,dP,abs(idq),P_before,Q_before,p,q], vsm_new #,idmeas,iqmeas,id,iq
+    return [v_d_temp, v_q_temp,θ,0.0,udc,idc0,abs(U0),e_ud,e_uq,e_id,e_iq,p,dP,abs(i1),0.0], vsm_new #,idmeas,iqmeas,id,iq
 end
 
 ##gentpj

@@ -12,7 +12,7 @@ end
 
 pg0, ic0 =  Initialize_N32_GFM(1,0);
 
-@time pgsol0, suc0,FRT0 = simulate_LTVS_N32_simulation(pg0,ic0,(0.0,4.0),(40+0im)/Zbase);
+@time pgsol0, suc0,FRT0 = simulate_LTVS_N32_simulation(pg0,ic0,(0.0,4.0),(500+0.0im)/Zbase);
 plot([myplot(pgsol0,"bus_gfm",:LVRT),plotv(pgsol0,["bus_gfm"])[1]])
 plot(myplot(pgsol0,"bus_gfm",:iset_abs))
 plot(myplot(pgsol0,"bus_gfm",:idc0))
@@ -47,8 +47,8 @@ function CalcXRMap(Rrange, Xrange)
     return XR, XR_tend
 end
 
-Rverlauf = 25:-1:0.0
-Xverlauf = 15:-1:0.0
+Rverlauf = 18:-1:0.0
+Xverlauf = 8:-1:0.0
 
 @time xr, xrt = CalcXRMap(Rverlauf,Xverlauf);
 
@@ -58,9 +58,22 @@ Xverlauf = 15:-1:0.0
 plot(xr[:,1],xr[:,2])
 plot(Rverlauf,xr)
 plot(surface(x=Rverlauf,y=Xverlauf,z=xr))
+plot(surface(x=Rverlauf,y=Xverlauf,z=winkel))
+plot(surface(x=Rverlauf,y=Xverlauf,z=betrag))
+
+winkel = zeros(length(Rverlauf),length(Xverlauf))
+betrag = similar(winkel)
+
+for (indR,R) in enumerate(Rverlauf)
+    for (indX,X) in enumerate(Xverlauf)
+        winkel[indR,indX] = atan(X,R)*180/pi
+        betrag[indR,indX] = hypot(R,X)
+    end
+end
+
 
 using FileIO
-save("droop_I025_R_25_1_0_X_15_1_0.jld","Rverlauf",Rverlauf,"Xverlauf",Xverlauf,"XR",xr,"XR_t","xrt")
+save("droop_I070_R_18_1_0_X_08_1_0.jld","Rverlauf",Rverlauf,"Xverlauf",Xverlauf,"XR",xr,"XR_t","xrt")
 
 function plotxkrit(vl_,xdata,ydata)
     x = Vector{Float64}()
@@ -103,12 +116,15 @@ plot(px,py)
 
 
 tmp = load("droop_R_110_1_0_X_70_1_0.jld")
+tmp = load("droop_I090_R_64_1_0_X_40_1_0.jld")
 tmp = load("matching_R_136_1_0_X_88_1_0.jld")
 
-Rv= tmp["Rverlauf"]
-Xv = tmp["Xverlauf"]
-XRv= tmp["XR"]
+Rv= tmp["Rverlauf"];
+Xv = tmp["Xverlauf"];
+XRv= tmp["XR"];
+plot(surface(x=Rv,y=Xv,z=XRv))
 px,py = plotxkrit(reverse(XRv),collect(reverse(Rv)),collect(reverse(Xv)));
+
 
 using MAT
 dir = "C:\\Users\\liemann\\Desktop\\"
@@ -116,6 +132,6 @@ file = matopen(dir*"droop.mat")
 XRm = read(file, "res")
 close(file)
 
-p1 = scatter(x=px,y=py,name="PD")
-p2 = scatter(x=XRm[:,1],y=XRm[:,2],name="MATLAB")
-plot([p1,p2])
+p5 = scatter(x=px,y=py,name="PD")
+p4 = scatter(x=XRm[:,1],y=XRm[:,2],name="MATLAB")
+plot([p1,p2,p3,p4,p5])
