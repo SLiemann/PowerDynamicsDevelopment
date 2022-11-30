@@ -12,11 +12,26 @@ end
 
 pg0, ic0 =  Initialize_N32_GFM(1,0);
 
-@time pgsol0, suc0,FRT0 = simulate_LTVS_N32_simulation(pg0,ic0,(0.0,4.0),(500+0.0im)/Zbase);
+@time pgsol0, suc0,FRT0 = simulate_LTVS_N32_simulation(pg0,ic0,(0.0,20.0),(10+0.0im)/Zbase);
 plot([myplot(pgsol0,"bus_gfm",:LVRT),plotv(pgsol0,["bus_gfm"])[1]])
 plot(myplot(pgsol0,"bus_gfm",:iset_abs))
 plot(myplot(pgsol0,"bus_gfm",:idc0))
 plot(myplot(pgsol0,"bus_gfm",:udc))
+
+using MAT
+dir = "\\\\fs0\\home\\liemann\\"
+file = matopen(dir*"vm.mat")
+XRm = read(file, "vmt");
+close(file)
+
+p1 = plotv(pgsol0,["bus_gfm"])[1]
+p2 = scatter(x=XRm[:,1],y=XRm[:,2],name="MATLAB")
+plot([p1,p2])
+
+p1 = myplot(pgsol0,"bus_gfm",:θ,y_norm=pi/180,y_bias=18.5807)
+p2 = scatter(x=XRm[:,1],y=XRm[:,3],name="MATLAB")
+plot([p1,p2])
+
 
 
 function CalcXRMap(Rrange, Xrange)
@@ -31,7 +46,7 @@ function CalcXRMap(Rrange, Xrange)
     for (indR,R) = enumerate(Rrange)
         println(R)
         for (indX,X) = enumerate(Xrange)
-            pgsol, suc,FRT_tmp = simulate_LTVS_N32_simulation(pg,ic,(0.0,4.0),(R+1im*X)/Zbase);
+            pgsol, suc,FRT_tmp = simulate_LTVS_N32_simulation(pg,ic,(0.0,30.0),(R+1im*X)/Zbase);
             if  suc == :DtLessThanMin 
                 XR[indR,indX] = -3;
             elseif suc == :Unstable
@@ -47,8 +62,8 @@ function CalcXRMap(Rrange, Xrange)
     return XR, XR_tend
 end
 
-Rverlauf = 18:-1:0.0
-Xverlauf = 8:-1:0.0
+Rverlauf = 10:-1:0.0
+Xverlauf = 10:-1:0.0
 
 @time xr, xrt = CalcXRMap(Rverlauf,Xverlauf);
 

@@ -24,24 +24,25 @@ end begin
     @assert p_red == 0 || p_red == 1 "Boolean value vor activating or deactivating power reduction in case of limited current"
 
 end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_iq],[Pf,dPf],[Pdelta,dPdelta],[iset_abs,diset_abs],[w,dw],[LVRT,dLVRT]] begin #,[idc0_lim,didc0_lim],[Um,dUm],[Ps,dPs],[Qs,dQs],[P0,dP0],[Q0,dQ0]
-    Kp_droop = p[p_ind[1]]
-    Kp_uset = p[p_ind[2]]
-    Ki_uset = p[p_ind[3]]
-    Kdc = p[p_ind[4]] #
-    gdc = p[p_ind[5]] #
-    cdc = p[p_ind[6]] #
-    xlf = p[p_ind[7]]
-    rf = p[p_ind[8]]
-    xcf = p[p_ind[9]]
-    Tdc = p[p_ind[10]] #
-    Kp_u = p[p_ind[11]]
-    Ki_u = p[p_ind[12]]
-    Kp_i = p[p_ind[13]]
-    Ki_i = p[p_ind[14]]
-    imax_csa = p[p_ind[15]]
-    imax_dc = p[p_ind[16]]
-    p_red = p[p_ind[17]]
-    LVRT_on = p[p_ind[18]]
+    u0set = p[p_ind[1]]
+    Kp_droop = p[p_ind[2]]
+    Kp_uset = p[p_ind[3]]
+    Ki_uset = p[p_ind[4]]
+    Kdc = p[p_ind[5]] #
+    gdc = p[p_ind[6]] #
+    cdc = p[p_ind[7]] #
+    xlf = p[p_ind[8]]
+    rf = p[p_ind[9]]
+    xcf = p[p_ind[10]]
+    Tdc = p[p_ind[11]] #
+    Kp_u = p[p_ind[12]]
+    Ki_u = p[p_ind[13]]
+    Kp_i = p[p_ind[14]]
+    Ki_i = p[p_ind[15]]
+    imax_csa = p[p_ind[16]]
+    imax_dc = p[p_ind[17]]
+    p_red = p[p_ind[18]]
+    LVRT_on = p[p_ind[19]]
 
     #after filter
     umeas = u*(cos(-θ)+1im*sin(-θ))

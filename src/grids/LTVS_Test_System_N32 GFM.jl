@@ -10,8 +10,8 @@ Zbase = Ubase^2/Sbase
 
 zfault() = (20+1im*20)/Zbase
 tfault_on() = 0.1
-tfault_off() = 0.2
-dt_max() = 1e-3
+tfault_off() = 0.35
+dt_max() = 1e-2
 
 function LTVS_Test_System_N32_GFM(;gfm=1,awu=1.0) #1 = droop, 2 = matching, 3 = dVOC, 4 = VSM
     Q_Shunt_EHV = 600e6/Sbase
@@ -30,7 +30,7 @@ function LTVS_Test_System_N32_GFM(;gfm=1,awu=1.0) #1 = droop, 2 = matching, 3 = 
     Sbase_gfm = 100e6
     Zbase_gfm = Ubase_gfm^2/Sbase_gfm
 
-    Zbase_dc_gfm = (3*1e3*sqrt(2/3))^2/Sbase
+    Zbase_dc_gfm = (3*1e3*sqrt(2/3))^2/Sbase_gfm
 
     Rdc_pu = 1.2/Zbase_dc_gfm
     Gdc = 1.0/Rdc_pu
@@ -44,18 +44,18 @@ function LTVS_Test_System_N32_GFM(;gfm=1,awu=1.0) #1 = droop, 2 = matching, 3 = 
     Xcf = 1.0/(100*pi*C_f) /Zbase_gfm
 
     buses=OrderedDict(
-        "bus0" => SlackAlgebraic(U=1.0532), # 
+        "bus0" => SlackAlgebraic(U=1.0495), # 1.0532 for 100% I , 1.0495 for 100% Z
         "bus1" => VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),
         "bus_ehv" => VoltageDependentLoad(P=0.0, Q=Q_Shunt_EHV, U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),
         "bus_hv" => VoltageDependentLoad(P=0.0, Q=Q_Shunt_HV,  U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),
-        "bus_load" => GeneralVoltageDependentLoad(P=Pload, Q = QLoad, U=1.0, Ap=0.0, Bp=0.5,Aq = 1.0, Bq= 0.0,Y_n = complex(0.0)),
+        "bus_load" => GeneralVoltageDependentLoad(P=Pload, Q = QLoad, U=1.0, Ap=1.0, Bp=0.0,Aq = 1.0, Bq= 0.0,Y_n = complex(0.0)),
         "busv" => ThreePhaseFault(p_ind=collect(1:2)))
 
     if gfm == 1
         buses["bus_gfm"] = droop(Sbase = Sbase,Srated = Srated, p0set = pref, u0set = 1.00,Kp_droop = pi,Kp_uset = 0.001, Ki_uset = 0.5,
                                  Kdc = 100.0, gdc = Gdc, cdc = Cdc, xlf = Xlf, rf = R_f, xcf =  Xcf, Tdc = 0.05, Kp_u = 0.52,
                                  Ki_u = 1.161022, Kp_i = 0.738891, Ki_i = 1.19, imax_csa = imax_csa, imax_dc = imax_dc, p_red = anti_windup, LVRT_on = 0.0,
-                                 p_ind = collect(6:23))
+                                 p_ind = collect(6:24))
     elseif gfm == 2 
         buses["bus_gfm"] = MatchingControlRed(Sbase = Sbase,Srated = Srated,p0set = pref,u0set = 1.00,Kp_uset = 0.001, Ki_uset = 0.5,
                                               Kdc = 100.0, gdc = Gdc,cdc = Cdc,xlf = Xlf,rf = R_f, xcf =  Xcf,Tdc = 0.05,Kp_u = 0.52,
@@ -104,7 +104,7 @@ function GetParamsGFM(pg::PowerGrid)
     push!(params,1) # for 2nd PiModelLineParam
     push!(params,0) # for OLTC
     if typeof(node) == droop
-        params = vcat(params,getallParameters(node)[5:22])
+        params = vcat(params,getallParameters(node)[4:22])
     elseif typeof(node) == MatchingControlRed
         params = vcat(params,getallParameters(node)[5:21])
     elseif typeof(node) == dVOC
@@ -156,7 +156,7 @@ function simulate_LTVS_N32_simulation(pg::PowerGrid,ic::Vector{Float64},tspan::T
     tfault = [tfault_on(), tfault_off()]
     timer_start = -1.0
     FRT = 1.0 # -1 for LVRT, 0 for HVRT, 1.0 for stable
-
+    tap_dir = 1
     rfault = real(zfault) <= 0.0 ? 1e-3 : real(zfault)
     xfault = imag(zfault) <= 0.0 ? 1e-3 : imag(zfault)
 
@@ -168,7 +168,7 @@ function simulate_LTVS_N32_simulation(pg::PowerGrid,ic::Vector{Float64},tspan::T
     function TapState(integrator)
         timer_start = integrator.t
         sol1 = integrator.sol
-        integrator.p[5] += 1 
+        integrator.p[5] += 1*tap_dir 
         op_prob = ODEProblem(integrator.f, sol1[end], (0.0, 1e-6), integrator.p, initializealg = BrownFullBasicInit())
         x2 = solve(op_prob,Rodas4())
         x2 = x2.u[end]
@@ -186,11 +186,23 @@ function simulate_LTVS_N32_simulation(pg::PowerGrid,ic::Vector{Float64},tspan::T
         end
     end
 
-    function voltage_outside(u,t,integrator)
+    function voltage_outside_low(u,t,integrator)
          sqrt(u[index_U_oltc]*u[index_U_oltc] + u[index_U_oltc+1]*u[index_U_oltc+1]) < 0.99
     end
 
-    function timer_on(integrator)
+    function voltage_outside_high(u,t,integrator)
+        sqrt(u[index_U_oltc]*u[index_U_oltc] + u[index_U_oltc+1]*u[index_U_oltc+1]) > 1.01
+   end
+
+    function timer_on_low(integrator)
+        tap_dir = 1
+        if timer_start == -1
+            timer_start = integrator.t
+        end
+    end
+
+    function timer_on_high(integrator)
+        tap_dir = -1
         if timer_start == -1
             timer_start = integrator.t
         end
@@ -200,7 +212,7 @@ function simulate_LTVS_N32_simulation(pg::PowerGrid,ic::Vector{Float64},tspan::T
         if timer_start == -1
             return false
         else
-            return t-timer_start > 4.0
+            return t-timer_start > 10.0
         end
     end
 
@@ -300,14 +312,20 @@ function simulate_LTVS_N32_simulation(pg::PowerGrid,ic::Vector{Float64},tspan::T
         nothing
     end
 
+    function jump_vref(integrator)
+        integrator.p[6] = 0.95
+    end
+
     cb1 = DiscreteCallback(voltage_deadband, timer_off)
-    cb2 = DiscreteCallback(voltage_outside, timer_on)
+    cb2 = DiscreteCallback(voltage_outside_low, timer_on_low)
+    cb21 = DiscreteCallback(voltage_outside_high, timer_on_high)
     cb3 = DiscreteCallback(timer_hit, TapState)
     cb4 = PresetTimeCallback(tfault[1], errorState)
     cb5 = PresetTimeCallback(tfault[2], regularState)
     #cb6 = DiscreteCallback(check_OLTC_voltage, stop_integration)
     cb7 = PresetTimeCallback(tfault[2]+0.05, start_LVRT)
     cb8 = PresetTimeCallback(tfault[2]+2.85+0.05,end_LVRT)
+    #cb80 = PresetTimeCallback(1.0,jump_vref)
     cb9 = DiscreteCallback(check_GFM_voltage_LVRT, stop_integration_LVRT)
     cb10 = DiscreteCallback(check_GFM_voltage_HVRT13, stop_integration_HVRT)
     cb11 = DiscreteCallback(check_GFM_voltage_HVRT12, stop_integration_HVRT)
@@ -316,7 +334,7 @@ function simulate_LTVS_N32_simulation(pg::PowerGrid,ic::Vector{Float64},tspan::T
 
     stiff  = repeat([:stiff],length(ic))
 
-    sol = solve(problem, Rodas5(autodiff=true), callback = CallbackSet(cb1,cb2,cb3,cb4,cb5,cb7,cb8,cb9,cb10,cb11,cb12,cb13), tstops=[tfault[1],tfault[2]], dtmax = dt_max(),force_dtmin=false,maxiters=1e5, initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-8,reltol=1e-8) #
+    sol = solve(problem, Rodas5(autodiff=true), callback = CallbackSet(cb1,cb2,cb21,cb3,cb4,cb5,cb7,cb8,cb9,cb10,cb11,cb12,cb13), tstops=[tfault[1],tfault[2]], dtmax = dt_max(),force_dtmin=false,maxiters=1e5, initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-8,reltol=1e-8) #
     # good values abstol=1e-8,reltol=1e-8 and Rodas5(autodiff=true) for droop
     success = deepcopy(sol.retcode)
     if sol.retcode != :Success
