@@ -1,5 +1,5 @@
 @DynamicNode droop(Sbase,Srated,p0set,u0set,Kp_droop,Kp_uset,Ki_uset,Kdc,gdc,cdc,xlf,rf,xcf,Tdc,Kp_u,Ki_u,Kp_i,Ki_i,imax_csa,imax_dc,p_red,LVRT_on,p_ind) begin
-    MassMatrix(m_int =[true,true,true,true,true,true,true,true,true,true,false,false,true])#,false,false,false,false
+    MassMatrix(m_int =[true,true,true,true,true,true,true,true,true,true,false,false,false,false,true])#,false,false,false,false
 end begin
     @assert Sbase > 0 "Base apparent power of the grid in VA, should be >0"
     @assert Srated > 0 "Rated apperent power of the machine in VA, should be >0"
@@ -23,26 +23,27 @@ end begin
     @assert imax_dc >= 0 "max. current of dc source in p.u., should be >=0"
     @assert p_red == 0 || p_red == 1 "Boolean value vor activating or deactivating power reduction in case of limited current"
 
-end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_iq],[Pf,dPf],[Pdelta,dPdelta],[iset_abs,diset_abs],[w,dw],[LVRT,dLVRT]] begin #,[idc0_lim,didc0_lim],[Um,dUm],[Ps,dPs],[Qs,dQs],[P0,dP0],[Q0,dQ0]
-    u0set = p[p_ind[1]]
-    Kp_droop = p[p_ind[2]]
-    Kp_uset = p[p_ind[3]]
-    Ki_uset = p[p_ind[4]]
-    Kdc = p[p_ind[5]] #
-    gdc = p[p_ind[6]] #
-    cdc = p[p_ind[7]] #
-    xlf = p[p_ind[8]]
-    rf = p[p_ind[9]]
-    xcf = p[p_ind[10]]
-    Tdc = p[p_ind[11]] #
-    Kp_u = p[p_ind[12]]
-    Ki_u = p[p_ind[13]]
-    Kp_i = p[p_ind[14]]
-    Ki_i = p[p_ind[15]]
-    imax_csa = p[p_ind[16]]
-    imax_dc = p[p_ind[17]]
-    p_red = p[p_ind[18]]
-    LVRT_on = p[p_ind[19]]
+end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_iq],[Pf,dPf],[Pdelta,dPdelta],[iset_abs,diset_abs],[w,dw],[Q0,dQ0],[P0,dP0],[LVRT,dLVRT]] begin #,[idc0_lim,didc0_lim],[Um,dUm],[Ps,dPs],[Qs,dQs]
+    p0set = p[p_ind[1]]    
+    u0set = p[p_ind[2]]
+    Kp_droop = p[p_ind[3]]
+    Kp_uset = p[p_ind[4]]
+    Ki_uset = p[p_ind[5]]
+    Kdc = p[p_ind[6]] #
+    gdc = p[p_ind[7]] #
+    cdc = p[p_ind[8]] #
+    xlf = p[p_ind[9]]
+    rf = p[p_ind[10]]
+    xcf = p[p_ind[11]]
+    Tdc = p[p_ind[12]] #
+    Kp_u = p[p_ind[13]]
+    Ki_u = p[p_ind[14]]
+    Kp_i = p[p_ind[15]]
+    Ki_i = p[p_ind[16]]
+    imax_csa = p[p_ind[17]]
+    imax_dc = p[p_ind[18]]
+    p_red = p[p_ind[19]]
+    LVRT_on = p[p_ind[20]]
 
     #after filter
     umeas = u*(cos(-θ)+1im*sin(-θ))
@@ -150,8 +151,8 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
 
     #dPs = Ps - p_before_filter
     #dQs = Qs - q_before_filter
-    #dP0 = P0 - pmeas
-    #dQ0 = Q0 - qmeas
+    dP0 = P0 - pmeas
+    dQ0 = Q0 - qmeas
     #dUm = Um - abs(um)
     dLVRT = LVRT_on
 end

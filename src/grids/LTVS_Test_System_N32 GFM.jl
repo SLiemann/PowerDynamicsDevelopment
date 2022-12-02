@@ -9,8 +9,8 @@ Ibase = Sbase/Ubase/sqrt(3)
 Zbase = Ubase^2/Sbase
 
 zfault() = (20+1im*20)/Zbase
-tfault_on() = 0.1
-tfault_off() = 0.35
+tfault_on() = 5.0
+tfault_off() =  tfault_on() + 0.25
 dt_max() = 1e-2
 
 function LTVS_Test_System_N32_GFM(;gfm=1,awu=1.0) #1 = droop, 2 = matching, 3 = dVOC, 4 = VSM
@@ -55,7 +55,7 @@ function LTVS_Test_System_N32_GFM(;gfm=1,awu=1.0) #1 = droop, 2 = matching, 3 = 
         buses["bus_gfm"] = droop(Sbase = Sbase,Srated = Srated, p0set = pref, u0set = 1.00,Kp_droop = pi,Kp_uset = 0.001, Ki_uset = 0.5,
                                  Kdc = 100.0, gdc = Gdc, cdc = Cdc, xlf = Xlf, rf = R_f, xcf =  Xcf, Tdc = 0.05, Kp_u = 0.52,
                                  Ki_u = 1.161022, Kp_i = 0.738891, Ki_i = 1.19, imax_csa = imax_csa, imax_dc = imax_dc, p_red = anti_windup, LVRT_on = 0.0,
-                                 p_ind = collect(6:24))
+                                 p_ind = collect(6:25))
     elseif gfm == 2 
         buses["bus_gfm"] = MatchingControlRed(Sbase = Sbase,Srated = Srated,p0set = pref,u0set = 1.00,Kp_uset = 0.001, Ki_uset = 0.5,
                                               Kdc = 100.0, gdc = Gdc,cdc = Cdc,xlf = Xlf,rf = R_f, xcf =  Xcf,Tdc = 0.05,Kp_u = 0.52,
@@ -104,7 +104,7 @@ function GetParamsGFM(pg::PowerGrid)
     push!(params,1) # for 2nd PiModelLineParam
     push!(params,0) # for OLTC
     if typeof(node) == droop
-        params = vcat(params,getallParameters(node)[4:22])
+        params = vcat(params,getallParameters(node)[3:22])
     elseif typeof(node) == MatchingControlRed
         params = vcat(params,getallParameters(node)[5:21])
     elseif typeof(node) == dVOC
@@ -157,8 +157,8 @@ function simulate_LTVS_N32_simulation(pg::PowerGrid,ic::Vector{Float64},tspan::T
     timer_start = -1.0
     FRT = 1.0 # -1 for LVRT, 0 for HVRT, 1.0 for stable
     tap_dir = 1
-    rfault = real(zfault) <= 0.0 ? 1e-3 : real(zfault)
-    xfault = imag(zfault) <= 0.0 ? 1e-3 : imag(zfault)
+    rfault = real(zfault) <= 0.0 ? 1e-5 : real(zfault)
+    xfault = imag(zfault) <= 0.0 ? 1e-5 : imag(zfault)
 
     branch_oltc = "OLTC"
     index_U_oltc = PowerDynamics.variable_index(pg.nodes,pg.lines[branch_oltc].to,:u_r)
@@ -313,7 +313,7 @@ function simulate_LTVS_N32_simulation(pg::PowerGrid,ic::Vector{Float64},tspan::T
     end
 
     function jump_vref(integrator)
-        integrator.p[6] = 0.95
+        integrator.p[6] = 1.0
     end
 
     cb1 = DiscreteCallback(voltage_deadband, timer_off)
@@ -325,7 +325,7 @@ function simulate_LTVS_N32_simulation(pg::PowerGrid,ic::Vector{Float64},tspan::T
     #cb6 = DiscreteCallback(check_OLTC_voltage, stop_integration)
     cb7 = PresetTimeCallback(tfault[2]+0.05, start_LVRT)
     cb8 = PresetTimeCallback(tfault[2]+2.85+0.05,end_LVRT)
-    #cb80 = PresetTimeCallback(1.0,jump_vref)
+    cb80 = PresetTimeCallback(5.0,jump_vref)
     cb9 = DiscreteCallback(check_GFM_voltage_LVRT, stop_integration_LVRT)
     cb10 = DiscreteCallback(check_GFM_voltage_HVRT13, stop_integration_HVRT)
     cb11 = DiscreteCallback(check_GFM_voltage_HVRT12, stop_integration_HVRT)
@@ -333,7 +333,7 @@ function simulate_LTVS_N32_simulation(pg::PowerGrid,ic::Vector{Float64},tspan::T
     cb13 = ContinuousCallback(disc_dc_current, affect_current)
 
     stiff  = repeat([:stiff],length(ic))
-
+    #cb4,cb5,cb7,cb8
     sol = solve(problem, Rodas5(autodiff=true), callback = CallbackSet(cb1,cb2,cb21,cb3,cb4,cb5,cb7,cb8,cb9,cb10,cb11,cb12,cb13), tstops=[tfault[1],tfault[2]], dtmax = dt_max(),force_dtmin=false,maxiters=1e5, initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-8,reltol=1e-8) #
     # good values abstol=1e-8,reltol=1e-8 and Rodas5(autodiff=true) for droop
     success = deepcopy(sol.retcode)

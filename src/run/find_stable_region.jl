@@ -12,15 +12,22 @@ end
 
 pg0, ic0 =  Initialize_N32_GFM(1,0);
 
-@time pgsol0, suc0,FRT0 = simulate_LTVS_N32_simulation(pg0,ic0,(0.0,20.0),(10+0.0im)/Zbase);
+@time pgsol0, suc0,FRT0 = simulate_LTVS_N32_simulation(pg0,ic0,(0.0,30.0),(4+3.0im)/Zbase);
 plot([myplot(pgsol0,"bus_gfm",:LVRT),plotv(pgsol0,["bus_gfm"])[1]])
+plot(plotv(pgsol0,["bus_gfm"])[1])
 plot(myplot(pgsol0,"bus_gfm",:iset_abs))
 plot(myplot(pgsol0,"bus_gfm",:idc0))
 plot(myplot(pgsol0,"bus_gfm",:udc))
+plot(myplot(pgsol0,"bus_gfm",:θ))
+plot(myplot(pgsol0,"bus_gfm",:w))
+
+plot(myplot(pgsol0,"bus_gfm",:Pf))
+plot(myplot(pgsol0,"bus_gfm",:θ,y_norm=pi/180,y_bias=18.5807))
 
 using MAT
 dir = "\\\\fs0\\home\\liemann\\"
-file = matopen(dir*"vm.mat")
+dir = "C:\\Users\\liemann\\Desktop\\"
+file = matopen(dir*"matlab.mat")
 XRm = read(file, "vmt");
 close(file)
 
@@ -29,8 +36,21 @@ p2 = scatter(x=XRm[:,1],y=XRm[:,2],name="MATLAB")
 plot([p1,p2])
 
 p1 = myplot(pgsol0,"bus_gfm",:θ,y_norm=pi/180,y_bias=18.5807)
+p2 = scatter(x=XRm[:,1],y=XRm[:,4],name="MATLAB")
+plot([p1,p2])
+
+p1 = myplot(pgsol0,"bus_gfm",:P0)
 p2 = scatter(x=XRm[:,1],y=XRm[:,3],name="MATLAB")
 plot([p1,p2])
+
+p1 = myplot(pgsol0,"bus_gfm",:w)
+p2 = scatter(x=XRm[:,1],y=XRm[:,5],name="MATLAB")
+plot([p1,p2])
+
+p1 = myplot(pgsol0,"bus_gfm",:Q0)
+p2 = scatter(x=XRm[:,1],y=XRm[:,6],name="MATLAB")
+plot([p1,p2])
+
 
 
 
@@ -62,8 +82,8 @@ function CalcXRMap(Rrange, Xrange)
     return XR, XR_tend
 end
 
-Rverlauf = 10:-1:0.0
-Xverlauf = 10:-1:0.0
+Rverlauf = 12:-1:0.0
+Xverlauf = 8:-1:0.0
 
 @time xr, xrt = CalcXRMap(Rverlauf,Xverlauf);
 
@@ -72,7 +92,7 @@ Xverlauf = 10:-1:0.0
 #dVOC R=100, X = 65 (not finished)
 plot(xr[:,1],xr[:,2])
 plot(Rverlauf,xr)
-plot(surface(x=Rverlauf,y=Xverlauf,z=xr))
+plot(surface(x=Rverlauf,y=Xverlauf,z=xrt))
 plot(surface(x=Rverlauf,y=Xverlauf,z=winkel))
 plot(surface(x=Rverlauf,y=Xverlauf,z=betrag))
 
@@ -88,7 +108,7 @@ end
 
 
 using FileIO
-save("droop_I070_R_18_1_0_X_08_1_0.jld","Rverlauf",Rverlauf,"Xverlauf",Xverlauf,"XR",xr,"XR_t","xrt")
+save("droop_I00_R_12_1_0_X_08_1_0.jld","Rverlauf",Rverlauf,"Xverlauf",Xverlauf,"XR",xr,"XR_t","xrt")
 
 function plotxkrit(vl_,xdata,ydata)
     x = Vector{Float64}()
@@ -143,10 +163,10 @@ px,py = plotxkrit(reverse(XRv),collect(reverse(Rv)),collect(reverse(Xv)));
 
 using MAT
 dir = "C:\\Users\\liemann\\Desktop\\"
-file = matopen(dir*"droop.mat")
+file = matopen(dir*"matlab2.mat")
 XRm = read(file, "res")
 close(file)
 
-p5 = scatter(x=px,y=py,name="PD")
-p4 = scatter(x=XRm[:,1],y=XRm[:,2],name="MATLAB")
-plot([p1,p2,p3,p4,p5])
+p1 = scatter(x=px,y=py,name="PD")
+p2= scatter(x=XRm[:,1],y=XRm[:,2],name="MATLAB")
+plot([p1,p2])
