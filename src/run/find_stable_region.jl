@@ -12,7 +12,7 @@ end
 
 pg0, ic0 =  Initialize_N32_GFM(1,0);
 
-@time pgsol0, suc0,FRT0 = simulate_LTVS_N32_simulation(pg0,ic0,(0.0,30.0),(4+3.0im)/Zbase);
+@time pgsol0, suc0,FRT0 = simulate_LTVS_N32_simulation(pg0,ic0,(0.0,40.0),(4.3+2.7im)/Zbase);
 plot([myplot(pgsol0,"bus_gfm",:LVRT),plotv(pgsol0,["bus_gfm"])[1]])
 plot(plotv(pgsol0,["bus_gfm"])[1])
 plot(myplot(pgsol0,"bus_gfm",:iset_abs))
@@ -66,7 +66,7 @@ function CalcXRMap(Rrange, Xrange)
     for (indR,R) = enumerate(Rrange)
         println(R)
         for (indX,X) = enumerate(Xrange)
-            pgsol, suc,FRT_tmp = simulate_LTVS_N32_simulation(pg,ic,(0.0,30.0),(R+1im*X)/Zbase);
+            pgsol, suc,FRT_tmp = simulate_LTVS_N32_simulation(pg,ic,(0.0,40.0),(R+1im*X)/Zbase);
             if  suc == :DtLessThanMin 
                 XR[indR,indX] = -3;
             elseif suc == :Unstable
@@ -82,8 +82,8 @@ function CalcXRMap(Rrange, Xrange)
     return XR, XR_tend
 end
 
-Rverlauf = 12:-1:0.0
-Xverlauf = 8:-1:0.0
+Rverlauf = 10:-0.1:0.0
+Xverlauf = 5.5:-0.1:0.0
 
 @time xr, xrt = CalcXRMap(Rverlauf,Xverlauf);
 
@@ -92,7 +92,7 @@ Xverlauf = 8:-1:0.0
 #dVOC R=100, X = 65 (not finished)
 plot(xr[:,1],xr[:,2])
 plot(Rverlauf,xr)
-plot(surface(x=Rverlauf,y=Xverlauf,z=xrt))
+plot(surface(x=Rverlauf,y=Xverlauf,z=xr))
 plot(surface(x=Rverlauf,y=Xverlauf,z=winkel))
 plot(surface(x=Rverlauf,y=Xverlauf,z=betrag))
 
@@ -108,7 +108,7 @@ end
 
 
 using FileIO
-save("droop_I00_R_12_1_0_X_08_1_0.jld","Rverlauf",Rverlauf,"Xverlauf",Xverlauf,"XR",xr,"XR_t","xrt")
+save("droop_I00_R_10_01_0_X_6_01_0.jld","Rverlauf",Rverlauf,"Xverlauf",Xverlauf,"XR",xr,"XR_t","xrt")
 
 function plotxkrit(vl_,xdata,ydata)
     x = Vector{Float64}()

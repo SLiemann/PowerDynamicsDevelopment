@@ -44,7 +44,7 @@ function LTVS_Test_System_N32_GFM(;gfm=1,awu=1.0) #1 = droop, 2 = matching, 3 = 
     Xcf = 1.0/(100*pi*C_f) /Zbase_gfm
 
     buses=OrderedDict(
-        "bus0" => SlackAlgebraic(U=1.0495), # 1.0532 for 100% I , 1.0495 for 100% Z
+        "bus0" => SlackAlgebraic(U=1.054080675), # 1.0532 for 100% I , 1.0495 for 100% Z
         "bus1" => VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),
         "bus_ehv" => VoltageDependentLoad(P=0.0, Q=Q_Shunt_EHV, U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),
         "bus_hv" => VoltageDependentLoad(P=0.0, Q=Q_Shunt_HV,  U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),
