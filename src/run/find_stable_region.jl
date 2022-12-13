@@ -12,9 +12,9 @@ end
 
 pg0, ic0 =  Initialize_N32_GFM(1,0);
 
-@time pgsol0, suc0,FRT0 = simulate_LTVS_N32_simulation(pg0,ic0,(0.0,40.0),(4.3+2.7im)/Zbase);
+@time pgsol0, suc0,FRT0 = simulate_LTVS_N32_simulation(pg0,ic0,(0.0,5.0),(4.1+2.8im)/Zbase);
 plot([myplot(pgsol0,"bus_gfm",:LVRT),plotv(pgsol0,["bus_gfm"])[1]])
-plot(plotv(pgsol0,["bus_gfm"])[1])
+plot(plotv(pgsol0,["bus_ehv"])[1])
 plot(myplot(pgsol0,"bus_gfm",:iset_abs))
 plot(myplot(pgsol0,"bus_gfm",:idc0))
 plot(myplot(pgsol0,"bus_gfm",:udc))
@@ -52,10 +52,8 @@ p2 = scatter(x=XRm[:,1],y=XRm[:,6],name="MATLAB")
 plot([p1,p2])
 
 
-
-
 function CalcXRMap(Rrange, Xrange)
-    pg, ic =  Initialize_N32_GFM(1,0);
+    pg, ic =  Initialize_N32_GFM(4,0);
 
     length_dr = length(Rrange)
     length_dx = length(Xrange)
@@ -66,7 +64,7 @@ function CalcXRMap(Rrange, Xrange)
     for (indR,R) = enumerate(Rrange)
         println(R)
         for (indX,X) = enumerate(Xrange)
-            pgsol, suc,FRT_tmp = simulate_LTVS_N32_simulation(pg,ic,(0.0,40.0),(R+1im*X)/Zbase);
+            pgsol, suc,FRT_tmp = simulate_LTVS_N32_simulation(pg,ic,(0.0,5.0),(R+1im*X)/Zbase);
             if  suc == :DtLessThanMin 
                 XR[indR,indX] = -3;
             elseif suc == :Unstable
@@ -82,8 +80,8 @@ function CalcXRMap(Rrange, Xrange)
     return XR, XR_tend
 end
 
-Rverlauf = 10:-0.1:0.0
-Xverlauf = 5.5:-0.1:0.0
+Rverlauf = 20:-1:0.0
+Xverlauf = 15:-1:0.0
 
 @time xr, xrt = CalcXRMap(Rverlauf,Xverlauf);
 
@@ -108,7 +106,7 @@ end
 
 
 using FileIO
-save("droop_I00_R_10_01_0_X_6_01_0.jld","Rverlauf",Rverlauf,"Xverlauf",Xverlauf,"XR",xr,"XR_t","xrt")
+save("VSM_I70_R_20_1_0_X_15_1_0.jld","Rverlauf",Rverlauf,"Xverlauf",Xverlauf,"XR",xr,"XR_t",xrt)
 
 function plotxkrit(vl_,xdata,ydata)
     x = Vector{Float64}()
@@ -149,24 +147,25 @@ end
 px,py = plotxkrit(reverse(xr),collect(reverse(Rverlauf)),collect(reverse(Xverlauf)));
 plot(px,py)
 
-
 tmp = load("droop_R_110_1_0_X_70_1_0.jld")
-tmp = load("droop_I090_R_64_1_0_X_40_1_0.jld")
+tmp = load("droop_I00_R_10_01_0_X_55_01_0.jld")
 tmp = load("matching_R_136_1_0_X_88_1_0.jld")
 
 Rv= tmp["Rverlauf"];
 Xv = tmp["Xverlauf"];
 XRv= tmp["XR"];
+XRt= tmp["XR_t"];
+
 plot(surface(x=Rv,y=Xv,z=XRv))
 px,py = plotxkrit(reverse(XRv),collect(reverse(Rv)),collect(reverse(Xv)));
-
+plot(scatter(x=px,y=py))
 
 using MAT
 dir = "C:\\Users\\liemann\\Desktop\\"
-file = matopen(dir*"matlab2.mat")
+file = matopen(dir*"matlab.mat")
 XRm = read(file, "res")
 close(file)
 
-p1 = scatter(x=px,y=py,name="PD")
+p4 = scatter(x=px,y=py,name="PD")
 p2= scatter(x=XRm[:,1],y=XRm[:,2],name="MATLAB")
-plot([p1,p2])
+plot([p1,p2,p3,p4])

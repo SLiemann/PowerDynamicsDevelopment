@@ -263,8 +263,8 @@ function Substitute(syms::Matrix{Num}, subs_args::Dict{Any, Any}) #SymbolicUtils
   return Symbolics.value.(substitute.(syms, (subs_args,)))
 end
 
-function GetMTKSystem(pg::PowerGrid, time_interval::Tuple{Float64,Float64}, p::Array{Any})
-  U,δ,ic0 = PowerFlowClassic(pg,iwamoto = false)
+function GetMTKSystem(pg::PowerGrid, time_interval::Tuple{Float64,Float64}, p)
+  U,δ,ic0,cu = PowerFlowClassic(pg,iwamoto = false)
   pg_new, ic =  InitializeInternalDynamics(pg,ic0)
   prob = ODEProblem(rhs(pg_new), ic, time_interval, p)
   new_f = ODEFunction(
