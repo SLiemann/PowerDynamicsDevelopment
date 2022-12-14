@@ -10,10 +10,12 @@ begin
     nothing
 end
 
-pg0, ic0 =  Initialize_N32_GFM(1,0);
-
-@time pgsol0, suc0,FRT0 = simulate_LTVS_N32_simulation(pg0,ic0,(0.0,5.0),(4.1+2.8im)/Zbase);
+pg0, ic0 =  Initialize_N32_GFM(1,1);
+# ERRORSTATE & REGULAR STATE: die solve-funktionen anpassen!
+# init with low voltages
+@time pgsol0, suc0,FRT0 = simulate_LTVS_N32_simulation(pg0,ic0,(0.0,5.0),(2+1im*3)/Zbase);
 plot([myplot(pgsol0,"bus_gfm",:LVRT),plotv(pgsol0,["bus_gfm"])[1]])
+
 plot(plotv(pgsol0,["bus_ehv"])[1])
 plot(myplot(pgsol0,"bus_gfm",:iset_abs))
 plot(myplot(pgsol0,"bus_gfm",:idc0))
@@ -53,7 +55,7 @@ plot([p1,p2])
 
 
 function CalcXRMap(Rrange, Xrange)
-    pg, ic =  Initialize_N32_GFM(4,0);
+    pg, ic =  Initialize_N32_GFM(1,1);
 
     length_dr = length(Rrange)
     length_dx = length(Xrange)
@@ -80,8 +82,8 @@ function CalcXRMap(Rrange, Xrange)
     return XR, XR_tend
 end
 
-Rverlauf = 20:-1:0.0
-Xverlauf = 15:-1:0.0
+Rverlauf = 10:-1:0.0
+Xverlauf = 10:-1:0.0
 
 @time xr, xrt = CalcXRMap(Rverlauf,Xverlauf);
 
@@ -106,7 +108,7 @@ end
 
 
 using FileIO
-save("VSM_I70_R_20_1_0_X_15_1_0.jld","Rverlauf",Rverlauf,"Xverlauf",Xverlauf,"XR",xr,"XR_t",xrt)
+save("dVOC_I90_R_60_1_0_X_40_1_0.jld","Rverlauf",Rverlauf,"Xverlauf",Xverlauf,"XR",xr,"XR_t",xrt)
 
 function plotxkrit(vl_,xdata,ydata)
     x = Vector{Float64}()

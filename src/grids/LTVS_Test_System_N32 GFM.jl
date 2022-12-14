@@ -10,8 +10,8 @@ Zbase = Ubase^2/Sbase
 
 zfault() = (20+1im*20)/Zbase
 tfault_on() = 0.1
-tfault_off() =  tfault_on() + 0.1
-dt_max() = 1e-2
+tfault_off() =  tfault_on() + 1
+dt_max() = 1e-4
 
 function LTVS_Test_System_N32_GFM(;gfm=1,awu=1.0) #1 = droop, 2 = matching, 3 = dVOC, 4 = VSM
     Q_Shunt_EHV = 600e6/Sbase
@@ -48,7 +48,7 @@ function LTVS_Test_System_N32_GFM(;gfm=1,awu=1.0) #1 = droop, 2 = matching, 3 = 
         "bus1" => VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),
         "bus_ehv" => VoltageDependentLoad(P=0.0, Q=Q_Shunt_EHV, U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),
         "bus_hv" => VoltageDependentLoad(P=0.0, Q=Q_Shunt_HV,  U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),
-        "bus_load" => GeneralVoltageDependentLoad(P=Pload, Q = QLoad, U=1.0, Ap=0.3, Bp=0.7,Aq = 1.0, Bq= 0.0,Y_n = complex(0.0)),
+        "bus_load" => GeneralVoltageDependentLoad(P=Pload, Q = QLoad, U=1.0, Ap=0.1, Bp=0.9,Aq = 1.0, Bq= 0.0,Y_n = complex(0.0)),
         "busv" => ThreePhaseFault(p_ind=collect(1:2)))
 
     if gfm == 1
@@ -223,7 +223,7 @@ function simulate_LTVS_N32_simulation(pg::PowerGrid,ic::Vector{Float64},tspan::T
         sol1 = integrator.sol
         ode =integrator.f
         op_prob = ODEProblem(ode, sol1[end], (0.0, 1e-6), integrator.p, initializealg = BrownFullBasicInit())
-        x2 = solve(op_prob,Rodas5(),initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-8,reltol=1e-8)
+        x2 = solve(op_prob,Rodas5(),initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-8,reltol=1e-8,force_dtmin=true)
         x2 = x2.u[end]
         integrator.u = deepcopy(x2)
         auto_dt_reset!(integrator)
