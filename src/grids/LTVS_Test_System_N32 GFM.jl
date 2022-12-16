@@ -10,8 +10,8 @@ Zbase = Ubase^2/Sbase
 
 zfault() = (20+1im*20)/Zbase
 tfault_on() = 0.1
-tfault_off() =  tfault_on() + 1
-dt_max() = 1e-4
+tfault_off() =  tfault_on() + 0.25
+dt_max() = 1e-2
 
 function LTVS_Test_System_N32_GFM(;gfm=1,awu=1.0) #1 = droop, 2 = matching, 3 = dVOC, 4 = VSM
     Q_Shunt_EHV = 600e6/Sbase
@@ -48,7 +48,7 @@ function LTVS_Test_System_N32_GFM(;gfm=1,awu=1.0) #1 = droop, 2 = matching, 3 = 
         "bus1" => VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),
         "bus_ehv" => VoltageDependentLoad(P=0.0, Q=Q_Shunt_EHV, U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),
         "bus_hv" => VoltageDependentLoad(P=0.0, Q=Q_Shunt_HV,  U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),
-        "bus_load" => GeneralVoltageDependentLoad(P=Pload, Q = QLoad, U=1.0, Ap=0.1, Bp=0.9,Aq = 1.0, Bq= 0.0,Y_n = complex(0.0)),
+        "bus_load" => GeneralVoltageDependentLoad(P=Pload, Q = QLoad, U=1.0, Ap=0.0, Bp=1.0,Aq = 1.0, Bq= 0.0,Y_n = complex(0.0)),
         "busv" => ThreePhaseFault(p_ind=collect(1:2)))
 
     if gfm == 1
@@ -98,8 +98,8 @@ function GetParamsGFM(pg::PowerGrid)
     node = pg.nodes["bus_gfm"]
     tap = pg.lines["OLTC"].tap_pos
     params = Vector{Float64}()
-    push!(params,Inf) #for 3ph fault, start without fault
-    push!(params,Inf) #for 3ph fault, start without fault
+    push!(params,1e10) #for 3ph fault, start without fault
+    push!(params,1e10) #for 3ph fault, start without fault
     push!(params,1) # for 1st PiModelLineParam
     push!(params,1) # for 2nd PiModelLineParam
     push!(params,0) # for OLTC
@@ -222,16 +222,19 @@ function simulate_LTVS_N32_simulation(pg::PowerGrid,ic::Vector{Float64},tspan::T
 
         sol1 = integrator.sol
         ode =integrator.f
-        op_prob = ODEProblem(ode, sol1[end], (0.0, 1e-6), integrator.p, initializealg = BrownFullBasicInit())
-        x2 = solve(op_prob,Rodas5(),initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-8,reltol=1e-8,force_dtmin=true)
+        ic_tmp = deepcopy(sol1[end])
+        ind = getVoltageSymbolPositions(pg)
+        ic_tmp[ind] = ic_tmp[ind]./4
+        op_prob = ODEProblem(ode, ic_tmp, (0.0, 1e-6), integrator.p, initializealg = BrownFullBasicInit())
+        x2 = solve(op_prob,Rodas5(),initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-8,reltol=1e-8,force_dtmin=false)
         x2 = x2.u[end]
         integrator.u = deepcopy(x2)
         auto_dt_reset!(integrator)
     end
 
     function regularState(integrator)
-        integrator.p[1] = Inf #fault is zero again
-        integrator.p[2] = Inf #fault is zero again
+        integrator.p[1] = 1e10 #fault is zero again
+        integrator.p[2] = 1e10 #fault is zero again
         #integrator.p[3] = 1e-5*0 #disable line
         #integrator.p[4] = 1e-5*0 #disable line
 
@@ -323,8 +326,8 @@ function simulate_LTVS_N32_simulation(pg::PowerGrid,ic::Vector{Float64},tspan::T
     cb4 = PresetTimeCallback(tfault[1], errorState)
     cb5 = PresetTimeCallback(tfault[2], regularState)
     #cb6 = DiscreteCallback(check_OLTC_voltage, stop_integration)
-    cb7 = PresetTimeCallback(tfault[2]+0.05, start_LVRT)
-    cb8 = PresetTimeCallback(tfault[2]+2.85+0.05,end_LVRT)
+    cb7 = PresetTimeCallback(tfault[1]+0.15, start_LVRT)
+    cb8 = PresetTimeCallback(tfault[1]+3.0,end_LVRT)
     cb80 = PresetTimeCallback(5.0,jump_vref)
     cb9 = DiscreteCallback(check_GFM_voltage_LVRT, stop_integration_LVRT)
     cb10 = DiscreteCallback(check_GFM_voltage_HVRT13, stop_integration_HVRT)

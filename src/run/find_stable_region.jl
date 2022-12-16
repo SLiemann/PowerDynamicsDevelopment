@@ -13,7 +13,7 @@ end
 pg0, ic0 =  Initialize_N32_GFM(1,1);
 # ERRORSTATE & REGULAR STATE: die solve-funktionen anpassen!
 # init with low voltages
-@time pgsol0, suc0,FRT0 = simulate_LTVS_N32_simulation(pg0,ic0,(0.0,5.0),(2+1im*3)/Zbase);
+@time pgsol0, suc0,FRT0 = simulate_LTVS_N32_simulation(pg0,ic0,(0.0,5.0),(10+0.0im)/Zbase);
 plot([myplot(pgsol0,"bus_gfm",:LVRT),plotv(pgsol0,["bus_gfm"])[1]])
 
 plot(plotv(pgsol0,["bus_ehv"])[1])
@@ -82,8 +82,8 @@ function CalcXRMap(Rrange, Xrange)
     return XR, XR_tend
 end
 
-Rverlauf = 10:-1:0.0
-Xverlauf = 10:-1:0.0
+Rverlauf = 10:-10:0.0
+Xverlauf = 10:-10:0.0
 
 @time xr, xrt = CalcXRMap(Rverlauf,Xverlauf);
 
@@ -108,7 +108,7 @@ end
 
 
 using FileIO
-save("dVOC_I90_R_60_1_0_X_40_1_0.jld","Rverlauf",Rverlauf,"Xverlauf",Xverlauf,"XR",xr,"XR_t",xrt)
+save("droop_I00_250_R_10_1_0_X_10_1_0.jld","Rverlauf",Rverlauf,"Xverlauf",Xverlauf,"XR",xr,"XR_t",xrt)
 
 function plotxkrit(vl_,xdata,ydata)
     x = Vector{Float64}()
@@ -146,6 +146,7 @@ function plotxkrit(vl_,xdata,ydata)
     end
     return x,y
 end
+
 px,py = plotxkrit(reverse(xr),collect(reverse(Rverlauf)),collect(reverse(Xverlauf)));
 plot(px,py)
 
