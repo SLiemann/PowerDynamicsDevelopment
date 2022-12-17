@@ -13,13 +13,16 @@ end
 pg0, ic0 =  Initialize_N32_GFM(1,1);
 # ERRORSTATE & REGULAR STATE: die solve-funktionen anpassen!
 # init with low voltages
-@time pgsol0, suc0,FRT0 = simulate_LTVS_N32_simulation(pg0,ic0,(0.0,5.0),(10+0.0im)/Zbase);
+@time pgsol0, suc0,FRT0 = simulate_LTVS_N32_simulation(pg0,ic0,(0.0,5.0),(9+0.0im)/Zbase);
 plot([myplot(pgsol0,"bus_gfm",:LVRT),plotv(pgsol0,["bus_gfm"])[1]])
 
 plot(plotv(pgsol0,["bus_ehv"])[1])
 plot(myplot(pgsol0,"bus_gfm",:iset_abs))
 plot(myplot(pgsol0,"bus_gfm",:idc0))
 plot(myplot(pgsol0,"bus_gfm",:udc))
+plot(myplot(pgsol0,"bus_gfm",:P0))
+plot(myplot(pgsol0,"bus_gfm",:Pf))
+
 plot(myplot(pgsol0,"bus_gfm",:θ))
 plot(myplot(pgsol0,"bus_gfm",:w))
 
@@ -82,7 +85,7 @@ function CalcXRMap(Rrange, Xrange)
     return XR, XR_tend
 end
 
-Rverlauf = 10:-10:0.0
+Rverlauf = 10:-1:0.0
 Xverlauf = 10:-10:0.0
 
 @time xr, xrt = CalcXRMap(Rverlauf,Xverlauf);

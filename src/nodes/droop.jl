@@ -131,15 +131,15 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
     dx_uabs = IfElse.ifelse(iset_abs >= imax_csa && p_red > 0,0.0,Ki_uset * Δuabs)
     #DC current control
     plim = idset_csa * real(E) + iqset_csa * imag(E)
-    pmax = IfElse.ifelse(plim > p0set, p0set, IfElse.ifelse(plim < 0.0, 0.0, plim))
-    dP = IfElse.ifelse(iset_abs >= imax_csa,p_red*(p0set -pmax), 0.0)
+    #pmax = IfElse.ifelse(plim > p0set, p0set, IfElse.ifelse(plim < 0.0, 0.0, plim))
+    dP = IfElse.ifelse(iset_abs >= imax_csa,p_red*(p0set -plim), 0.0)
 
     dPdelta = 10.0*pi*(p_before_filter - pmeas - Pdelta)
     idc = -Kdc * udc + p0set - dP + (1.0+udc)*gdc + Pdelta
     didc0 = (idc - idc0) / Tdc
 
     #didc0_lim = idc0_lim - IfElse.ifelse(idc0 > imax_dc, imax_dc, IfElse.ifelse(idc0 < -imax_dc,-imax_dc,idc0))
-    idc0_lim =  IfElse.ifelse(idc0 > imax_dc, imax_dc, IfElse.ifelse(idc0 < -imax_dc,-imax_dc,idc0))
+    idc0_lim =  IfElse.ifelse(idc0 >= imax_dc, imax_dc, IfElse.ifelse(idc0 <= -imax_dc,-imax_dc,idc0))
     #DC circuit
     dudc = (idc0_lim - gdc * (1.0+udc) - ix) / cdc
 

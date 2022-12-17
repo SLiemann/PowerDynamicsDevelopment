@@ -224,10 +224,22 @@ function simulate_LTVS_N32_simulation(pg::PowerGrid,ic::Vector{Float64},tspan::T
         ode =integrator.f
         ic_tmp = deepcopy(sol1[end])
         ind = getVoltageSymbolPositions(pg)
-        ic_tmp[ind] = ic_tmp[ind]./4
-        op_prob = ODEProblem(ode, ic_tmp, (0.0, 1e-6), integrator.p, initializealg = BrownFullBasicInit())
-        x2 = solve(op_prob,Rodas5(),initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-8,reltol=1e-8,force_dtmin=false)
-        x2 = x2.u[end]
+        div = 1.0
+        while div < 10
+            div = div*2
+            ic_tmp = deepcopy(sol1[end])
+            ic_tmp[ind] = ic_tmp[ind]./div
+            op_prob = ODEProblem(ode, ic_tmp, (tfault_on(), tfault_off()), integrator.p, initializealg = BrownFullBasicInit())
+            x2 = solve(op_prob,Rodas5(),initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-8,reltol=1e-8,verbose=false)
+
+            if  x2.retcode == :Success
+                println("Div = ",div)
+                pgsol_tmp = PowerGridSolution(x2, pg)
+                display(plot(plotv(pgsol_tmp ,["bus_gfm"])[1]))
+                break
+            end
+        end
+        x2 = x2.u[1]
         integrator.u = deepcopy(x2)
         auto_dt_reset!(integrator)
     end

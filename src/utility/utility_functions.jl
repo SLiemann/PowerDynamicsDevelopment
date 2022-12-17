@@ -5,6 +5,19 @@ using FFTW
 using LinearAlgebra
 import PlotlyJS: plot
 
+function getStateIndex(pg::PowerGrid,node_str::String,sym::Symbol)
+    ind = 0
+    node = pg.nodes[node_str]
+    for (ind_tmp,val) in enumerate(pg.nodes)
+        if val[2] == node
+            ind = ind + indexin([sym],symbolsof(node))[1]
+            break
+        end
+       ind += length(symbolsof(val[2]))
+    end
+    return ind
+end
+
 function getPreFaultVoltages(pg::PowerGrid,ic_prefault::Array{Float64,1},ic_endfault::Array{Float64,1})
     ind = getVoltageSymbolPositions(pg)
     ic_endfault[ind] = ic_prefault[ind]
@@ -38,6 +51,13 @@ function getComplexBusVoltage(pg::PowerGrid,ic::Array{Float64,1})
         return Uc
 end
 
+function getSymbolPosition(pg::PowerGrid,syms::Symbol)
+    ind =  indexin([syms],rhs(pg).syms)[1]
+    if isnothing(ind)
+        error(syms," is not a valid symbol")
+    end
+    return ind
+end
 
 function getSymbolPosition(pg::PowerGrid,syms::Array{Symbol,1})
     return sort(indexin(syms,rhs(pg).syms))
