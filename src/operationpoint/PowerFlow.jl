@@ -97,27 +97,18 @@ NodeType(L::GeneralVoltageDependentLoad) = 2
 NodeType(L::ThreePhaseFault) = 2
 
 #note: only loads are treated with voltage depency and are called every iteration
-PowerNodeLoad(S::SlackAlgebraic,U) = 0. #treated as generation
-PowerNodeLoad(S::SlackAlgebraicParam,U) = 0. #treated as generation
-PowerNodeLoad(F::SixOrderMarconatoMachine,U) = 0. #treated as generation
-PowerNodeLoad(F::SixOrderMarconatoMachineAVROEL,U) = 0. #treated as generation
-PowerNodeLoad(F::FourthOrderEq,U) = 0. #treated as generation
-PowerNodeLoad(F::FourthOrderEqExciterIEEEDC1A,U)  = 0. #treated as generation
-PowerNodeLoad(F::FourthOrderEqGovernorExciterAVR,U)  = 0. #treated as generation
-PowerNodeLoad(F::FourthOrderEqGovernorIEEEG1,U)  = 0. #treated as generation
-PowerNodeLoad(F::SynchronousMachineGENSAL,U) = 0 #treated as generation
-PowerNodeLoad(S::SwingEq,U)  = 0. #treated as generation
-PowerNodeLoad(V::VSIMinimal,U) = complex(V.P,(abs(U)-V.V_r)/V.K_Q+V.Q)   #treated as load with changed sign to include voltage dependency
-PowerNodeLoad(V::VSIVoltagePT1,U) = complex(V.P,(abs(U)-V.V_r)/V.K_Q+V.Q)   #treated as load with changed sign to include voltage dependency
-PowerNodeLoad(L::PVAlgebraic,U) = L.P  #treated as load
-PowerNodeLoad(L::PQAlgebraic,U) = complex(L.P,L.Q) #treated as load
-PowerNodeLoad(L::VoltageDependentLoad,U) = complex(L.P, L.Q) * (L.A * abs(U)^2 + L.B * abs(U) + 1 - L.A - L.B)
-PowerNodeLoad(L::ExponentialRecoveryLoad,U)  = (L.P0*((abs(U)/L.V0)^L.Nps) + 1im*L.Q0*((abs(U)/L.V0)^L.Nqs))
-PowerNodeLoad(L::CSIMinimal,U)  = -U*conj(L.I_r)
-PowerNodeLoad(L::SimpleRecoveryLoad,U)  = L.P0 + 1im*(L.Q0)
-PowerNodeLoad(L::SimpleRecoveryLoadParam,U)  = L.P0 + 1im*(L.Q0)
-PowerNodeLoad(L::oPFC,U) = L.Pdc +1im*L.Qn/(U^0.9)
-function PowerNodeLoad(L::GridSideConverter,U)
+# 
+NodePower(V::VSIMinimal,U) = complex(V.P,(abs(U)-V.V_r)/V.K_Q+V.Q)   #treated as load with changed sign to include voltage dependency
+NodePower(V::VSIVoltagePT1,U) = complex(V.P,(abs(U)-V.V_r)/V.K_Q+V.Q)   #treated as load with changed sign to include voltage dependency
+NodePower(L::PVAlgebraic,U) = L.P  #treated as load
+NodePower(L::PQAlgebraic,U) = complex(L.P,L.Q) #treated as load
+NodePower(L::VoltageDependentLoad,U) = complex(L.P, L.Q) * (L.A * abs(U)^2 + L.B * abs(U) + 1 - L.A - L.B)
+NodePower(L::ExponentialRecoveryLoad,U)  = (L.P0*((abs(U)/L.V0)^L.Nps) + 1im*L.Q0*((abs(U)/L.V0)^L.Nqs))
+NodePower(L::CSIMinimal,U)  = -U*conj(L.I_r)
+NodePower(L::SimpleRecoveryLoad,U)  = L.P0 + 1im*(L.Q0)
+NodePower(L::SimpleRecoveryLoadParam,U)  = L.P0 + 1im*(L.Q0)
+NodePower(L::oPFC,U) = L.Pdc +1im*L.Qn/(U^0.9)
+function NodePower(L::GridSideConverter,U)
     if L.mode == 1
         return complex(0, -L.q_ref)
     elseif L.mode == 2
@@ -137,70 +128,47 @@ function PowerNodeLoad(L::GridSideConverter,U)
         return complex(0, Q(v)*L.q_max)
     end
 end
-PowerNodeLoad(
-    L::Union{
-        GridFormingConverter,
-        GridFormingConverterParam,
-        GridFormingConverterCSA,
-        GridFormingConverterCSAAntiWindup,
-        GFMCurrentPrio,
-    },U
-) = 0.#treated as generation
-PowerNodeLoad(L::Union{MatchingControl,MatchingControlRed},U) = 0.
-PowerNodeLoad(L::dVOC,U) = 0.
-PowerNodeLoad(L::droop,U) = 0.
-PowerNodeLoad(L::VSM,U) = 0.
-PowerNodeLoad(L::Union{gentpj,gentpjAVROEL},U) = 0.
-PowerNodeLoad(L::ThreePhaseFault,U) = 0. #could be changed in future
-function PowerNodeLoad(L::GeneralVoltageDependentLoad,U)
+NodePower(L::ThreePhaseFault,U) = -conj(L.Y_n*U)*U #could be changed in future
+function NodePower(L::GeneralVoltageDependentLoad,U)
     u_rel = abs(U)/L.U
     Pv = L.P * (L.Ap * u_rel^2 + L.Bp * u_rel + 1.0 - L.Ap - L.Bp)
     Qv = L.Q * (L.Aq * u_rel^2 + L.Bq * u_rel + 1.0 - L.Aq -L. Bq)
     return complex(Pv,Qv)
 end
-
-#generation is voltage independent, otherwise it has to be called every iteration
-PowerNodeGeneration(S::SlackAlgebraic) = 0.
-PowerNodeGeneration(S::SlackAlgebraicParam) = 0.
-PowerNodeGeneration(F::SixOrderMarconatoMachine) = F.P
-PowerNodeGeneration(F::SixOrderMarconatoMachineAVROEL) = F.P
-PowerNodeGeneration(F::FourthOrderEq) = F.P
-PowerNodeGeneration(F::FourthOrderEqExciterIEEEDC1A)  = F.P
-PowerNodeGeneration(F::FourthOrderEqGovernorExciterAVR)  = F.P
-PowerNodeGeneration(F::FourthOrderEqGovernorIEEEG1)  =  F.P
-PowerNodeGeneration(F::SynchronousMachineGENSAL) = F.P
-PowerNodeGeneration(S::SwingEq)  = S.P
-PowerNodeGeneration(V::VSIMinimal) = 0. #treated as load with changed sign to include voltage dependency
-PowerNodeGeneration(V::VSIVoltagePT1) = 0. #treated as load with changed sign to include voltage dependency
-PowerNodeGeneration(L::PVAlgebraic) = 0. #treated as load
-PowerNodeGeneration(L::PQAlgebraic) = 0. #treated as load
-PowerNodeGeneration(L::VoltageDependentLoad) = 0. #treated as load
-PowerNodeGeneration(L::ExponentialRecoveryLoad)  = 0. #treated as load
-PowerNodeGeneration(L::CSIMinimal)  = 0. #treated as load
-PowerNodeGeneration(L::SimpleRecoveryLoad)  = 0. #treated as load
-PowerNodeGeneration(L::SimpleRecoveryLoadParam)  = 0. #treated as load
-PowerNodeGeneration(L::GridSideConverter) = L.p_ref
-PowerNodeGeneration(L::oPFC) = 0.
-PowerNodeGeneration(
+NodePower(S::SlackAlgebraic,U) = 0.
+NodePower(S::SlackAlgebraicParam,U) = 0.
+NodePower(F::SixOrderMarconatoMachine,U) = F.P
+NodePower(F::SixOrderMarconatoMachineAVROEL,U) = F.P
+NodePower(F::FourthOrderEq,U) = F.P
+NodePower(F::FourthOrderEqExciterIEEEDC1A,U)  = F.P
+NodePower(F::FourthOrderEqGovernorExciterAVR,U)  = F.P
+NodePower(F::FourthOrderEqGovernorIEEEG1,U)  =  F.P
+NodePower(F::SynchronousMachineGENSAL,U) = F.P
+NodePower(S::SwingEq,U)  = S.P
+NodePower(L::GridSideConverter,U) = L.p_ref
+NodePower(
     L::Union{
         GridFormingConverter,
         GridFormingConverterParam,
         GridFormingConverterCSA,
         GridFormingConverterCSAAntiWindup,
-        GFMCurrentPrio,
-    },
+        GFMCurrentPrio},
+        U,
 )  = L.p0set #treated as generation
-PowerNodeGeneration(M::Union{MatchingControl,MatchingControlRed}) = M.p0set
-PowerNodeGeneration(V::dVOC) = V.p0set
-PowerNodeGeneration(V::droop) = V.p0set
-PowerNodeGeneration(V::VSM) = V.p0set
-PowerNodeGeneration(V::Union{gentpj,gentpjAVROEL}) = V.P
-PowerNodeGeneration(V::GeneralVoltageDependentLoad) = 0.0
-PowerNodeGeneration(V::ThreePhaseFault) = 0.0
+NodePower(M::Union{MatchingControl,MatchingControlRed},U) = M.p0set
+NodePower(V::dVOC,U) = V.p0set
+NodePower(V::VSM,U) = V.p0set
+NodePower(V::Union{gentpj,gentpjAVROEL},U) = V.P
+function NodePower(V::droop,U) 
+    if V.p0set/abs(U) > V.imax_csa
+        return V.p0set #V.imax_csa*abs(U) #voltage dependent power injection
+    else
+        return V.p0set
+    end
+end
 
-
-function PowerFlowClassic(pg::PowerGrid; ind_sl::Int64 = 0,max_tol::Float64 = 1e-7,iter_max::Int64  = 30,iwamoto::Bool =false, Qmax = -1, Qmin = -1, Qlimit_iter_check::Int64 = 3)
-    number_nodes = length(pg.nodes); #convenience
+function PowerFlowClassic(pg::PowerGrid; ind_sl::Int64 = 0,max_tol::Float64 = 1e-7,iter_max::Int64  = 30,iwamoto::Bool =false, Qmax = -1, Qmin = -1, Qlimit_iter_check::Int64 = 3,Ustart = -1, δstart = -1)
+    number_nodes = length(pg.nodes); #convenience 
     nodetypes = NodeType.(values(pg.nodes))
     if !isempty(findall(x-> x==0, nodetypes)) #if there is no SlackAlgebraic
         ind_sl = findall(x-> x==0, nodetypes)[1] #set passed value
@@ -215,9 +183,17 @@ function PowerFlowClassic(pg::PowerGrid; ind_sl::Int64 = 0,max_tol::Float64 = 1e
     #to calculate Ykk a vector with all SI voltages of the nodes is needed (U_r_nodes)
     Ykk = NodalAdmittanceMatrice(pg);
 
-    U = GetInitialVoltages(pg,ind_sl,number_nodes)
+    if Ustart == -1
+        U = GetInitialVoltages(pg,ind_sl,number_nodes)
+    else
+        U = Ustart
+    end
 
-    δ = CalcδStartValues(pg,Ykk,ind_sl);
+    if δstart == -1
+        δ = CalcδStartValues(pg,Ykk,ind_sl);
+    else
+        δ  = δstart
+    end
 
     Ykk_abs = abs.(Ykk);
     θ   = angle.(Ykk);
@@ -226,13 +202,8 @@ function PowerFlowClassic(pg::PowerGrid; ind_sl::Int64 = 0,max_tol::Float64 = 1e
     conv_u = deepcopy(U)
    
 
-    S_node_gen = Array{Complex{Float64},2}(undef,number_nodes,1)
-    S_node_load = Array{Complex{Float64},2}(undef,number_nodes,1)
-    
-    #PowerNodeGeneration is called only once, since it should only change,
-    #when power limits are reached or voltage dependency should be included.
-    #However, both are not included yet.
-    for (ind,val) in enumerate(values(pg.nodes)) S_node_gen[ind] = PowerNodeGeneration(val) end
+    S_node = Array{Complex{Float64},2}(undef,number_nodes,1) 
+
     #start of the iterationen
     for iter in 1:iter_max+1
         for i in 1:number_nodes #calculate node powers with current voltage
@@ -241,9 +212,7 @@ function PowerFlowClassic(pg::PowerGrid; ind_sl::Int64 = 0,max_tol::Float64 = 1e
         end
 
         #update load powers
-        for (ind,val) in enumerate(values(pg.nodes)) S_node_load[ind] = PowerNodeLoad(val,U[ind]*exp(1im*δ[ind])) end
-
-        S_node = S_node_gen + S_node_load #total power at a node
+        for (ind,val) in enumerate(values(pg.nodes)) S_node[ind] = NodePower(val,U[ind]*exp(1im*δ[ind])) end
         
         ΔP = real(S_node) - Pn
         ΔQ = imag(S_node) - Qn
@@ -275,6 +244,7 @@ function PowerFlowClassic(pg::PowerGrid; ind_sl::Int64 = 0,max_tol::Float64 = 1e
         #With Iwamoto mulipliers the load flow is more robust, but slower
         if iwamoto
             iwa = CalcIwamotoMultiplier(J,res,ΔP,ΔQ,Ykk,ind_sl,ind_PV,ind_PQ,number_nodes);
+            println(iwa)
             res *= iwa
         end
 
@@ -305,7 +275,7 @@ function PowerFlowClassic(pg::PowerGrid; ind_sl::Int64 = 0,max_tol::Float64 = 1e
                         if isempty(findall(x-> x==i ,ind_PQ))
                             append!(ind_PQ,i)  #append it to the PQ list, but only once
                         end
-                        S_node_gen[i] = real(S_node_gen[i]) + 1im*Qmax[i]
+                        S_node[i] = real(S_node[i]) + 1im*Qmax[i]
                     elseif Qn[i] <= Qmin[i] #same here of lower limits
                         index = findall(x-> x==i ,ind_PV)
                         if ~isempty(index)
@@ -314,7 +284,7 @@ function PowerFlowClassic(pg::PowerGrid; ind_sl::Int64 = 0,max_tol::Float64 = 1e
                         if isempty(findall(x-> x==i ,ind_PQ))
                             append!(ind_PQ,i)  #append it to the PQ list, but only once
                         end
-                        S_node_gen[i] = real(S_node_gen[i]) + 1im*Qmin[i]
+                        S_node[i] = real(S_node[i]) + 1im*Qmin[i]
                     elseif isempty(findall(x-> x==i ,ind_PV)) #if inside limits and not in list, set as PV node again
                         index = findall(x-> x==i ,ind_PQ)
                         if ~isempty(index)
@@ -438,7 +408,7 @@ function CalcIwamotoMultiplier(J,res,ΔP,ΔQ,Ykk,ind_sl,ind_PV,ind_PQ,number_nod
     try
         iwam = find_zero(f,1.0)
     catch e
-        iwam = find_zero(f,0.0)
+        iwam = find_zero(f,0.5)
     end
     return iwam
 end

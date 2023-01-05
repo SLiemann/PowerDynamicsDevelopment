@@ -10,7 +10,7 @@ Zbase = Ubase^2/Sbase
 
 zfault() = (20+1im*20)/Zbase
 tfault_on() = 0.1
-tfault_off() =  tfault_on() + 0.25
+tfault_off() =  tfault_on() + 0.10
 dt_max() = 1e-2
 
 function LTVS_Test_System_N32_GFM(;gfm=1,awu=1.0) #1 = droop, 2 = matching, 3 = dVOC, 4 = VSM
@@ -133,7 +133,7 @@ end
 
 function Initialize_N32_GFM(gfm_choice,awu_choice)
     pg = LTVS_Test_System_N32_GFM(gfm=gfm_choice,awu=awu_choice)
-    Qmax   = [Inf,Inf, Inf, Inf,Inf,5300/8000*sqrt(1-0.85^2),Inf]
+    Qmax   = [Inf,Inf, Inf, Inf,Inf,5300/8000*sqrt(1-0.8377^2),Inf]
     Qmin   = -Qmax
     U1,δ1,ic0,cu = PowerFlowClassic(pg,iwamoto = false,max_tol = 1e-4,iter_max = 100,Qmax = Qmax, Qmin = Qmin,Qlimit_iter_check=80)
     pg, ic = InitializeInternalDynamics(pg,ic0)
@@ -234,8 +234,8 @@ function simulate_LTVS_N32_simulation(pg::PowerGrid,ic::Vector{Float64},tspan::T
 
             if  x2.retcode == :Success
                 println("Div = ",div)
-                pgsol_tmp = PowerGridSolution(x2, pg)
-                display(plot(plotv(pgsol_tmp ,["bus_gfm"])[1]))
+                #pgsol_tmp = PowerGridSolution(x2, pg)
+                #display(plot(plotv(pgsol_tmp ,["bus_gfm"])[1]))
                 break
             end
         end
