@@ -10,36 +10,17 @@ begin
     nothing
 end
 
-pg0 = LTVS_Test_System_N32_GFM(gfm=1,awu=0)
-Qmax   = [Inf,Inf, Inf, Inf,Inf,5300/8000*sqrt(1-0.85^2),Inf]
-Qmin   = -Qmax
-U1,δ1,ic0,cu = PowerFlowClassic(pg0,iwamoto = false,max_tol = 1e-4,iter_max = 100,Qmax = Qmax, Qmin = Qmin,Qlimit_iter_check=80);
-
-pg1 = deepcopy(pg0)
-pg1.nodes["busv"] = ThreePhaseFault(p_ind=collect(1:2),Y_n = 1.0/((80.0+60.0im)/Zbase))
-#Ustart=deepcopy(vcat(U1[1],U1[2:end]./1)),δstart=deepcopy(δ1/180*pi)
-U2,δ2,ic0,cu = PowerFlowClassic(pg1,iwamoto = false,max_tol = 1e-4,iter_max = 30,Qmax = Qmax, Qmin = Qmin,Qlimit_iter_check=7,Ustart=deepcopy(vcat(U1[1],U1[2:end]./1.7)),δstart=deepcopy(δ1/180*pi));
-plot(cu')
-
-Uc = U1.*exp.(1im*δ1/180*pi)
-Ykk = NodalAdmittanceMatrice(pg1)
-S  = round.(Uc.*(conj.(Ykk)*conj.(Uc)),digits=5)*8000
-
-# ERRORSTATE & REGULAR STATE: die solve-funktionen anpassen!
-# init with low voltages
-pg0,ic0 = InitializeInternalDynamics(pg0,ic0)
-@time pgsol0, suc0,FRT0 = simulate_LTVS_N32_simulation(pg0,ic0,(0.0,5.0),(80.0+60.0im)/Zbase);
+pg0,ic0 = Initialize_N32_GFM(1,0);
+@time pgsol0, suc0,FRT0 = simulate_LTVS_N32_simulation(pg0,ic0,(0.0,0.30),(80.0+60.0im)/Zbase);
+plot(plotallvoltages(pgsol0))
 plot([myplot(pgsol0,"bus_gfm",:LVRT),plotv(pgsol0,["bus_gfm"])[1]])
 
-plot(plotv(pgsol0,["bus_ehv"])[1])
-plot([myplot(pgsol0,"bus_gfm",:i_abs),myplot(pgsol0,"bus_gfm",:iset_abs)])
-plot(myplot(pgsol0,"bus_gfm",:idc0))
+plot(myplot(pgsol0,"bus_gfm",:i_abs))
 plot(myplot(pgsol0,"bus_gfm",:udc))
 plot(myplot(pgsol0,"bus_gfm",:Q0))
 plot(myplot(pgsol0,"bus_gfm",:Pf))
-
+plotallvoltages(pgsol0)
 plot(myplot(pgsol0,"bus_gfm",:θ))
-plot(myplot(pgsol0,"bus_gfm",:w))
 
 plot(myplot(pgsol0,"bus_gfm",:Pf))
 plot(myplot(pgsol0,"bus_gfm",:θ,y_norm=pi/180,y_bias=18.5807))

@@ -94,7 +94,7 @@ NodeType(L::droop) = 1
 NodeType(L::VSM) = 1
 NodeType(L::Union{gentpj,gentpjAVROEL}) = 1
 NodeType(L::GeneralVoltageDependentLoad) = 2
-NodeType(L::ThreePhaseFault) = 2
+NodeType(L::Union{ThreePhaseFault,ThreePhaseFaultContinouos}) = 2
 
 #note: only loads are treated with voltage depency and are called every iteration
 # 
@@ -128,7 +128,10 @@ function NodePower(L::GridSideConverter,U)
         return complex(0, Q(v)*L.q_max)
     end
 end
-NodePower(L::ThreePhaseFault,U) = -conj(L.Y_n*U)*U #could be changed in future
+function NodePower(L::Union{ThreePhaseFault,ThreePhaseFaultContinouos},U)
+    Y_n = 1.0 / (L.rfault + 1im * L.xfault)
+   return -conj(Y_n*U)*U*0
+end
 function NodePower(L::GeneralVoltageDependentLoad,U)
     u_rel = abs(U)/L.U
     Pv = L.P * (L.Ap * u_rel^2 + L.Bp * u_rel + 1.0 - L.Ap - L.Bp)

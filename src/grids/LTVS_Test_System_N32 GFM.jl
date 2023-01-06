@@ -49,7 +49,7 @@ function LTVS_Test_System_N32_GFM(;gfm=1,awu=1.0) #1 = droop, 2 = matching, 3 = 
         "bus_ehv" => VoltageDependentLoad(P=0.0, Q=Q_Shunt_EHV, U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),
         "bus_hv" => VoltageDependentLoad(P=0.0, Q=Q_Shunt_HV,  U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),
         "bus_load" => GeneralVoltageDependentLoad(P=Pload, Q = QLoad, U=1.0, Ap=0.0, Bp=1.0,Aq = 1.0, Bq= 0.0,Y_n = complex(0.0)),
-        "busv" => ThreePhaseFault(p_ind=collect(1:2)))
+        "busv" => ThreePhaseFault(rfault=8e3,xfault=8e3,p_ind=collect(1:2)))
 
     if gfm == 1
         buses["bus_gfm"] = droop(Sbase = Sbase,Srated = Srated, p0set = pref, u0set = 1.00,Kp_droop = pi,Kp_uset = 0.001, Ki_uset = 0.5,
@@ -98,8 +98,8 @@ function GetParamsGFM(pg::PowerGrid)
     node = pg.nodes["bus_gfm"]
     tap = pg.lines["OLTC"].tap_pos
     params = Vector{Float64}()
-    push!(params,1e10) #for 3ph fault, start without fault
-    push!(params,1e10) #for 3ph fault, start without fault
+    push!(params,8e3) #for 3ph fault, start without fault
+    push!(params,8e3) #for 3ph fault, start without fault
     push!(params,1) # for 1st PiModelLineParam
     push!(params,1) # for 2nd PiModelLineParam
     push!(params,0) # for OLTC
@@ -120,6 +120,12 @@ end
 function GetFaultLTVSPG(pg::PowerGrid)
     pg_fault = deepcopy(pg)
     pg_fault.nodes["busv"] = VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=0., B=0.,Y_n = complex(1.0/(zfault())))
+    return pg_fault
+end
+
+function GetContFaultPG(pg::PowerGrid)
+    pg_fault = deepcopy(pg)
+    pg_fault.nodes["busv"] = ThreePhaseFaultContinouos(rfault=8e3,xfault=8e3,Tf=1e-3/2,p_ind=collect(1:2))
     return pg_fault
 end
 
@@ -219,8 +225,36 @@ function simulate_LTVS_N32_simulation(pg::PowerGrid,ic::Vector{Float64},tspan::T
     function errorState(integrator)
         integrator.p[1] = rfault
         integrator.p[2] = xfault
+        
+        pg_cfault = GetContFaultPG(pg);
+        ic_init= deepcopy(integrator.sol[end])
+        len = length(symbolsof(pg.nodes["bus_gfm"]))
+        # insert two extra states for continouos fault
+        ic_tmp = vcat(ic_init[1:end-len],[pg_cfault.nodes["busv"].rfault,pg_cfault.nodes["busv"].xfault],ic_init[end-len+1:end])
+        # create problem and simulate for 10ms
+        op_prob = ODEProblem(rhs(pg_cfault), ic_tmp, (0.0, 0.01/2), integrator.p, initializealg = BrownFullBasicInit())
+        x2 = solve(op_prob,Rodas5(),dtmax=1e-4,initializealg = BrownFullBasicInit(),alg_hints=:stiff,verbose=true)
 
-        sol1 = integrator.sol
+        pgsol_tmp = PowerGridSolution(x2, pg_cfault)
+        #display(plotallvoltages(pgsol_tmp));
+        #display(plot(myplot(pgsol_tmp,"busv",:xf)))        
+
+        ic_end = x2.u[end]
+        # delete states of continouos fault
+        ic_end = vcat(ic_end[1:end-len-2],ic_end[end-len+1:end])
+        # change only algebraic states of original problem
+        ind_as = findall(x-> iszero(x),diag(integrator.f.mass_matrix))
+        ind_as = getVoltageSymbolPositions(pg)
+        for i in ind_as
+            ic_init[i] = ic_end[i]
+        end
+
+        #println.(rhs(pg).syms,"  =>  ",integrator.sol[end] .- ic_init)
+        
+        integrator.u = deepcopy(integrator.sol[end])
+        auto_dt_reset!(integrator)
+
+        #=sol1 = integrator.sol
         ode =integrator.f
         ic_tmp = deepcopy(sol1[end])
         ind = getVoltageSymbolPositions(pg)
@@ -241,16 +275,39 @@ function simulate_LTVS_N32_simulation(pg::PowerGrid,ic::Vector{Float64},tspan::T
         end
         x2 = x2.u[1]
         integrator.u = deepcopy(x2)
-        auto_dt_reset!(integrator)
+        auto_dt_reset!(integrator)=#
     end
 
     function regularState(integrator)
-        integrator.p[1] = 1e10 #fault is zero again
-        integrator.p[2] = 1e10 #fault is zero again
+        integrator.p[1] = 8e3 #fault is zero again
+        integrator.p[2] = 8e3 #fault is zero again
         #integrator.p[3] = 1e-5*0 #disable line
         #integrator.p[4] = 1e-5*0 #disable line
 
-        sol = integrator.sol
+        #First create continouos fault and then post-fault grid
+        pg_pcfault = GetContFaultPG(pg);
+        pg_pcfault = GetPostFaultLTVSPG(pg_pcfault);
+        ic_init= deepcopy(integrator.sol[end])
+        len = length(symbolsof(pg.nodes["bus_gfm"]))
+        # insert two extra states for continouos fault
+        ic_tmp = vcat(ic_init[1:end-len],[rfault,xfault],ic_init[end-len+1:end])
+        # create problem and simulate for 10ms
+        op_prob = ODEProblem(rhs(pg_pcfault), ic_tmp, (0.0, 0.01), integrator.p, initializealg = BrownFullBasicInit())
+        x2 = solve(op_prob,Rodas5(),dtmax=1e-4,initializealg = BrownFullBasicInit(),alg_hints=:stiff,verbose=false)
+
+        ic_end = x2.u[end]
+        # delete states of continouos fault
+        ic_end = vcat(ic_end[1:end-len-2],ic_end[end-len+1:end])
+        # change only algebraic states of original problem
+        ind_as = findall(x-> iszero(x),diag(integrator.f.mass_matrix))
+        for i in ind_as
+            ic_init[i] = ic_end[i]
+        end
+
+        integrator.u = deepcopy(ic_init)
+        auto_dt_reset!(integrator)
+
+        #=sol = integrator.sol
         ode   = rhs(pg_postfault)
         ic_tmp = deepcopy(integrator.sol.u[indexin(tfault[1],integrator.sol.t)[1]])
         #ic_tmp = getPreFaultVoltages(pg,ic_tmp,deepcopy(sol[end]))
@@ -261,7 +318,7 @@ function simulate_LTVS_N32_simulation(pg::PowerGrid,ic::Vector{Float64},tspan::T
         integrator.u = deepcopy(x3)
         integrator.f = ode
         integrator.cache.tf.f = integrator.f
-        auto_dt_reset!(integrator)
+        auto_dt_reset!(integrator)=#
     end
 
     function check_OLTC_voltage(u,t,integrator)
@@ -349,7 +406,7 @@ function simulate_LTVS_N32_simulation(pg::PowerGrid,ic::Vector{Float64},tspan::T
 
     stiff  = repeat([:stiff],length(ic))
     #cb4,cb5,cb7,cb8
-    sol = solve(problem, Rodas5(autodiff=true), callback = CallbackSet(cb1,cb2,cb21,cb3,cb4,cb5,cb7,cb8,cb9,cb10,cb11,cb12,cb13), tstops=[tfault[1],tfault[2]], dtmax = dt_max(),force_dtmin=false,maxiters=1e5, initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-8,reltol=1e-8) #
+    sol = solve(problem, Rodas5(autodiff=true), callback = CallbackSet(cb1,cb2,cb21,cb3,cb4,cb5,cb9,cb10,cb11,cb12,cb13), tstops=[tfault[1],tfault[2]], dtmax = dt_max(),force_dtmin=false,maxiters=1e6, initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-8,reltol=1e-8) #
     # good values abstol=1e-8,reltol=1e-8 and Rodas5(autodiff=true) for droop
     success = deepcopy(sol.retcode)
     if sol.retcode != :Success
