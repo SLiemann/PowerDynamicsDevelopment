@@ -11,7 +11,7 @@ Zbase = Ubase^2/Sbase
 zfault() = (20+1im*20)/Zbase
 tfault_on() = 0.1
 tfault_off() =  tfault_on() + 0.10
-dt_max() = 1e-2
+dt_max() = 1e-3
 
 function LTVS_Test_System_N32_GFM(;gfm=1,awu=1.0) #1 = droop, 2 = matching, 3 = dVOC, 4 = VSM
     Q_Shunt_EHV = 600e6/Sbase
@@ -232,7 +232,7 @@ function simulate_LTVS_N32_simulation(pg::PowerGrid,ic::Vector{Float64},tspan::T
         # insert two extra states for continouos fault
         ic_tmp = vcat(ic_init[1:end-len],[pg_cfault.nodes["busv"].rfault,pg_cfault.nodes["busv"].xfault],ic_init[end-len+1:end])
         # create problem and simulate for 10ms
-        op_prob = ODEProblem(rhs(pg_cfault), ic_tmp, (0.0, 0.01/2), integrator.p, initializealg = BrownFullBasicInit())
+        op_prob = ODEProblem(rhs(pg_cfault), ic_tmp, (0.0, 0.008), integrator.p)
         x2 = solve(op_prob,Rodas5(),dtmax=1e-4,initializealg = BrownFullBasicInit(),alg_hints=:stiff,verbose=true)
 
         pgsol_tmp = PowerGridSolution(x2, pg_cfault)
@@ -244,15 +244,51 @@ function simulate_LTVS_N32_simulation(pg::PowerGrid,ic::Vector{Float64},tspan::T
         ic_end = vcat(ic_end[1:end-len-2],ic_end[end-len+1:end])
         # change only algebraic states of original problem
         ind_as = findall(x-> iszero(x),diag(integrator.f.mass_matrix))
-        ind_as = getVoltageSymbolPositions(pg)
+        #ind_as = getVoltageSymbolPositions(pg)
         for i in ind_as
             ic_init[i] = ic_end[i]
         end
 
-        #println.(rhs(pg).syms,"  =>  ",integrator.sol[end] .- ic_init)
+        tmp = 
+        [
+            1.054080675,
+            0.0,
+            0.8061665357129951,  
+            -0.21004226946335786,
+            0.5511989928851094,  
+            -0.3489245091715247, 
+            0.48844307012810384, 
+            -0.35175871719658436,
+            0.4185260478234634,  
+            -0.43851722694633494,
+            0.531925003741728,
+            -0.34559900867415516,
+            0.5828253184500396,
+            -0.2307954869320985,
+            -0.5154855112077171,
+            -1.9757124173608547e-7,
+            0.8881625779795421,
+            1.000000019155647,
+            4.621554553133802e-8,
+            -5.761828135223783e-9,
+            0.00041889712595287275,
+            -0.0001783175976002736,
+            0.837748071023558,
+            0.00041452200522787923,
+            1.01,
+            #0.9999296476279022,
+            1.2023372461712911,
+            0.0,
+        ];
+        display("Hallo")
+        op_prob2 = ODEProblem(rhs(pg), deepcopy(ic_init), (0.0, 1e-6), integrator.p)
+        x3 = solve(op_prob2,Rodas5(),dtmax=1e-4,initializealg = BrownFullBasicInit(),alg_hints=:stiff,verbose=true)
+        ic_final = x3.u[1]
         
-        integrator.u = deepcopy(integrator.sol[end])
+        integrator.u = deepcopy(ic_final)
         auto_dt_reset!(integrator)
+
+        #println.(rhs(pg).syms, "  =>  ",ic_final, "   ", ic_init)
 
         #=sol1 = integrator.sol
         ode =integrator.f
@@ -274,8 +310,10 @@ function simulate_LTVS_N32_simulation(pg::PowerGrid,ic::Vector{Float64},tspan::T
             end
         end
         x2 = x2.u[1]
-        integrator.u = deepcopy(x2)
-        auto_dt_reset!(integrator)=#
+        #integrator.u = deepcopy(x2)
+        #auto_dt_reset!(integrator)
+
+        println.(rhs(pg).syms,"  =>  ",x2,"  ", ic_init,"   ", x2 .- ic_init)  =#
     end
 
     function regularState(integrator)
@@ -306,6 +344,7 @@ function simulate_LTVS_N32_simulation(pg::PowerGrid,ic::Vector{Float64},tspan::T
 
         integrator.u = deepcopy(ic_init)
         auto_dt_reset!(integrator)
+        #reinit!(integrator)
 
         #=sol = integrator.sol
         ode   = rhs(pg_postfault)
