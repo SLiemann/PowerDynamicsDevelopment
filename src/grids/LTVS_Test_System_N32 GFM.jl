@@ -1,6 +1,7 @@
 using PowerDynamics
 using OrderedCollections: OrderedDict
 using Distributed
+import DiffEqBase: initialize_dae!
 @everywhere using IfElse
 
 Sbase = 8000e6
@@ -11,7 +12,7 @@ Zbase = Ubase^2/Sbase
 zfault() = (20+1im*20)/Zbase
 tfault_on() = 0.1
 tfault_off() =  tfault_on() + 0.10
-dt_max() = 1e-3
+dt_max() = 1e-2
 
 function LTVS_Test_System_N32_GFM(;gfm=1,awu=1.0) #1 = droop, 2 = matching, 3 = dVOC, 4 = VSM
     Q_Shunt_EHV = 600e6/Sbase
@@ -233,11 +234,11 @@ function simulate_LTVS_N32_simulation(pg::PowerGrid,ic::Vector{Float64},tspan::T
         ic_tmp = vcat(ic_init[1:end-len],[pg_cfault.nodes["busv"].rfault,pg_cfault.nodes["busv"].xfault],ic_init[end-len+1:end])
         # create problem and simulate for 10ms
         op_prob = ODEProblem(rhs(pg_cfault), ic_tmp, (0.0, 0.008), integrator.p)
-        x2 = solve(op_prob,Rodas5(),dtmax=1e-4,initializealg = BrownFullBasicInit(),alg_hints=:stiff,verbose=true)
-
-        pgsol_tmp = PowerGridSolution(x2, pg_cfault)
-        #display(plotallvoltages(pgsol_tmp));
-        #display(plot(myplot(pgsol_tmp,"busv",:xf)))        
+        x2 = solve(op_prob,Rodas5(),dtmax=1e-4,initializealg = BrownFullBasicInit(),alg_hints=:stiff,verbose=false)
+        
+        x2 = DiffEqBase.solution_new_retcode(x2, :Success)
+        pgsol_tmp = PowerGridSolution(x2,pg_cfault)
+        display(plot(plotallvoltages(pgsol_tmp)))
 
         ic_end = x2.u[end]
         # delete states of continouos fault
@@ -248,44 +249,20 @@ function simulate_LTVS_N32_simulation(pg::PowerGrid,ic::Vector{Float64},tspan::T
         for i in ind_as
             ic_init[i] = ic_end[i]
         end
-
-        tmp = 
-        [
-            1.054080675,
-            0.0,
-            0.8061665357129951,  
-            -0.21004226946335786,
-            0.5511989928851094,  
-            -0.3489245091715247, 
-            0.48844307012810384, 
-            -0.35175871719658436,
-            0.4185260478234634,  
-            -0.43851722694633494,
-            0.531925003741728,
-            -0.34559900867415516,
-            0.5828253184500396,
-            -0.2307954869320985,
-            -0.5154855112077171,
-            -1.9757124173608547e-7,
-            0.8881625779795421,
-            1.000000019155647,
-            4.621554553133802e-8,
-            -5.761828135223783e-9,
-            0.00041889712595287275,
-            -0.0001783175976002736,
-            0.837748071023558,
-            0.00041452200522787923,
-            1.01,
-            #0.9999296476279022,
-            1.2023372461712911,
-            0.0,
-        ];
-        display("Hallo")
-        op_prob2 = ODEProblem(rhs(pg), deepcopy(ic_init), (0.0, 1e-6), integrator.p)
-        x3 = solve(op_prob2,Rodas5(),dtmax=1e-4,initializealg = BrownFullBasicInit(),alg_hints=:stiff,verbose=true)
-        ic_final = x3.u[1]
         
-        integrator.u = deepcopy(ic_final)
+        if x2.retcode == :Success
+            println("Success")
+            integrator.u = deepcopy(ic_init)
+            initialize_dae!(integrator,BrownFullBasicInit())
+        else
+            println("failed")
+            ind = getVoltageSymbolPositions(pg)
+            ic_tmp = deepcopy(integrator.sol[end])
+            for i in ind
+                ic_tmp[i] = ic_tmp[i]/4.0
+            end
+            initialize_dae!(integrator,BrownFullBasicInit())
+        end
         auto_dt_reset!(integrator)
 
         #println.(rhs(pg).syms, "  =>  ",ic_final, "   ", ic_init)
@@ -342,9 +319,13 @@ function simulate_LTVS_N32_simulation(pg::PowerGrid,ic::Vector{Float64},tspan::T
             ic_init[i] = ic_end[i]
         end
 
+        ode   = rhs(pg_postfault)
+
+        integrator.f = ode
+        integrator.cache.tf.f = integrator.f
         integrator.u = deepcopy(ic_init)
+        initialize_dae!(integrator,BrownFullBasicInit())
         auto_dt_reset!(integrator)
-        #reinit!(integrator)
 
         #=sol = integrator.sol
         ode   = rhs(pg_postfault)
@@ -445,7 +426,7 @@ function simulate_LTVS_N32_simulation(pg::PowerGrid,ic::Vector{Float64},tspan::T
 
     stiff  = repeat([:stiff],length(ic))
     #cb4,cb5,cb7,cb8
-    sol = solve(problem, Rodas5(autodiff=true), callback = CallbackSet(cb1,cb2,cb21,cb3,cb4,cb5,cb9,cb10,cb11,cb12,cb13), tstops=[tfault[1],tfault[2]], dtmax = dt_max(),force_dtmin=false,maxiters=1e6, initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-8,reltol=1e-8) #
+    sol = solve(problem, Rodas5(autodiff=true), callback = CallbackSet(cb1,cb2,cb21,cb3,cb4,cb5,cb7,cb8,cb9,cb10,cb11,cb12,cb13), tstops=[tfault[1],tfault[2]], dtmax = dt_max(),force_dtmin=false,maxiters=1e6, initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-8,reltol=1e-8) #
     # good values abstol=1e-8,reltol=1e-8 and Rodas5(autodiff=true) for droop
     success = deepcopy(sol.retcode)
     if sol.retcode != :Success
