@@ -10,8 +10,8 @@ begin
     nothing
 end
 
-pg0,ic0 = Initialize_N32_GFM(1,0);
-@time pgsol0, suc0,FRT0 = simulate_LTVS_N32_simulation(pg0,ic0,(0.0,5.0),(8.0+6.0im)/Zbase);
+pg0,ic0 = Initialize_N32_GFM(1,1);
+@time pgsol0, suc0,FRT0 = simulate_LTVS_N32_simulation(pg0,ic0,(0.0,5.0),(8.0+8.0im)/Zbase);
 plot(plotallvoltages(pgsol0))
 plot([myplot(pgsol0,"bus_gfm",:LVRT),plotv(pgsol0,["bus_gfm"])[1]])
 
@@ -21,8 +21,6 @@ plot(myplot(pgsol0,"bus_gfm",:Q0))
 plot(myplot(pgsol0,"bus_gfm",:Pf))
 plotallvoltages(pgsol0)
 plot(myplot(pgsol0,"bus_gfm",:θ))
-
-plot(myplot(pgsol0,"bus_gfm",:Pf))
 plot(myplot(pgsol0,"bus_gfm",:θ,y_norm=pi/180,y_bias=18.5807))
 
 using MAT
@@ -81,17 +79,13 @@ function CalcXRMap(Rrange, Xrange)
     return XR, XR_tend
 end
 
-Rverlauf = 10:-0.2:0.0
-Xverlauf = 10:-0.2:0.0
+Rverlauf = 20:-1:0.0
+Xverlauf = 20:-1:0.0
 
 @time xr, xrt = CalcXRMap(Rverlauf,Xverlauf);
 
-#droop = R=103, x=66
-#mathing R=135, X = 87 ODER R=150, X = 98
-#dVOC R=100, X = 65 (not finished)
-plot(xr[:,1],xr[:,2])
-plot(Rverlauf,xr)
 plot(surface(x=Rverlauf,y=Xverlauf,z=xr))
+plot(surface(x=Rverlauf,y=Xverlauf,z=xrt))
 plot(surface(x=Rverlauf,y=Xverlauf,z=winkel))
 plot(surface(x=Rverlauf,y=Xverlauf,z=betrag))
 
@@ -107,7 +101,7 @@ end
 
 
 using FileIO
-save("droop_I00_250_R_10_1_0_X_10_1_0.jld","Rverlauf",Rverlauf,"Xverlauf",Xverlauf,"XR",xr,"XR_t",xrt)
+save("droop_I100_ownred_Tf_300ms_R_20_1_0_X_20_1_0.jld","Rverlauf",Rverlauf,"Xverlauf",Xverlauf,"XR",xr,"XR_t",xrt)
 
 function plotxkrit(vl_,xdata,ydata)
     x = Vector{Float64}()

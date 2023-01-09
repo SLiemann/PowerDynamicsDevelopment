@@ -176,10 +176,11 @@ function simulate_LTVS_N32_simulation(pg::PowerGrid,ic::Vector{Float64},tspan::T
         timer_start = integrator.t
         sol1 = integrator.sol
         integrator.p[5] += 1*tap_dir 
-        op_prob = ODEProblem(integrator.f, sol1[end], (0.0, 1e-6), integrator.p, initializealg = BrownFullBasicInit())
-        x2 = solve(op_prob,Rodas4())
-        x2 = x2.u[end]
-        integrator.u = deepcopy(x2)
+        initialize_dae!(integrator,BrownFullBasicInit())
+        #op_prob = ODEProblem(integrator.f, sol1[end], (0.0, 1e-6), integrator.p, initializealg = BrownFullBasicInit())
+        #x2 = solve(op_prob,Rodas4())
+        #x2 = x2.u[end]
+        #integrator.u = deepcopy(x2)
         auto_dt_reset!(integrator)
     end
 
@@ -233,12 +234,8 @@ function simulate_LTVS_N32_simulation(pg::PowerGrid,ic::Vector{Float64},tspan::T
         # insert two extra states for continouos fault
         ic_tmp = vcat(ic_init[1:end-len],[pg_cfault.nodes["busv"].rfault,pg_cfault.nodes["busv"].xfault],ic_init[end-len+1:end])
         # create problem and simulate for 10ms
-        op_prob = ODEProblem(rhs(pg_cfault), ic_tmp, (0.0, 0.008), integrator.p)
-        x2 = solve(op_prob,Rodas5(),dtmax=1e-4,initializealg = BrownFullBasicInit(),alg_hints=:stiff,verbose=false)
-        
-        x2 = DiffEqBase.solution_new_retcode(x2, :Success)
-        pgsol_tmp = PowerGridSolution(x2,pg_cfault)
-        display(plot(plotallvoltages(pgsol_tmp)))
+        op_prob = ODEProblem(rhs(pg_cfault), ic_tmp, (0.0, 0.010), integrator.p)
+        x2 = solve(op_prob,Rodas4(),dtmax=1e-4,initializealg = BrownFullBasicInit(),alg_hints=:stiff,verbose=false,abstol=1e-8,reltol=1e-8)
 
         ic_end = x2.u[end]
         # delete states of continouos fault
@@ -251,19 +248,21 @@ function simulate_LTVS_N32_simulation(pg::PowerGrid,ic::Vector{Float64},tspan::T
         end
         
         if x2.retcode == :Success
-            println("Success")
             integrator.u = deepcopy(ic_init)
             initialize_dae!(integrator,BrownFullBasicInit())
+            auto_dt_reset!(integrator)
+        elseif x2.retcode == :Unstable
+            println("Terminated at $(integrator.t) due to detected instability at fault initialisation.")
+            terminate!(integrator)
         else
-            println("failed")
             ind = getVoltageSymbolPositions(pg)
             ic_tmp = deepcopy(integrator.sol[end])
             for i in ind
                 ic_tmp[i] = ic_tmp[i]/4.0
             end
             initialize_dae!(integrator,BrownFullBasicInit())
+            auto_dt_reset!(integrator)
         end
-        auto_dt_reset!(integrator)
 
         #println.(rhs(pg).syms, "  =>  ",ic_final, "   ", ic_init)
 
@@ -296,36 +295,51 @@ function simulate_LTVS_N32_simulation(pg::PowerGrid,ic::Vector{Float64},tspan::T
     function regularState(integrator)
         integrator.p[1] = 8e3 #fault is zero again
         integrator.p[2] = 8e3 #fault is zero again
-        #integrator.p[3] = 1e-5*0 #disable line
-        #integrator.p[4] = 1e-5*0 #disable line
 
         #First create continouos fault and then post-fault grid
         pg_pcfault = GetContFaultPG(pg);
-        pg_pcfault = GetPostFaultLTVSPG(pg_pcfault);
+        #pg_pcfault = GetPostFaultLTVSPG(pg_pcfault);
         ic_init= deepcopy(integrator.sol[end])
         len = length(symbolsof(pg.nodes["bus_gfm"]))
         # insert two extra states for continouos fault
         ic_tmp = vcat(ic_init[1:end-len],[rfault,xfault],ic_init[end-len+1:end])
-        # create problem and simulate for 10ms
-        op_prob = ODEProblem(rhs(pg_pcfault), ic_tmp, (0.0, 0.01), integrator.p, initializealg = BrownFullBasicInit())
-        x2 = solve(op_prob,Rodas5(),dtmax=1e-4,initializealg = BrownFullBasicInit(),alg_hints=:stiff,verbose=false)
-
-        ic_end = x2.u[end]
-        # delete states of continouos fault
-        ic_end = vcat(ic_end[1:end-len-2],ic_end[end-len+1:end])
-        # change only algebraic states of original problem
-        ind_as = findall(x-> iszero(x),diag(integrator.f.mass_matrix))
-        for i in ind_as
-            ic_init[i] = ic_end[i]
-        end
+        # create problem and simulate for 2 ms
+        op_prob = ODEProblem(rhs(pg_pcfault), ic_tmp, (0.0, 0.002), integrator.p)
+        x2 = solve(op_prob,Rodas4(),dtmax=1e-4,initializealg = BrownFullBasicInit(),alg_hints=:stiff,verbose=false,abstol=1e-8,reltol=1e-8)
+        
+        tmp_retcode = deepcopy(x2.retcode)
+        #println(x2.retcode)
+        #x2 = DiffEqBase.solution_new_retcode(x2, :Success)
+        #pgsol_tmp = PowerGridSolution(x2,pg_pcfault)
+        #display(plot(myplot(pgsol_tmp,"bus_gfm",:i_abs)))
 
         ode   = rhs(pg_postfault)
-
         integrator.f = ode
         integrator.cache.tf.f = integrator.f
-        integrator.u = deepcopy(ic_init)
-        initialize_dae!(integrator,BrownFullBasicInit())
-        auto_dt_reset!(integrator)
+        
+
+        if tmp_retcode == :Success
+            ic_end = x2.u[end]
+            # delete states of continouos fault
+            ic_end = vcat(ic_end[1:end-len-2],ic_end[end-len+1:end])
+            # change only algebraic states of original problem
+            ind_as = findall(x-> iszero(x),diag(integrator.f.mass_matrix))
+            for i in ind_as
+                ic_init[i] = ic_end[i]
+            end
+            integrator.u = deepcopy(ic_init)
+            initialize_dae!(integrator,BrownFullBasicInit())
+            auto_dt_reset!(integrator)
+        elseif tmp_retcode == :Unstable
+            println("Terminated at $(integrator.t) due to detected instability at post-fault initialisation.")
+            terminate!(integrator)
+        else
+            ic_tmp = deepcopy(integrator.sol.u[indexin(tfault[1],integrator.sol.t)[1]])
+            #integrator.u  = getPreFaultVoltages(pg,ic_tmp,deepcopy(sol[end]))
+            integrator.u = getPreFaultAlgebraicStates(pg,ic_tmp,deepcopy(integrator.sol[end]))
+            initialize_dae!(integrator,BrownFullBasicInit())
+            auto_dt_reset!(integrator)
+        end
 
         #=sol = integrator.sol
         ode   = rhs(pg_postfault)
