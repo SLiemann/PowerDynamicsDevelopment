@@ -52,7 +52,7 @@ plot([p1,p2])
 
 
 function CalcXRMap(Rrange, Xrange)
-    pg, ic =  Initialize_N32_GFM(1,0);
+    pg, ic =  Initialize_N32_GFM(2,0);
 
     length_dr = length(Rrange)
     length_dx = length(Xrange)
@@ -79,8 +79,8 @@ function CalcXRMap(Rrange, Xrange)
     return XR, XR_tend
 end
 
-Rverlauf = 20:-5:0.0
-Xverlauf = 10:-5:0.0
+Rverlauf = 25:-1:0.0
+Xverlauf = 10:-1:0.0
 
 @time xr, xrt = CalcXRMap(Rverlauf,Xverlauf);
 
@@ -101,7 +101,7 @@ end
 
 
 using FileIO
-save("droop_I100_ownred_Tf_300ms_R_20_1_0_X_20_1_0.jld","Rverlauf",Rverlauf,"Xverlauf",Xverlauf,"XR",xr,"XR_t",xrt)
+save("matching_I070_R_25_1_0_X_10_1_0_v2.jld","Rverlauf",Rverlauf,"Xverlauf",Xverlauf,"XR",xr,"XR_t",xrt)
 
 function plotxkrit(vl_,xdata,ydata)
     x = Vector{Float64}()
@@ -236,7 +236,7 @@ plot(r1,x1)
 
 tmp = load("droop_I070_R_18_1_0_X_08_1_0.jld")
 tmp = load("droop_I00_R_10_01_0_X_55_01_0.jld")
-tmp = load("matching_R_136_1_0_X_88_1_0.jld")
+tmp = load("matching_I70_R_25_1_0_X_0_1_0.jld")
 
 Rv= tmp["Rverlauf"];
 Xv = tmp["Xverlauf"];
