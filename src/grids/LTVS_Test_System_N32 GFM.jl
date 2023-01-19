@@ -103,7 +103,8 @@ function GetParamsGFM(pg::PowerGrid)
     push!(params,8e3) #for 3ph fault, start without fault
     push!(params,1) # for 1st PiModelLineParam
     push!(params,1) # for 2nd PiModelLineParam
-    push!(params,0) # for OLTC
+    push!(params,0) # for OLTC, Δtap_pos
+    #push!(params,0) # for OLTC, for timer
     if typeof(node) == droop
         params = vcat(params,getallParameters(node)[3:22])
     elseif typeof(node) == MatchingControlRed

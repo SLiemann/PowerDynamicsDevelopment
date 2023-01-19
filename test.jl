@@ -113,7 +113,7 @@ pdqz= dqz.*idqz
 dqz = [collect(i) for i in dqz]
 for i in enumerate(dqz)
     dqz
-
+end
 function tup2mat(tup)
     u = zeros(length(tup))
     v = zeros(length(tup))
@@ -212,3 +212,22 @@ function find_holdback(held_back_package, recursive = 0, installed = collect(key
        end
    end
 end
+
+
+using DifferentialEquations
+using LinearAlgebra
+
+function f(du,u,p,t)
+    du[1] = u[2]
+    du[2] = u[2] - (u[1] + 1/3*u[2]^3  - u[2])
+end
+
+mm = Diagonal([true, false])
+
+fun  = ODEFunction(f,mass_matrix=mm)
+
+u0 = [2,-2/3]
+prob = ODEProblem(fun, u0,(1.5,5),nothing)
+sol = solve(prob,Rodas4(),dtmax=1e-5, initializealg = BrownFullBasicInit())
+
+plot([scatter(x=sol.t,y=sol[1,:]),scatter(x=sol.t,y=sol[2,:])])

@@ -52,7 +52,7 @@ plot([p1,p2])
 
 
 function CalcXRMap(Rrange, Xrange)
-    pg, ic =  Initialize_N32_GFM(1,0);
+    pg, ic =  Initialize_N32_GFM(4,0);
 
     length_dr = length(Rrange)
     length_dx = length(Xrange)
@@ -79,8 +79,8 @@ function CalcXRMap(Rrange, Xrange)
     return XR, XR_tend
 end
 
-Rverlauf = 18:-1:0.0
-Xverlauf = 10:-1:0.0
+Rverlauf = 20:-1:0.0
+Xverlauf = 15:-1:0.0
 
 @time xr, xrt = CalcXRMap(Rverlauf,Xverlauf);
 
@@ -101,7 +101,7 @@ end
 
 
 using FileIO
-save("droop_I070_R_18_1_0_X_10_1_0_v2.jld","Rverlauf",Rverlauf,"Xverlauf",Xverlauf,"XR",xr,"XR_t",xrt)
+save("VSM_I070_R_20_1_0_X_15_1_0_v2.jld","Rverlauf",Rverlauf,"Xverlauf",Xverlauf,"XR",xr,"XR_t",xrt)
 
 tmp = load("droop_I090_R_64_1_0_X_40_1_0_v2.jld")
 tmp = load("droop_I100_R_111_1_0_X_71_1_0_v2.jld")
@@ -125,3 +125,5 @@ close(file)
 p4 = scatter(x=px,y=py,name="PD")
 p2= scatter(x=XRm[:,1],y=XRm[:,2],name="MATLAB")
 plot([p1,p2,p3,p4])
+
+compareResults(["droop_I070_R_18_1_0_X_08_1_0.jld","droop_I070_R_18_1_0_X_10_1_0_v2.jld","dVOC_I70_R_15_1_0_X_5_1_0.jld","dVOC_I070_R_15_1_0_X_10_1_0_v2.jld","VSM_I70_R_20_1_0_X_15_1_0.jld","VSM_I070_R_20_1_0_X_15_1_0_v2.jld"])

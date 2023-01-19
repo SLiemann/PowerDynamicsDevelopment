@@ -507,3 +507,17 @@ function DetermineBoundary(XR,Rv,Xv)
     end
     return r,x
 end
+
+function CompareXRResults(obj::Array{String})
+    sc = Vector{GenericTrace}()
+    for i in obj
+        data = load(i)
+        Rv= data["Rverlauf"];
+        Xv = data["Xverlauf"];
+        XRv= data["XR"];
+        x,y = DetermineBoundary(XRv,Rv,Xv)
+        tmp_sc = scatter(x=x,y=y,name=i)
+        push!(sc,tmp_sc)
+    end
+    display(plot(sc))
+end
