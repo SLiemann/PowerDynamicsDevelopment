@@ -5,7 +5,7 @@ import PowerDynamics: AbstractLine, AbstractNode
 import PowerDynamics: dimension, symbolsof, construct_vertex, construct_edge
 import NetworkDynamics: ODEVertex, StaticEdge
 ##############
-#Linesd
+#Lines
 include("lines/DynamicPowerTransformer.jl")
 include("lines/PiModelLineParam.jl")
 include("lines/StaticPowerTransformer.jl")
@@ -41,7 +41,7 @@ include("nodes/ThreePhaseFaultContinouos.jl")
 #Operation Point
 include("operationpoint/PowerFlow.jl")
 include("operationpoint/InitializeInternals.jl")
-
+include("operationpoint/GetCallbacks.jl")
 
 #Utility functions
 include("utility/utility_functions.jl")
