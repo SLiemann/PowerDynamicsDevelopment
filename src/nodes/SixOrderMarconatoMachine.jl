@@ -91,10 +91,10 @@ end [[θ,dθ],[ω, dω],[e_ds, de_ds],[e_qs, de_qs],[e_dss, de_dss],[e_qss, de_q
     v  = v_d + 1im*v_q
     du = u - -1im*v*(cos(θ)+1im*sin(θ)) #algebraic constraint
 
-    pe = (ω + 1.0) * ((v_q + R_a * i_q) * i_q + (v_d + R_a * i_d) * i_d)
+    Te = ((v_q + R_a * i_q) * i_q + (v_d + R_a * i_d) * i_d) / (ω + 1.0) 
 
     dθ = Ω * 2*pi * ω
-    dω = (P - D * ω - pe) / (2*H)
+    dω = ((P - D * ω)/(ω + 1.0) - Te) / (2*H)
 end
 
 export SixOrderMarconatoMachine
