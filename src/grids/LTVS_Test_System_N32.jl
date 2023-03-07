@@ -25,7 +25,7 @@ function LTVS_Test_System_N32(;tap=6)
     position_fault = 0.9 #0 at slack 1.0 at bus 2
 
     buses=OrderedDict(
-        "bus0" => SlackAlgebraic(U=1.05717),
+        "bus0" => SlackAlgebraic(U=1.054080675),# 1.05717
         "bus1" => VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),
         "bus_ehv" => VoltageDependentLoad(P=0.0, Q=Q_Shunt_EHV, U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),
         "bus_hv" => VoltageDependentLoad(P=0.0, Q=Q_Shunt_HV,  U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),

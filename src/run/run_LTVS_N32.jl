@@ -1,5 +1,6 @@
 using PowerDynamics
-#using Plots
+using PlotlyJS
+using DataFrames
 using IfElse
 
 begin
@@ -21,6 +22,8 @@ begin
 end
 plot(cu')
 println.(rhs(pg).syms .=> ic0)
+
+plotallvoltages(pgsol)
 
 CalcEigenValues(pg,[],plot =true, output = true)
 xlims!((-3,0))
@@ -75,6 +78,9 @@ end
 
 newdf = Sol2DF(pgsol)
 
+newdf[:,end-5:end-3] # only voltages from pure buses
+CSV.write("C:\\Users\\liemann\\Desktop\\Vergleich_Nordic_LTVS\\Reduced.csv",newdf[:,end-5:end-3],delim=";")
+CSV.write("C:\\Users\\liemann\\Desktop\\Vergleich_Nordic_LTVS\\ReducedTime.csv",newdf[!,1:1],delim=";")
 
 
 function plotallvoltages(pgsol::PowerGridSolution)
@@ -87,6 +93,9 @@ function plotallvoltages(pgsol::PowerGridSolution)
     display(plot(p))
     return p
 end
+
+
+
 
 using MAT
 file = matopen("C:\\Users\\liemann\\Desktop\\tmat.mat")

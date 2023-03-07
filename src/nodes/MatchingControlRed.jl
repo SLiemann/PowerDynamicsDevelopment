@@ -149,8 +149,8 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
 
     dx_uabs = IfElse.ifelse(iset_abs >=  imax_csa && p_red > 0,0.0,Ki_uset * Δuabs)
     #DC current control
-    plim = idset_csa * real(E) + iqset_csa * imag(E)
-    pmax = IfElse.ifelse(plim >=  p0set, p0set, IfElse.ifelse(plim < 0.0, 0.0, plim))
+    plim = idset_csa * real(u) + iqset_csa * imag(u)
+    pmax = IfElse.ifelse(plim > p0set, p0set, IfElse.ifelse(plim < -p0set, -p0set, plim))
     dP = IfElse.ifelse(iset_abs >=  imax_csa && p_red > 0,p_red*(p0set -pmax), 0.0)
     #idc = Kdc * (1.0 - udc) + p0set/1.0 + udc*gdc + (p_before_filter - pmeas)
     dPdelta = 10.0*pi*(p_before_filter - pmeas - Pdelta)

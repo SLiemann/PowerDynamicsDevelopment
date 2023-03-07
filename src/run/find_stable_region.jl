@@ -79,8 +79,14 @@ function CalcXRMap(Rrange, Xrange)
     return XR, XR_tend
 end
 
+Rverlauf = 20:-20:0.0
+Xverlauf = 20:-20:0.0
+
 Rverlauf = 20:-1:0.0
 Xverlauf = 20:-1:0.0
+
+Rverlauf = 13:-0.2:0.0
+Xverlauf = 11:-0.2:0.0
 
 @time xr, xrt = CalcXRMap(Rverlauf,Xverlauf);
 
@@ -88,6 +94,9 @@ plot(surface(x=Rverlauf,y=Xverlauf,z=xr))
 plot(surface(x=Rverlauf,y=Xverlauf,z=xrt))
 plot(surface(x=Rverlauf,y=Xverlauf,z=winkel))
 plot(surface(x=Rverlauf,y=Xverlauf,z=betrag))
+
+x,y = DetermineBoundary(xr,Rverlauf,Xverlauf)
+plot(scatter(x=x,y=y))
 
 winkel = zeros(length(Rverlauf),length(Xverlauf))
 betrag = similar(winkel)
@@ -101,9 +110,9 @@ end
 
 
 using FileIO
-save("VSM_I070_R_20_1_0_X_15_1_0_v2.jld","Rverlauf",Rverlauf,"Xverlauf",Xverlauf,"XR",xr,"XR_t",xrt)
+save("droop_I100_ownred_R_13_02_0_X_11_02_0.jld","Rverlauf",Rverlauf,"Xverlauf",Xverlauf,"XR",xr,"XR_t",xrt)
 
-tmp = load("droop_I090_R_64_1_0_X_40_1_0_v2.jld")
+tmp = load("droop_I100_ownred_R_20_1_0_X_20_1_0.jld")
 tmp = load("droop_I100_R_111_1_0_X_71_1_0_v2.jld")
 tmp = load("matching_I100_R_136_1_0_X_88_1_0_v2.jld")
 
