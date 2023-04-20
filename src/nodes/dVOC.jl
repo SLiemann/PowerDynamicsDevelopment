@@ -95,8 +95,8 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[vd,dvd],[e_ud,de_ud],[e_uq,de_uq],[e_id,d
     dvd = (v1+v2) * vd_e
 
     #Building voltage reference
-    udset = vd_e #- Δud_vi
-    uqset = 0.0 #- Δuq_vi
+    udset = vd   # vd oder vd_e? eigentlich nur vd
+    uqset = 0.0
 
     #Voltage control
     de_ud = (udset - udmeas) * Ki_u

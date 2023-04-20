@@ -112,12 +112,12 @@ end [[θ,dθ],[ω,dω],[Qm,dQm],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_
         ϕ1 = atan(iqset,idset)
         idset_csa = iset_lim*cos(ϕ1)
         iqset_csa = iset_lim*sin(ϕ1)
-    elseif iprio == "d"
-        idset_csa = IfElse.ifelse(idset > imax_csa,imax_csa, idset)
-        iqset_csa = IfElse.ifelse(iset_abs > imax_csa,sqrt(imax_csa^2 - idset_csa^2),iqset)
+    elseif iprio == "d" #HIER FEHLT NOCH DAS VORZEICHEN!!!!
+        idset_csa = IfElse.ifelse(idset > imax_csa,sign(idset)*imax_csa, idset)
+        iqset_csa = IfElse.ifelse(iset_abs > imax_csa,sign(iqset)*sqrt(imax_csa^2 - idset_csa^2),iqset)
     else #equal to iprio = "q"
-        iqset_csa = IfElse.ifelse(abs(iqset) > imax_csa, imax_csa, iqset)
-        idset_csa = IfElse.ifelse(iset_abs > imax_csa,sqrt(imax_csa^2 - iqset_csa^2),idset)
+        iqset_csa = IfElse.ifelse(abs(iqset) > imax_csa, sign(iqset)*imax_csa, iqset) 
+        idset_csa = IfElse.ifelse(iset_abs > imax_csa,sign(idset)*sqrt(imax_csa^2 - iqset_csa^2),idset)
     end
 
     #experimentell

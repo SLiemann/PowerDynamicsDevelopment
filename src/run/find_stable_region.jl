@@ -10,8 +10,8 @@ begin
     nothing
 end
 
-pg0,ic0 = Initialize_N32_GFM(1,1);
-@time pgsol0, suc0,FRT0 = simulate_LTVS_N32_simulation(pg0,ic0,(0.0,5.0),(20.0+20.0im)/Zbase);
+pg0,ic0 = Initialize_N32_GFM(1,0);
+@time pgsol0, suc0,FRT0 = simulate_LTVS_N32_simulation(pg0,ic0,(0.0,80.0),(120.0)/Zbase);
 plot(plotallvoltages(pgsol0))
 plot([myplot(pgsol0,"bus_gfm",:LVRT),plotv(pgsol0,["bus_gfm"])[1]])
 
@@ -26,13 +26,16 @@ plot(myplot(pgsol0,"bus_gfm",:θ,y_norm=pi/180,y_bias=18.5807))
 using MAT
 dir = "\\\\fs0\\home\\liemann\\"
 dir = "C:\\Users\\liemann\\Desktop\\"
-file = matopen(dir*"matlab.mat")
-XRm = read(file, "vmt");
+file = matopen(dir*"vltvs.mat")
+vltvs = read(file, "vltvs");
 close(file)
 
-p1 = plotv(pgsol0,["bus_gfm"])[1]
-p2 = scatter(x=XRm[:,1],y=XRm[:,2],name="MATLAB")
-plot([p1,p2])
+p1 = plotallvoltages(pgsol0)
+append!(p1,[scatter(x=vltvs[:,1],y=vltvs[:,2],name="MATLAB")])
+append!(p1,[scatter(x=vltvs[:,1],y=vltvs[:,3],name="MATLAB")])
+append!(p1,[scatter(x=vltvs[:,1],y=vltvs[:,4],name="MATLAB")])
+append!(p1,[scatter(x=vltvs[:,1],y=vltvs[:,5],name="MATLAB")])
+plot(p1)
 
 p1 = myplot(pgsol0,"bus_gfm",:θ,y_norm=pi/180,y_bias=18.5807)
 p2 = scatter(x=XRm[:,1],y=XRm[:,4],name="MATLAB")
@@ -52,7 +55,7 @@ plot([p1,p2])
 
 
 function CalcXRMap(Rrange, Xrange)
-    pg, ic =  Initialize_N32_GFM(1,1);
+    pg, ic =  Initialize_N32_GFM(3,1);
 
     length_dr = length(Rrange)
     length_dx = length(Xrange)
