@@ -128,13 +128,13 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
 
     di_abs = i_abs - I_abs
 
-    dx_uabs = IfElse.ifelse(iset_abs >= imax_csa && p_red > 0,0.0,Ki_uset * Δuabs)
+    dx_uabs = IfElse.ifelse(iset_abs >= imax_csa && p_red > 0 ,0.0,Ki_uset * Δuabs)#&& abs(u) < 0.9
    
     #Pref reduction
     plim = idset_csa * real(u) + iqset_csa * imag(u)
     pmax = IfElse.ifelse(plim > p0set, p0set, IfElse.ifelse(plim < -p0set, -p0set, plim))
     #dP = IfElse.ifelse(iset_abs >= imax_csa,p_red*dpmax, 0.0)
-    dP = IfElse.ifelse(iset_abs >=  imax_csa && p_red > 0,p_red*(p0set -pmax), 0.0)
+    dP = IfElse.ifelse(iset_abs >=  imax_csa && p_red > 0 ,p_red*(p0set -pmax), 0.0) #&& abs(u)<0.9
 
     #DC current control
     dPdelta = 10.0*pi*(p_before_filter - pmeas - Pdelta)
