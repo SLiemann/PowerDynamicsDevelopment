@@ -151,7 +151,7 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[vd,dvd],[e_ud,de_ud],[e_uq,de_uq],[e_id,d
     #di_abs = i_abs - I_abs
 
     #Power Reduction in case of limited current
-    plim = idset_csa * real(E) + iqset_csa * imag(E)
+    plim = idset_csa * udmeas + iqset_csa * uqmeas
     pmax = IfElse.ifelse(plim > p0set, p0set, IfElse.ifelse(plim < 0.0, 0.0, plim))
     dP = IfElse.ifelse(iset_abs >= imax_csa && p_red > 0,p_red*(p0set -pmax), 0.0)
 

@@ -67,9 +67,12 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
     q_before_filter = imag(conj(idq) * E)
     ix  = p_before_filter   #AC/DC coupling
 
+    #filtered power
+    dPf = 10.0*pi*(pmeas - Pf)
+
     #Voltage control
     Δuabs = u0set - abs(u)
-    dx_uabs = Ki_uset * Δuabs
+    #dx_uabs = Ki_uset * Δuabs
     Uset = x_uabs + Kp_uset * Δuabs
 
     #Building voltage reference
@@ -77,8 +80,8 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
     uqset = 0.0
 
     #Voltage control
-    de_ud = (udset - udmeas) * Ki_u
-    de_uq = (uqset - uqmeas) * Ki_u
+    #de_ud = (udset - udmeas) * Ki_u
+    #de_uq = (uqset - uqmeas) * Ki_u
 
     idset = idmeas - uqmeas / xcf + Kp_u * (udset - udmeas) + e_ud
     iqset = iqmeas + udmeas / xcf + Kp_u * (uqset - uqmeas) + e_uq
@@ -91,7 +94,7 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
     iqset_csa = iset_lim*sin(ϕ1)
 
     #experimentell
-    anti_windup = IfElse.ifelse(iset_abs >= imax_csa && p_red>0,true,false)
+    anti_windup = IfElse.ifelse(iset_abs >= imax_csa && p_red > 0,true,false)
     de_ud = IfElse.ifelse(anti_windup,0.0, (udset - udmeas) * Ki_u)
     de_uq = IfElse.ifelse(anti_windup,0.0, (uqset - uqmeas) * Ki_u)
 
@@ -131,10 +134,13 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
     dx_uabs = IfElse.ifelse(iset_abs >= imax_csa && p_red > 0 ,0.0,Ki_uset * Δuabs)#&& abs(u) < 0.9
    
     #Pref reduction
-    plim = idset_csa * real(u) + iqset_csa * imag(u)
+    plim = idset_csa * udmeas + iqset_csa * uqmeas
     pmax = IfElse.ifelse(plim > p0set, p0set, IfElse.ifelse(plim < -p0set, -p0set, plim))
     #dP = IfElse.ifelse(iset_abs >= imax_csa,p_red*dpmax, 0.0)
     dP = IfElse.ifelse(iset_abs >=  imax_csa && p_red > 0 ,p_red*(p0set -pmax), 0.0) #&& abs(u)<0.9
+
+    w = (p0set - dP - Pf) * Kp_droop
+    dθ = w
 
     #DC current control
     dPdelta = 10.0*pi*(p_before_filter - pmeas - Pdelta)
@@ -145,12 +151,6 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
     idc0_lim =  IfElse.ifelse(idc0 >= imax_dc, imax_dc, IfElse.ifelse(idc0 <= -imax_dc,-imax_dc,idc0))
     #DC circuit
     dudc = (idc0_lim - gdc * (1.0+udc) - ix) / cdc
-
-    #Droop control
-    #filtered power
-    dPf = 10.0*pi*(pmeas - Pf)
-    w = (p0set - dP - Pf) * Kp_droop
-    dθ = w
 
     #dPs = Ps - p_before_filter
     #dQs = Qs - q_before_filter

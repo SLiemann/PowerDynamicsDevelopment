@@ -10,11 +10,11 @@ begin
     nothing
 end
 
-pg0,ic0 = Initialize_N32_GFM(1,1);
-@time pgsol0, suc0,FRT0 = simulate_LTVS_N32_simulation(pg0,ic0,(0.0,100.0),(20000.0)/Zbase);
+pg0,ic0 = Initialize_N32_GFM(3,1);
+@time pgsol0, suc0,FRT0 = simulate_LTVS_N32_simulation(pg0,ic0,(0.0,100.0),(20.0)/Zbase);
 plot(plotallvoltages(pgsol0))
 plot(myplot(pgsol0,"bus_gfm",:Pdelta))
-plot(myplot(pgsol0,"bus_gfm",:iset_abs))
+plot(myplot(pgsol0,"bus_gfm",:i_abs))
 
 
 

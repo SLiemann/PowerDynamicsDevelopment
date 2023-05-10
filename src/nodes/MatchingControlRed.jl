@@ -88,7 +88,7 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
     dθ = udc * 2.0 * pi * 50.0
 
     Δuabs = u0set - abs(u)
-    dx_uabs = Ki_uset * Δuabs
+    #dx_uabs = Ki_uset * Δuabs
     Uset = x_uabs + Kp_uset * Δuabs
 
     #Building voltage reference
@@ -149,7 +149,7 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
 
     dx_uabs = IfElse.ifelse(iset_abs >=  imax_csa && p_red > 0,0.0,Ki_uset * Δuabs)
     #DC current control
-    plim = idset_csa * real(u) + iqset_csa * imag(u)
+    plim = idset_csa * udmeas + iqset_csa * uqmeas
     pmax = IfElse.ifelse(plim > p0set, p0set, IfElse.ifelse(plim < -p0set, -p0set, plim))
     dP = IfElse.ifelse(iset_abs >=  imax_csa && p_red > 0,p_red*(p0set -pmax), 0.0)
     #idc = Kdc * (1.0 - udc) + p0set/1.0 + udc*gdc + (p_before_filter - pmeas)

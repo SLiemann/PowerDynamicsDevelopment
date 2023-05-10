@@ -68,7 +68,7 @@ end [[θ,dθ],[w,dw],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq
 
     #Voltage control
     Δuabs = u0set - abs(u)
-    dx_uabs = Ki_uset * Δuabs
+    #dx_uabs = Ki_uset * Δuabs
     Mf = 1.0 # virtual mutual inductance, value taken from Doerfler et. al
     i_f = x_uabs + Kp_uset * Δuabs #field current
 
@@ -130,7 +130,7 @@ end [[θ,dθ],[w,dw],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq
 
     dx_uabs = IfElse.ifelse(iset_abs >= imax_csa  && p_red > 0,0.0,Ki_uset * Δuabs)
     #DC current control
-    plim = idset_csa * real(E) + iqset_csa * imag(E)
+    plim = idset_csa * udmeas + iqset_csa * uqmeas
     pmax = IfElse.ifelse(plim > p0set, p0set, IfElse.ifelse(plim < 0.0, 0.0, plim))
     dP = IfElse.ifelse(iset_abs >= imax_csa  && p_red > 0,p_red*(p0set -pmax), 0.0)
 
