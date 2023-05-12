@@ -1,4 +1,4 @@
-using PlotlyJS, DataFrames
+using PlotlyJS, DataFrames, MAT
 
 Sbase = 8000e6
 Ubase = 400e3
@@ -10,13 +10,25 @@ begin
     nothing
 end
 
-pg0,ic0 = Initialize_N32_GFM(3,1);
+pg0,ic0 = Initialize_N32_GFM(1,1);
 @time pgsol0, suc0,FRT0 = simulate_LTVS_N32_simulation(pg0,ic0,(0.0,100.0),(20.0)/Zbase);
 plot(plotallvoltages(pgsol0))
 plot(myplot(pgsol0,"bus_gfm",:Pdelta))
 plot(myplot(pgsol0,"bus_gfm",:i_abs))
 
 
+dir = "\\\\fs0\\home\\liemann\\"
+file = matopen(dir*"vltvs.mat")
+vltvs = read(file, "Vltvs");
+close(file)
+
+p1 = plotallvoltages(pgsol0)
+append!(p1,[scatter(x=vltvs[:,1],y=vltvs[:,2],name="Mat_Bus1")])
+append!(p1,[scatter(x=vltvs[:,1],y=vltvs[:,3],name="Mat_EHV")])
+append!(p1,[scatter(x=vltvs[:,1],y=vltvs[:,4],name="Mat_HV")])
+append!(p1,[scatter(x=vltvs[:,1],y=vltvs[:,5],name="Mat_load")])
+append!(p1,[scatter(x=vltvs[:,1],y=vltvs[:,6],name="Mat_GFM")])
+plot(p1)
 
 begin
     pg = LTVS_Test_System_N32_GFM(gfm=1,awu=0)
