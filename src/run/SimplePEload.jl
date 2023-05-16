@@ -26,4 +26,16 @@ prob = ODEProblem(f, u0, (0.0, 0.25), p)
 sol = solve(prob, Tsit5(), callback = CallbackSet(cb1,cb2),dtmax=1e-3)
 plot(sol)
 
-#vars=(1)
+##
+sens_prob = ODEForwardSensitivityProblem(f, u0, (0.0, 0.06), p,callback = CallbackSet(cb1,cb2),sensealg=ForwardDiffSensitivity(;chunk_size = 0,convert_tspan =true))
+sens_prob = ODEForwardSensitivityProblem(f, u0, (0.0, 0.06), p,callback = CallbackSet(cb1,cb2),sensealg=ReverseDiffAdjoint())
+sol = solve(sens_prob, Tsit5(), callback = CallbackSet(cb1,cb2),dtmax=1e-3);
+x, dp = extract_local_sensitivities(sol);
+da = dp[3];
+plot(sol.t, da', lw = 3)
+
+plot(sol.t, x')
+
+prob = ODEProblem(f, u0, (0.0, 0.25), p)
+sol = solve(prob, Tsit5(), callback = CallbackSet(cb1,cb2),dtmax=1e-3,sensealg=ReverseDiffAdjoint())
+plot(sol)
