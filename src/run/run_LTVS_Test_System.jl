@@ -13,7 +13,7 @@ using JLD
 #Zbase = (Ubase^2)/Sbase
 
 begin
-    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/include_costum_nodes_lines_utilities.jl")
+    include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/include_custom_nodes_lines_utilities.jl")
     #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/grids/LTVS_Test_System.jl")
     #include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/grids/LTVS_Test_System_TapParam.jl")
     include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/sensitivity_analyses/Local_Sensitivity.jl")
@@ -30,9 +30,10 @@ begin
     Ic = abs.(Ykk*Uc./5.5)
     S  = round.(Uc.*(conj.(Ykk)*conj.(Uc)),digits=3)
     pg, ic0 = InitializeInternalDynamics(pg,ic0)
-
+end
+begin
     #pg, ic0 = GetInitializedLTVSSystem()
-    pgsol_per,evr  = run_LTVS_simulationTapParam(pg,ic0,(0.9,120.0))
+    pgsol_per,evr  = run_LTVS_simulationTapParam(pg,ic0,(0.0,1.0));
     #plot(pgsol,"bus4",:i_abs,label = "I-Original",xlims=(5,70),ylims=(1.02,1.11), legend = (0.5,0.1))
     #display(plot!(pgsol_per,"bus4",:i_abs, label ="real perturbed"))
     #display(plot(pgsol_stkvi,"bus4",:v,label = "Enhanced"))
@@ -53,7 +54,7 @@ xlims!(0,3)
 ylims!(-2,2)
 ylims!(0,280)
 
-plot(pgsol,"bus4",:i_abs)
+plot(pgsol_per,"bus4",:i_abs)
 plot!(pgsol_per,"bus4",:i_abs, linestyle = :dash)
 plot!(pgsol_per,"bus4",:v, label="voltage", title="Long-term voltage stability", grid=true,gridstyle = :dash,gridalpha = 0.5,linewidth = 2)
 plot(pgsol,"bus4",:i_abs, legend = false, ylims =(0.95,1.1))

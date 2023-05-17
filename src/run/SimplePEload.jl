@@ -6,8 +6,13 @@ function f(dx,x,p,t)
     Ud,w,L,C,R = p
     dx[1] = (Ud*cos(w*t) - x[2])/L * x[3]
     dx[2] = (x[1] - x[2]/R)/C
-    dx[3] = 0
+    dx[3] = 0.0
+    dx[4] = x[4] - (x[1]*x[3] - C*dx[2]) 
 end
+M = [1. 0  0  0
+     0  1. 0  0
+     0  0  1. 0
+     0  0  0  0];
 
 s1(u, t, integrator) = u[1]
 h1(integrator) = integrator.u[3] = 0.0
@@ -20,11 +25,12 @@ end
 h2(integrator) = integrator.u[3] = 1.0
 cb2 = DiscreteCallback(s2, h2)
 
-u0 = [0.0,0.0,1.0]
+u0 = [0.0,0.0,1.0,0.0]
 p = [sqrt(2),100*pi,5e-3,1e-3,50]
-prob = ODEProblem(f, u0, (0.0, 0.25), p)
-sol = solve(prob, Tsit5(), callback = CallbackSet(cb1,cb2),dtmax=1e-3)
-plot(sol)
+ode_fun = ODEFunction(f,mass_matrix = M)
+prob = ODEProblem(ode_fun, u0, (0.0, 0.25), p)
+sol = solve(prob, Rodas4(), callback = CallbackSet(cb1,cb2),dtmax=1e-3)
+plot(sol,idxs=(4))
 
 ##
 sens_prob = ODEForwardSensitivityProblem(f, u0, (0.0, 0.06), p,callback = CallbackSet(cb1,cb2),sensealg=ForwardDiffSensitivity(;chunk_size = 0,convert_tspan =true))
@@ -39,3 +45,13 @@ plot(sol.t, x')
 prob = ODEProblem(f, u0, (0.0, 0.25), p)
 sol = solve(prob, Tsit5(), callback = CallbackSet(cb1,cb2),dtmax=1e-3,sensealg=ReverseDiffAdjoint())
 plot(sol)
+
+mtk = modelingtoolkitize(prob)
+x = states(mtk)
+p = parameters(mtk)
+eqs = equations(mtk)
+fun = ODEFunctionExp(mtk,dvs=x,ps=p)
+dM = diag(fun.mass_matrix)
+
+eqs, aeqs, D_states, A_states = GetSymbolicEquationsAndStates(mtk)
+

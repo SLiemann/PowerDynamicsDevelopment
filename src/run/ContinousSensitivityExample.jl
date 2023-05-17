@@ -2,7 +2,7 @@ using DifferentialEquations
 using Plots
 using SciMLSensitivity
 using ForwardDiff
-
+using ModelingToolkit
 
 function f2(dx,x,p,t)
     Ud,w,L,C,R = p
@@ -38,3 +38,19 @@ function f3(theta)
 end
 res = ForwardDiff.jacobian(f3,p)
 plot(res[:,1])
+############################
+#using DAIS approach
+
+mtk = [modelingtoolkitize(prob)];
+xs = states(mtk[1])
+ps = parameters(mtk[1])
+@variables t
+s = [0.0 ~ xs[1],
+    0.0 ~ ps[1]*cos(ps[2]*t) - xs[2]]
+
+h = [0.0 ~ xs[3],
+    1.0 ~ xs[3]]
+
+
+eqs, aeqs, D_states, A_states = GetSymbolicEquationsAndStates(mtk[1])
+[zeros(length(D_states),1) .~ D_states]
