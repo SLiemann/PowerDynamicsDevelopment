@@ -44,24 +44,35 @@ plot(sol.t, da', lw = 3)
 include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/sensitivity_analyses/Local_Sensitivity.jl")
 mtsys = modelingtoolkitize(prob)
 
+fulleqs = equations(mtsys);
+sym_states = states(mtsys);
+sym_params = parameters(mtsys);
+eqs, aeqs, D_states, A_states = GetSymbolicEquationsAndStates(fulleqs, sym_states);
+D_states = vcat(D_states,sym_params);
+
 hs = Num.([D_states D_states])
 hs[3,1] = Num(0.0)
 hs[3,2] = Num(1.0)
 
-s = [D_states[2], D_states[3]-1.0]
+s = Num.([D_states[2], D_states[3]-1.0])
 
-hx = Array{Array{Num}}(undef,size(hs)[2],1)
-hy = similar(hx)
-sx = Array{Array{Num}}(undef,length(s),1)
-sy = similar(sx)
+mtk0 = mtsys
+ic = sol.prob.u0
+xx0_k, yx0_k, sym_states,sym_params, A_states, D_states, M, N, Δt,len_sens, f1, g, J =
+    InitTrajectorySensitivity(mtk0, ic, p);
+xx0 = [i[1] for i in xx0_k];
+yx0 = [i[1] for i in yx0_k];
+f_all,g_all,J_all,M_all,N_all =  GetEqsJacobianSensMatrices([mtk0],xx0,yx0); #anpassen wenn nicht alle Variablen gerechnet werdne sollen
 
+Fx_all, Fy_all, Gx_all, Gy_all = J_all;
+hx,hy,sx,sy = CalcTriggerAndStateResetJacobians(s,hs,D_states,A_states);
 
-#HIER WEITER MACHE!!!!!
-for i=eachindex(hs)
-    hx[i] = GetJacobian(hs[:,i],D_states)
-    hy[i] = GetJacobian(hs[:,i],A_states)
-end 
-for i=eachindex(s)
-    sx[i] = GetJacobian([s[i]],D_states)
-    sy[i] = GetJacobian([s[i]],A_states)
+sensis = Vector{Array{Float64}}(undef, len_sens)
+for i = 1:length(sensis)
+  sensis[i] = Array{Float64}(
+    undef,
+    size(D_states)[1] + size(A_states)[1],
+    size(sol)[2] - 1,
+  )
 end
+ind_sol = vcat(1,setdiff(indexin(evr[:,1],sol.t),[nothing]),length(sol.t))

@@ -212,7 +212,30 @@ end
 
 function GetJacobian(
   eqs::Array{Num},
+  states::Vector{Term{Real, Base.ImmutableDict{DataType, Any}}},
+)
+    Fx = Array{Num}(undef, size(eqs)[1], size(states)[1])
+    Diff_states = Differential.(states)
+    for (ind, val) in enumerate(Diff_states)
+      Fx[:, ind] = Num.(expand_derivatives.(map(val, eqs)))
+    end
+    return Fx
+end
+
+function GetJacobian(
+  eqs::Array{Equation},
   states::Vector{SymbolicUtils.Symbolic{Real}},
+)
+    Fx = Array{Num}(undef, size(eqs)[1], size(states)[1])
+    Diff_states = Differential.(states)
+    for (ind, val) in enumerate(Diff_states)
+      Fx[:, ind] = Num.(expand_derivatives.(map(val, my_rhs.(eqs))))
+    end
+    return Fx
+end
+function GetJacobian(
+  eqs::Array{Equation},
+  states::Vector{Term{Real, Base.ImmutableDict{DataType, Any}}},
 )
     Fx = Array{Num}(undef, size(eqs)[1], size(states)[1])
     Diff_states = Differential.(states)
@@ -333,7 +356,7 @@ function InitTrajectorySensitivity(
 
   eqs = Num.(my_rhs.(eqs))
   aeqs = Num.(my_rhs.(aeqs))
-  return xx0_k,yx0_k,sym_states,sym_params,A_states,D_states,M,N,symp,Δt,len_sens, eqs,aeqs,(Fx,Fy,Gx,Gy)
+  return xx0_k,yx0_k,sym_states,sym_params,A_states,D_states,M,N,Δt,len_sens, eqs,aeqs,(Fx,Fy,Gx,Gy)
 end
 
 function TrajectorySensitivityMatrices(J::Vector{Matrix{Num}},xx0::Matrix{Num},yx0::Matrix{Num})
@@ -404,20 +427,21 @@ function ContinuousSensitivity(
   return sensi, xx0_k, yx0_k
 end
 
-function CalcTriggerAndStateResetJacobians(s::Vector{Equation},h::Vector{Matrix{Num}},D_states,A_states)
-    hx = Array{Array{Num}}(undef,length(h),1)
-    hy = similar(hx)
-    sx = Array{Array{Num}}(undef,length(s),1)
-    sy = similar(sx)
-    for i=1:length(h)
-        hx[i] = GetJacobian(h[i],D_states)
-        hy[i] = GetJacobian(h[i],A_states)
-    end
-    for i=1:length(s)
-        sx[i] = GetJacobian([s[i]],D_states)
-        sy[i] = GetJacobian([s[i]],A_states)
-    end
-    return hx,hy,sx,sy
+function CalcTriggerAndStateResetJacobians(s::Vector{Num},h::Matrix{Num},D_states,A_states)
+  hx = Array{Array{Num}}(undef,size(h)[2],1)
+  hy = similar(hx)
+  sx = Array{Array{Num}}(undef,length(s),1)
+  sy = similar(sx)
+
+  for i=eachindex(hx)
+    hx[i] = GetJacobian(h[:,i],D_states)
+    hy[i] = GetJacobian(h[:,i],A_states)
+  end 
+  for i=eachindex(s)
+    sx[i] = GetJacobian([s[i]],D_states)
+    sy[i] = GetJacobian([s[i]],A_states)
+  end  
+  return hx,hy,sx,sy
 end
 
 function CalcSensitivityAfterJump(
@@ -637,7 +661,7 @@ function GetEqsJacobianSensMatrices(mtk::Vector{ODESystem},xx0::Matrix{Num},yx0:
         end
         Fx[ind],Fy[ind],Gx[ind],Gy[ind] = GetSymbolicFactorizedJacobian(eqs, aeqs, x, y)
 
-        M[ind],N[ind] = TrajectorySensitivityMatrices([Fx[ind],Fy[ind],Gx[ind],sGy[ind]],xx0,yx0)
+        M[ind],N[ind] = TrajectorySensitivityMatrices([Fx[ind],Fy[ind],Gx[ind],Gy[ind]],xx0,yx0)
         f[ind] = my_rhs.(eqs)
         g[ind] = my_rhs.(aeqs)
     end
