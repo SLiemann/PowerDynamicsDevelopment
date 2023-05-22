@@ -168,6 +168,23 @@ function TimeDomainSensitivies(
   return sensi
 end
 
+function GetFactorisedSymbolicStates(mtsys::ODESystem)
+  fulleqs = equations(mtsys)
+  state = states(index)
+  A_states = similar(state,0)
+  D_states = similar(state,0)
+  for (index, value) in enumerate(fulleqs)
+    if my_lhs(value) !== 0
+      push!(D_states, state[index])
+    elseif my_lhs(value) === 0
+      push!(A_states, state[index])
+    else
+      error("Can not interprete LHS of equation; $value")
+    end
+  end
+  return D_states, A_states
+end
+
 GetSymbolicEquationsAndStates(mtsys::ODESystem) =
   GetSymbolicEquationsAndStates(equations(mtsys), states(mtsys))
 function GetSymbolicEquationsAndStates(
@@ -394,12 +411,12 @@ function ContinuousSensitivity(
   sol::ODESolution,
   xx0_k::Matrix{Pair{Num,Float64}},
   yx0_k::Matrix{Pair{Num,Float64}},
-  sym_states::Vector{Term{Real,Base.ImmutableDict{DataType,Any}}},
   A_states::Vector{Term{Real,Base.ImmutableDict{DataType,Any}}},
   D_states::Vector{Term{Real,Base.ImmutableDict{DataType,Any}}},
+  A_indices::Vector{Int64},
+  D0_indices::Vector{Int64},
   M::Matrix{Num},
   N::Matrix{Num},
-  symp::Vector{Pair{Sym{Real, Base.ImmutableDict{DataType, Any}}, Float64}},
   Δt::Num,
   len_sens::Int64,
 )
@@ -414,21 +431,22 @@ function ContinuousSensitivity(
   end
   xx0 = [i[1] for i in xx0_k]
   yx0 = [i[1] for i in yx0_k]
-  ind_y = setdiff(indexin(A_states, sym_states), [nothing])
-  ind_x = setdiff(indexin(D_states, sym_states), [nothing])
+  #ind_y = Int64.(setdiff(indexin(A_states, sym_states), [nothing]))
+  #ind_x = Int64.(setdiff(indexin(D_states, sym_states), [nothing]))
+
   for i = 1:size(sol)[2]-1
     dt = sol.t[i+1] - sol.t[i]
 
-    uk = sym_states .=> sol.u[i]
-    uk1 = sym_states .=> sol.u[i+1]
+    uk = D_states .=> vcat(sol[D0_indices,i],sol.prob.p)
+    uk1 = D_states .=> vcat(sol[D0_indices,i],sol.prob.p)
 
-    Mfloat = Float64.(Substitute(M, [uk1; symp; Δt => dt]))
-    Nfloat = Float64.(Substitute(N, [uk; symp; vec(xx0_k); vec(yx0_k); Δt => dt]))
+    Mfloat = Float64.(Substitute(M, [uk1; Δt => dt]))
+    Nfloat = Float64.(Substitute(N, [uk; vec(xx0_k); vec(yx0_k); Δt => dt]))
     res = inv(Mfloat) * Nfloat 
 
     for j = 1:length(sensi)
-      sensi[j][ind_x, i] = res[1:size(D_states)[1], j]
-      sensi[j][ind_y, i] = res[size(D_states)[1]+1:end, j]
+      sensi[j][length(D_states), i] = res[1:length(D_states), j]
+      sensi[j][length(D_states)+1:end, i] = res[length(D_states)+1:end, j]
     end
 
     xx0_k = xx0 .=> res[1:size(D_states)[1], :]
@@ -561,31 +579,21 @@ function CalcHybridTrajectorySensitivity(
   u0_sensi::Vector{Union{Int64,Any}},
   p_sensi::Vector{Int64},
 )
-    fulleqs = equations(mtsys);
-    sym_states = states(mtsys);
-    sym_params = parameters(mtsys);
+    sym_states = states(mtk);
+    sym_params = parameters(mtk);
   
-    eqs, aeqs, D_states0, A_states = GetSymbolicEquationsAndStates(fulleqs, sym_states);
-    D_states = vcat(D_states0,sym_params);
+    D0_states, A_states = GetFactorisedSymbolicStates(mtk[1]);
+    D_states = vcat(D0_states,sym_params);
 
-    D_indices = setdiff(indexin(D_states0, sym_states), [nothing]);
-    A_indices = setdiff(indexin(A_states, sym_states), [nothing]);
-  
-    #hinzufügen der Dummy-Gleichungen für die Parameter
-    @variables t
-    D= Differential(t);
-    for i=eachindex(sym_params) 
-        eqs = vcat(eqs,D(sym_params[i])~0.0)
-    end
-    eqs = Num.(my_rhs.(eqs))   #Konvertierung von Equation zu Num
-    aeqs = Num.(my_rhs.(aeqs)) #Konvertierung von Equation zu Num
+    D0_indices= Int64.(setdiff(indexin(D0_states, sym_states), [nothing]));
+    A_indices = Int64.(setdiff(indexin(A_states, sym_states), [nothing]));
   
     #Hier anpassen, welche Zustände Parameter berücksichtigt werden soll
     sensis_x = D_states; #anpassen bei variabler Größe
     sensis_y = A_states; #anpassen bei variabler Größe?
   
     #dict from states and parameters with their starting values
-    sym_x = sensis_x .=> vcat(sol.prob.u0[D_indices],p);
+    sym_x = sensis_x .=> vcat(sol.prob.u0[D0_indices],p);
     sym_y = sensis_y .=> sol.prob.u0[A_indices]; 
     len_sens = length(sym_x) #+ length(sym_y) #den Einfluss der algebraischen Variablen steckt indirekt in den Gleichungen!!
   

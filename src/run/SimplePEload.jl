@@ -64,7 +64,7 @@ eqs, aeqs, D_states, A_states = GetSymbolicEquationsAndStates(fulleqs, sym_state
 D_states = Num.(vcat(D_states,sym_params));
 
 hs = Num.([D_states D_states])
-hs[3,1] = Num(0.
+hs[3,1] = Num(0.0);
 hs[3,2] = Num(1.0);
 
 s = Num.([D_states[2], D_states[3]-1.0]);
