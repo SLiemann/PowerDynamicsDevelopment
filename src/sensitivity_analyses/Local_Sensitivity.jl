@@ -347,7 +347,7 @@ function InitTrajectorySensitivity(mtk::Vector{ODESystem},sol::ODESolution)
   sym_y = sensis_y .=> sol.prob.u0[A_indices]; 
   len_sens = length(sym_x) #+ length(sym_y) #den Einfluss der algebraischen Variablen steckt indirekt in den Gleichungen!!
 
-  @parameters Δt
+  @parameters Δt t
   @parameters xx0[1:length(D_states), 1:len_sens] #xx0 are the symbolic sensitivities regarding differential states
   @parameters yx0[1:length(A_states), 1:len_sens] #yx0 are the symbolic sensitivities regarding algebraic states
   xx0 = Symbolics.scalarize(xx0)
@@ -366,8 +366,8 @@ function InitTrajectorySensitivity(mtk::Vector{ODESystem},sol::ODESolution)
   end
 
   #Initialisierung der algebraischen symbolischen Sensitivitäten
-  Gy_float = Substitute(Gy_all[1], [sym_x; sym_y])
-  Gx_float = Substitute(Gx_all[1], [sym_x; sym_y])
+  Gy_float = Float64.(Substitute(Gy_all[1], [sym_x; sym_y; t => sol.t[1]]))
+  Gx_float = Float64.(Substitute(Gx_all[1], [sym_x; sym_y; t => sol.t[1]]))
   yx0f = -inv(Gy_float) * Gx_float
   yx0_k = yx0 .=> yx0f
 
@@ -511,7 +511,7 @@ function CalcSensitivityAfterJump(
     #display(τx0_denom)
     τx0 = 0.0
     if sum(τx0_denom) != 0.0
-        τx0 = τx0_nom ./ τx0_denom
+        τx0 = -τx0_nom ./ τx0_denom
     else
         error("Trajectory is not hitting the switching surface transversally.")
     end
@@ -668,6 +668,7 @@ function CalcHybridTrajectorySensitivity(
                                     sy_tmp,
                                 )
         else
+
             return sensis
         end
 
@@ -686,4 +687,22 @@ function CalcHybridTrajectorySensitivity(
         f_pre = deepcopy(f_post)
         g_pre = deepcopy(g_post)
     end
+end
+
+function SortFDResults(res::Array{Float64},num_states)
+  res = res'
+  res_sort = Vector{Array{Float64}}(undef,0)
+  len_t = Int(size(res)[2]/num_states)
+  tmp_array = Array{Float64}(undef,0,len_t-2)
+  display(tmp_array)
+ 
+  for i=1:size(res)[1]
+    for j=0:num_states-1
+      display(i)
+        tmp_array = [tmp_array;res[i,j*len_t+1+1:(j+1)*len_t-1]']
+    end
+    push!(res_sort,tmp_array)
+    tmp_array = Array{Float64}(undef,0,len_t-2)
+  end
+  return res_sort
 end
