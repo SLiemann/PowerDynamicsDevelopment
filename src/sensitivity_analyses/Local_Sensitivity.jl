@@ -3,7 +3,7 @@ using ModelingToolkit
 using LinearAlgebra
 
 
-# DESIGN-ENTSCHEIDUNGEN
+# Annahmen für die Trajektorien-Sensitivität
 # 1. das Netzmodell muss als DAIS aufgebaut sein:
 #   1.1 diskrete Zustände als Dummy-DGL
 #   1.2 Differentialgleichungen bleiben gleich (können aber diskrete Zustände haben)
@@ -19,6 +19,10 @@ using LinearAlgebra
 #   3.2 der erste Eintrag ist immer evr[1] = [t_0 1 0 0]
 #   3.2.1 also bei t0 gehts los
 # 4. die Simulation endet nicht mit einem relevanten Event
+# 5. Bei den Events von DifferentialEquations.jl ist es so, dass es im Lösungsobjekt später
+# zwei gleiche Zeitpunkte gibt. Also Δt ist dazwischen null. Der erste Zeitpunkt davon wird für τ- und 
+# der zweite dann für τ+ genommen. Es sollten nicht mehr als zwei gleiche Zeitpunkte auftreten.
+# Das wird bisher jedoch nicht überprüft.
 
 function plot_sensi(time,sensis)
    p = plot(layout = (size(sensis)[1],1))
@@ -371,14 +375,17 @@ function InitTrajectorySensitivity(mtk::Vector{ODESystem},sol::ODESolution)
   yx0f = -inv(Gy_float) * Gx_float
   yx0_k = yx0 .=> yx0f
 
-  #Initialisierung der Trajektorien Sensitivität
+  #Objekterstelleung der Trajektorien Sensitivität
   sensis = Vector{Array{Float64}}(undef, len_sens)
   for i = 1:length(sensis)
-    sensis[i] = Array{Float64}(
-      undef,
-      size(D_states)[1] + size(A_states)[1],
-      size(sol)[2] - 1,
-    )
+    sensis[i] = zeros(Float64,size(D_states)[1] + size(A_states)[1],size(sol)[2])
+  end
+  # Initialisierung der Trajektorien Sensitivität
+  for i= eachindex(D_states)
+    sensis[i][i,1] = 1.0
+  end
+  for i= eachindex(A_states) .+ length(D_states)
+    sensis[i-length(D_states)][i,1] = yx0f[i-length(D_states)]
   end
   return xx0_k,yx0_k,A_states,D_states, A_indices, D0_indices, matrices,Δt,len_sens, sensis
 end
@@ -396,10 +403,6 @@ function TrajectorySensitivityMatrices(J::Vector{Matrix{Num}},xx0::Matrix{Num},y
         -xx0 - Δt / 2 * (Fx * xx0 + Fy * yx0)
         zeros(size(yx0)[1], size(yx0)[2])
       ]
-    #O = [
-    #  -Δt / 2 * Fp
-    #  -Gp
-    #]
    return M,N
 end
 
@@ -418,11 +421,13 @@ function ContinuousSensitivity(
 )
   #lokaler Speicher für die berechneten Trajektorien Senstivitäten
   sensi = Vector{Array{Float64}}(undef, len_sens)
+  # die sensis sind hier eins kürzer, da ab k+1 bis zum Ende gerechnet wird!
+  # t_k ist der Zeitpunkt zuvor (also entweder Zeitpuntk des Sprungs oder Startzeit)
   for i = 1:length(sensi)
-    sensi[i] = Array{Float64}(
+    sensi[i] = 0.0.*Array{Float64}(
       undef,
       size(D_states)[1] + size(A_states)[1],
-      size(sol)[2] - 1,
+      size(sol)[2]-1,
     )
   end
   xx0 = [i[1] for i in xx0_k]
@@ -430,22 +435,23 @@ function ContinuousSensitivity(
   #ind_y = Int64.(setdiff(indexin(A_states, sym_states), [nothing]))
   #ind_x = Int64.(setdiff(indexin(D_states, sym_states), [nothing]))
   @parameters t
-  for i = 1:size(sol)[2]-1
-    dt = sol.t[i+1] - sol.t[i]
 
-    xk  = D_states .=> vcat(sol[D0_indices,i],sol.prob.p)
-    xk1 = D_states .=> vcat(sol[D0_indices,i+1],sol.prob.p)
+  for i = 2:size(sol)[2]
+    dt = sol.t[i] - sol.t[i-1]
 
-    yk  = A_states .=> sol[A_indices,i]
-    yk1 = A_states .=> sol[A_indices,i+1]
+    xk  = D_states .=> vcat(sol[D0_indices,i-1],sol.prob.p)
+    xk1 = D_states .=> vcat(sol[D0_indices,i],sol.prob.p)
 
-    Mfloat = Float64.(Substitute(M, [xk1; yk1; Δt => dt; t => sol.t[i+1]]))
-    Nfloat = Float64.(Substitute(N, [xk; yk; vec(xx0_k); vec(yx0_k); Δt => dt; t => sol.t[i+1]]))
+    yk  = A_states .=> sol[A_indices,i-1]
+    yk1 = A_states .=> sol[A_indices,i]
+
+    Mfloat = Float64.(Substitute(M, [xk1; yk1; Δt => dt; t => sol.t[i]]))
+    Nfloat = Float64.(Substitute(N, [xk; yk; vec(xx0_k); vec(yx0_k); Δt => dt; t => sol.t[i-1]]))
     res = inv(Mfloat) * Nfloat 
 
     for j = 1:length(sensi)
-      sensi[j][1:length(D_states), i] = res[1:length(D_states), j]
-      sensi[j][length(D_states)+1:end, i] = res[length(D_states)+1:end, j]
+      sensi[j][1:length(D_states), i-1] = res[1:length(D_states), j]
+      sensi[j][length(D_states)+1:end, i-1] = res[length(D_states)+1:end, j]
     end
     # Lesezeichen
     xx0_k = xx0 .=> res[1:size(D_states)[1],:]
@@ -508,13 +514,11 @@ function CalcSensitivityAfterJump(
 
     τx0_nom = s_star * xx0_k_float
     τx0_denom = s_star * f_pre_float
-    #display(τx0_denom)
-    τx0 = 0.0
-    if sum(τx0_denom) != 0.0
-        τx0 = -τx0_nom ./ τx0_denom
-    else
-        error("Trajectory is not hitting the switching surface transversally.")
+
+    if τx0_denom[1] == 0.0
+      error("Trajectory is not hitting the switching surface transversally.")
     end
+    τx0 = -τx0_nom ./ τx0_denom
 
     xx0_post = hx_star  * xx0_k_float - (f_post_float - hx_star * f_pre_float) * τx0
     yx0_post = -inv(gy_post_float) * gx_post_float * xx0_post
@@ -608,11 +612,19 @@ function CalcHybridTrajectorySensitivity(
     hx,hy,sx,sy = CalcTriggerAndStateResetJacobians(s,h,D_states,A_states)
 
     # Bestimmung der Zeitpunkte der Events im Loesungsobjekt + Anfang & Ende 
-    ind_sol = vcat(1,setdiff(indexin(evr[:,1],sol.t),[nothing]),length(sol.t))
+    #ind_sol = vcat(2,setdiff(indexin(evr[:,1],sol.t),[nothing]),length(sol.t))
+
+    # ind1 = Anfang der Indizes für die kontinuierlichen Sensis
+    ind1 = vcat(1,setdiff(indexin(evr[:,1],sol.t),[nothing]).+1)
+    # ind2 = Ende der Indizes für die kontinuierlichen Sensis
+    ind2 = vcat(setdiff(indexin(evr[:,1],sol.t),[nothing]),length(sol.t))
+    # zwischen den Anfang und End Indizes liegt das Event mit Zustandsänderung
+    ind_sol = Int.(hcat(ind1,ind2))
+
     @parameters t
 
-    for i = 1:length(ind_sol)-1
-        sol_part = sol[ind_sol[i]:ind_sol[i+1]]
+    for i = 1:size(ind_sol)[1]
+        sol_part = sol[ind_sol[i,1]:ind_sol[i,2]]
         sensi_part,xx0_k,yx0_k = ContinuousSensitivity(
                                                       sol_part,
                                                       xx0_k,
@@ -626,18 +638,18 @@ function CalcHybridTrajectorySensitivity(
                                                       Δt,
                                                       len_sens)
         for j = eachindex(sensi_part)
-            sensis[j][:,ind_sol[i]:ind_sol[i+1]-1] = sensi_part[j]
+            sensis[j][:,ind_sol[i,1]+1:ind_sol[i,2]] = sensi_part[j]
         end
-        if ind_sol[i+1] ≠ ind_sol[end]
+        if ind_sol[i,2] ≠ ind_sol[end,2]
             display("Event at t = $(evr[i,1])")
 
             xx0_k_float = [i[2] for i in xx0_k]
 
-            xk = D_states .=> vcat(sol[D0_indices,ind_sol[i+1]],sol.prob.p)
-            xk1 = D_states .=> vcat(sol[D0_indices,ind_sol[i+1]+1],sol.prob.p)
+            xk = D_states .=> vcat(sol[D0_indices,ind_sol[i,2]],sol.prob.p)    #hier τ-
+            xk1 = D_states .=> vcat(sol[D0_indices,ind_sol[i,2]+1],sol.prob.p) #hier τ+
         
-            yk  = A_states .=> sol[A_indices,ind_sol[i+1]]
-            yk1 = A_states .=> sol[A_indices,ind_sol[i+1]+1]
+            yk  = A_states .=> sol[A_indices,ind_sol[i,2]]   #hier τ-
+            yk1 = A_states .=> sol[A_indices,ind_sol[i,2]+1] #hier τ+
 
             #p_post = evr[i,3:end-2]
             hx_tmp = hx[Int(evr[i,4])]
@@ -655,8 +667,8 @@ function CalcHybridTrajectorySensitivity(
             g_post = g_all[Int(evr[i,2])]
 
             xx0_k1_float, yx0_k1_float = CalcSensitivityAfterJump(
-                                    [xk; yk;  t => sol.t[ind_sol[i+1]]],
-                                    [xk1;yk1; t => sol.t[ind_sol[i+1]+1]],
+                                    [xk; yk;  t => sol.t[ind_sol[i,2]]],
+                                    [xk1;yk1; t => sol.t[ind_sol[i,2]+1]],
                                     xx0_k_float,
                                     f_pre,
                                     f_post,
@@ -667,8 +679,11 @@ function CalcHybridTrajectorySensitivity(
                                     sx_tmp,
                                     sy_tmp,
                                 )
+            # speichern der Sensis nach dem Sprung
+            for k in size(xx0_k1_float)[2]
+              sensis[k][:,ind_sol[i,2]+1] = vcat(xx0_k1_float[:,k],yx0_k1_float[:,k])
+            end
         else
-
             return sensis
         end
 
@@ -694,11 +709,9 @@ function SortFDResults(res::Array{Float64},num_states)
   res_sort = Vector{Array{Float64}}(undef,0)
   len_t = Int(size(res)[2]/num_states)
   tmp_array = Array{Float64}(undef,0,len_t-2)
-  display(tmp_array)
  
   for i=1:size(res)[1]
     for j=0:num_states-1
-      display(i)
         tmp_array = [tmp_array;res[i,j*len_t+1+1:(j+1)*len_t-1]']
     end
     push!(res_sort,tmp_array)

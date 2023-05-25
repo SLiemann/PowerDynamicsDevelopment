@@ -42,16 +42,16 @@ function simPEload(theta)
   ode_fun = ODEFunction(f,mass_matrix = M)
   prob = ODEProblem(ode_fun, u0, (0.0, 0.025), p)
   _prob = remake(prob,p=theta)
-  prob = ODEForwardSensitivityProblem(ode_fun, u0, (0.0, 0.03), p,ForwardDiffSensitivity();)
-  sol = Array(solve(_prob, Rodas4(), callback = CallbackSet(cb1,cb2),dtmax=1e-4))' #,abstol=1e-10, 
-  #sol = solve(_prob, Rodas4(), callback = CallbackSet(cb1,cb2),dtmax=1e-4)
-  #return sol, evr
+  #prob = ODEForwardSensitivityProblem(ode_fun, u0, (0.0, 0.03), p,ForwardDiffSensitivity();)
+  #sol = Array(solve(_prob, Rodas4(), callback = CallbackSet(cb1,cb2),dtmax=1e-4))' #,abstol=1e-10, 
+  sol = solve(_prob, Rodas4(), callback = CallbackSet(cb1,cb2),dtmax=1e-4)
+  return sol, evr
 end
 
 p = [sqrt(2),100*pi,5e-3,1e-3,50]
 res = SortFDResults(ForwardDiff.jacobian(simPEload,p),4);
-plot(res[2][1,:].*100)
-plot!(hybrid_sen[5][1,:].*100)
+plot!(res[2][1,:])
+plot!(hybrid_sen[5][1,:])
 plot!(sol[3,:])
 
 
@@ -82,7 +82,7 @@ push!(s,sym_states[1])
 push!(s,-((symp[1]*cos(symp[2]*t) - sym_states[2])+sym_states[3]-1e-2))
 
 hybrid_sen = CalcHybridTrajectorySensitivity([mtk],sol,evr,s,hs);
-plot(sol.t[1:end-1],hybrid_sen[4][9,:])
+plot(sol.t,hybrid_sen[6][1,:])
 
 ###################################
 sens_prob = ODEForwardSensitivityProblem(f, u0, (0.0, 0.06), p,callback = CallbackSet(cb1,cb2),sensealg=ForwardDiffSensitivity(;chunk_size = 0,convert_tspan =true))
@@ -121,3 +121,11 @@ x, dp = extract_local_sensitivities(sol2);
 da = dp[3]
 
 plot(sol2.t, da') #,size=(2000,2000)
+
+
+
+ind1 = vcat(2,setdiff(indexin(evr[:,1],sol.t),[nothing]).+2)
+ind2 = vcat(setdiff(indexin(evr[:,1],sol.t),[nothing]),length(sol.t))
+ind_sol = Int.(hcat(ind1,ind2))
+
+ind_sol = vcat(2,setdiff(indexin(evr[:,1],sol.t),[nothing]),length(sol.t))
