@@ -356,6 +356,7 @@ function InitTrajectorySensitivity(mtk::Vector{ODESystem},sol::ODESolution)
   @parameters yx0[1:length(A_states), 1:len_sens] #yx0 are the symbolic sensitivities regarding algebraic states
   xx0 = Symbolics.scalarize(xx0)
   yx0 = Symbolics.scalarize(yx0)
+  display(yx0)
 
   # die Sensitivität eines Parameters/Zustand muss immer auf alle Zustände/Parameter berechnet werden: x_x1, p_x1, y_x1 
   # somit müssen die Ableitungen für ALLE Zustände berechnet werden!

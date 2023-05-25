@@ -1,3 +1,9 @@
+using DifferentialEquations
+using Plots
+using SciMLSensitivity
+using ForwardDiff
+include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/sensitivity_analyses/Local_Sensitivity.jl")
+
 function Example2()
     function f(dx,x,p,t)
         λ = p
