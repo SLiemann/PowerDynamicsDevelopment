@@ -37,141 +37,6 @@ my_rhs(x::Num) = x
 my_lhs(x::Equation) = x.lhs
 my_lhs(x::Num) = x
 
-function TimeDomainSensitivies(
-    pg::PowerGrid,
-    time_interval ::Tuple{Float64,Float64},
-    ic::Array{Float64,1},
-    p::Array{Float64,1},
-    sensis_u0_pd::Array{Int64,1},
-    sensis_p_pd::Array{Int64,1},
-  )
-    prob = ODEProblem(rhs(pg),ic,time_interval,p)
-    sol  = solve(prob,Rodas4())
-    TimeDomainSensitivies(pg,time_interval,ic,p,sensis_u0_pd,sensis_p_pd,sol)
-end
-
-function TimeDomainSensitivies(
-  pg::PowerGrid,
-  time_interval::Tuple{Float64,Float64},
-  ic::Array{Float64,1},
-  p::Array{Float64,1},
-  sensis_u0_pd::Array{Int64,1},
-  sensis_p_pd::Array{Int64,1},
-  sol::ODESolution,
-)
-  mtsys   = GetMTKSystem(pg,time_interval,ic,p)
-  TimeDomainSensitivies(mtsys,time_interval,ic,p,sensis_u0_pd,sensis_p_pd,sol)
-end
-
-function TimeDomainSensitivies(
-  mtsys::ODESystem,
-  time_interval::Tuple{Float64,Float64},
-  ic::Array{Float64,1},
-  p::Array{Float64,1},
-  sensis_u0_pd::Array{Int64,1},
-  sensis_p_pd::Array{Int64,1},
-  sol::ODESolution,
-)
-  fulleqs = equations(mtsys)
-  state = states(mtsys)
-  params = parameters(mtsys)
-  eqs, aeqs, D_states, A_states = GetSymbolicEquationsAndStates(fulleqs, state)
-
-  #it is assumed that state and rhs(powergrid).syms have the same order
-  #sensis_u0 = state[indexin(sensis_u0_pd, rhs(pg).syms)]
-  sensis_u0 = state[sensis_u0_pd]
-  #sensis_p_pd is here a list with indices of the parameters p
-  sensis_p = params[sensis_p_pd]
-
-  #dict from states and parameters with their starting values
-  symu0 = state .=> ic
-  symp = params .=> p
-
-  Fx, Fy, Gx, Gy = GetSymbolicFactorizedJacobian(eqs, aeqs, D_states, A_states)
-
-  Diff_u0 = Differential.(sensis_u0)
-  Diff_p = Differential.(sensis_p)
-  len_sens = size(sensis_u0)[1] + size(sensis_p)[1]
-  Fp = Array{Num}(undef, size(eqs)[1], len_sens)
-  Gp = Array{Num}(undef, size(aeqs)[1], len_sens)
-
-  Fp[:, 1:size(Diff_u0)[1]] .= Num(0)
-  Gp[:, 1:size(Diff_u0)[1]] .= Num(0)
-  for (ind, val) in enumerate(Diff_p)
-    Fp[:, ind+size(Diff_u0)[1]] =
-      Num.(expand_derivatives.(map(val, my_rhs.(eqs))))
-    Gp[:, ind+size(Diff_u0)[1]] =
-      Num.(expand_derivatives.(map(val, my_rhs.(aeqs))))
-  end
-
-  @parameters Δt
-  @parameters xx0[1:size(D_states)[1], 1:len_sens] #xx0 are the sensitivities regargind differential states
-  @parameters yx0[1:size(A_states)[1], 1:len_sens] #yx0 are the sensitivities regargind algebraic states
-  M = [
-    Δt/2*Fx-I Δt/2*Fy
-    Gx Gy
-  ]
-  N =
-    isempty(aeqs) ? -xx0 - Δt / 2 * (Fx * xx0 + Fy * yx0 + Fp) :
-    [
-      -xx0 - Δt / 2 * (Fx * xx0 + Fy * yx0 + Fp)
-      zeros(size(A_states)[1], len_sens)
-    ]
-  O = [
-    -Δt / 2 * Fp
-    -Gp
-  ]
-
-  #Initialisierung: xx0 enthält die Sensis für x0 und p für x
-  xx0_k = xx0 .=> 0.0
-  xx0_f = zeros(size(xx0)[1], len_sens)
-  ind = setdiff(indexin(sensis_u0, D_states),[nothing])
-  for i = 1:length(ind)
-    xx0_k[i, ind[i]] = xx0_k[i, ind[i]][1] => 1.0
-    xx0_f[i, ind[i]] = 1.0
-  end
-  # Bei den Sensis für y werden zuerst die dy/x0 Sensi initialisiert
-  Gy_float = Substitute(Gy, [symu0; symp])
-  # for increasing calculation of inv(Gy)
-  yx0_t0 = -inv(Gy_float) * (Gx * xx0_f[:, 1:size(sensis_u0)[1]])
-  yp_t0 =
-    -inv(Gy_float) *
-    (Gp * vcat(zeros(size(sensis_u0)[1], size(sensis_p)[1]), I))
-  yx0_k = yx0 .=> Substitute([yx0_t0 yp_t0], [symu0; symp])
-
-  sensi = Vector{Array{Float64}}(undef, len_sens)
-  for i = 1:length(sensi)
-    sensi[i] = Array{Float64}(
-      undef,
-      size(D_states)[1] + size(A_states)[1],
-      size(sol)[2] - 1,
-    )
-  end
-
-  for i = 1:size(sol)[2]-1
-    dt = sol.t[i+1] - sol.t[i]
-
-    uk = state .=> sol.u[i]
-    uk1 = state .=> sol.u[i+1]
-
-    Mfloat = Substitute(M, [uk1; symp; Δt => dt])
-    Nfloat = Substitute(N, [uk; symp; vec(xx0_k); vec(yx0_k); Δt => dt])
-    Ofloat = Substitute(O, [uk1; symp; Δt => dt])
-    res = inv(Mfloat) * (Nfloat + Ofloat)
-
-    for j = 1:length(sensi)
-      ind_y = setdiff(indexin(A_states, state), [nothing])
-      ind_x = setdiff(indexin(D_states, state), [nothing])
-      sensi[j][ind_x, i] = res[1:size(D_states)[1], j]
-      sensi[j][ind_y, i] = res[size(D_states)[1]+1:end, j]
-    end
-
-    xx0_k = xx0 .=> res[1:size(D_states)[1], :]
-    yx0_k = yx0 .=> res[size(D_states)[1]+1:end, :]
-  end
-  return sensi
-end
-
 function GetFactorisedSymbolicStates(mtsys::ODESystem)
   fulleqs = equations(mtsys)
   state = states(mtsys)
@@ -523,7 +388,7 @@ function CalcSensitivityAfterJump(
     xx0_post = hx_star  * xx0_k_float - (f_post_float - hx_star * f_pre_float) * τx0
     yx0_post = -inv(gy_post_float) * gx_post_float * xx0_post
 
-    return xx0_post, yx0_post
+    return xx0_post, yx0_post, τx0
 end
 
 function GetEqsJacobianSensMatrices(mtk::Vector{ODESystem},xx0::Matrix{Num},yx0::Matrix{Num})
@@ -624,6 +489,8 @@ function CalcHybridTrajectorySensitivity(
 
     @parameters t
 
+    τx0 = zeros(size(evr)[1],len_sens)
+
     for i = 1:size(ind_sol)[1]
         sol_part = sol[ind_sol[i,1]:ind_sol[i,2]]
         sensi_part,xx0_k,yx0_k = ContinuousSensitivity(
@@ -668,7 +535,7 @@ function CalcHybridTrajectorySensitivity(
             f_post = f_all[Int(evr[i,2])]
             g_post = g_all[Int(evr[i,2])]
 
-            xx0_k1_float, yx0_k1_float = CalcSensitivityAfterJump(
+            xx0_k1_float, yx0_k1_float, tmp_τx0 = CalcSensitivityAfterJump(
                                     [xk; yk;  t => sol.t[ind_sol[i,2]]],
                                     [xk1;yk1; t => sol.t[ind_sol[i,2]+1]],
                                     xx0_k_float,
@@ -685,6 +552,7 @@ function CalcHybridTrajectorySensitivity(
             for k in 1:size(xx0_k1_float)[2]
               sensis[k][:,ind_sol[i,2]+1] = vcat(xx0_k1_float[:,k],yx0_k1_float[:,k])
             end
+            τx0[i,:] = tmp_τx0
         else
             #deleting parameter sensitivities
             len_params = length(parameters(mtk[1]))
@@ -696,7 +564,7 @@ function CalcHybridTrajectorySensitivity(
               tmp[A_indices,:] = sensis[k][len_d0+len_params+1:end,:] #y_x0
               sensis[k] = deepcopy(tmp)
             end
-            return sensis
+            return sensis, τx0
         end
 
         xx0_k = xx0 .=> xx0_k1_float
@@ -730,4 +598,12 @@ function SortFDResults(res::Array{Float64},num_states)
     tmp_array = Array{Float64}(undef,0,len_t-2)
   end
   return res_sort
+end
+
+function ApproximatedTrajectory(sol::ODESolution,sens::Matrix{Float64},Δx0::Float64)
+  sol_per = similar(sol[:,:])
+  for i in 1:length(sol)
+      sol_per[:,i] = sol[:,i] + sens[:,i].*Δx0
+  end
+  return sol_per
 end

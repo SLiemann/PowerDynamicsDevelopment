@@ -4,7 +4,7 @@ using SciMLSensitivity
 using ForwardDiff
 include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/sensitivity_analyses/Local_Sensitivity.jl")
 
-function Example1()
+function Example1(;p=[2.75])
     function f(dx,x,p,t)
         dx[1] = x[1] + x[3]*x[2] 
         dx[2] = x[4]*x[1] + x[2]
@@ -41,7 +41,7 @@ function Example1()
     cb2 = ContinuousCallback(s2,h2)
 
     u0 = [0.0,1,-100,10,1,0]
-    p = [2.75]
+    
     ode_fun = ODEFunction(f,mass_matrix = M)#
     prob = ODEProblem(ode_fun, u0, (0.0, 0.2), p)
     sol = solve(prob, Rodas4(), callback = CallbackSet(cb1,cb2),dtmax=1e-4)
@@ -51,17 +51,16 @@ end
 sol,evr = Example1();
 plot(sol.t,sol[1,:])
 plot!(sol.t,sol[2,:])
-plot(sol.t,sol[5,:])
-plot(sol.t,sol[6,:])
+# plot(sol.t,sol[5,:])
+# plot(sol.t,sol[6,:])
 
-plot(sol,idxs=(1,2),xlim=(-4,2),ylim=(-2,2))
-x = collect(-4:0.1:2)
-y = 0.36.*x
-plot!(x,y)
-plot!(x,2.75/0.36*y)
+# plot(sol,idxs=(1,2),xlim=(-4,2),ylim=(-2,2))
+# x = collect(-4:0.1:2)
+# y = 0.36.*x
+# plot!(x,y)
+# plot!(x,2.75/0.36*y)
 
 #######
-
 mtk = modelingtoolkitize(sol.prob)
 sym_states = states(mtk)
 symp = parameters(mtk)
@@ -78,9 +77,24 @@ s = Vector{Num}(undef,0)
 push!(s,(symp[1]*sym_states[1]-sym_states[2])/sym_states[5]+sym_states[5]-1)
 push!(s,(0.36*sym_states[1]-sym_states[2])/sym_states[5]+sym_states[5]+1)
 
-hybrid_sen = CalcHybridTrajectorySensitivity([mtk],sol,evr,s,hs);
-plot(sol.t,hybrid_sen[6][1,:])
-plot!(sol.t,hybrid_sen[6][2,:])
+hybrid_sen,Δτ = CalcHybridTrajectorySensitivity([mtk],sol,evr,s,hs);
+# plot(sol.t,hybrid_sen[6][1,:])
+# plot!(sol.t,hybrid_sen[6][2,:])
 
+############
+Δp = 3.0 - 2.75
+sol_appr = ApproximatedTrajectory(sol,hybrid_sen[6],Δp)
+sol_per,evr = Example1(p=[3.0]);
 
-tmp_sen = deepcopy(hybrid_sen)
+scatter(sol.t,sol[1,:])
+scatter!(sol.t,sol_appr[1,:],xlims=(0.11,0.12),ylims=(-0.55,-0.49))
+scatter!(sol_per.t,sol_per[1,:])
+
+scatter(sol.t,hybrid_sen[6][1,:],xlims=(0.11,0.12))
+
+# ind1 = Anfang der Indizes für die kontinuierlichen Sensis
+ind1 = vcat(1,setdiff(indexin(evr[:,1],sol.t),[nothing]).+1)
+# ind2 = Ende der Indizes für die kontinuierlichen Sensis
+ind2 = vcat(setdiff(indexin(evr[:,1],sol.t),[nothing]),length(sol.t))
+# zwischen den Anfang und End Indizes liegt das Event mit Zustandsänderung
+ind_sol = Int.(hcat(ind1,ind2))
