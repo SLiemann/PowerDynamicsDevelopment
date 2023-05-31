@@ -7,44 +7,44 @@ include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/sensitivity_analys
 function simPEload(theta)
   function f(dx,x,p,t)
       Ud,w,L,C,R = p
-      dx[1] = (Ud*cos(w*t) - x[2])/L * x[3]
-      dx[2] = (x[1] - x[2]/R)/C
-      dx[3] = 0.0
-      dx[4] = x[4] - Ud*cos(w*t)
+      dx[1] = x[1] - Ud*cos(w*t)
+      dx[2] = (x[1] - x[3])/L * x[4]
+      dx[3] = (x[2] - x[3]/R)/C
+      dx[4] = 0.0
   end
   #dx[4] = x[4] - (x[1]*x[3] - C*dx[2]) 
-  M = [1. 0  0  0
+  M = [0  0  0  0
        0  1. 0  0
        0  0  1. 0
-       0  0  0  0];
+       0  0  0  1.];
 
   evr = Array{Float64}(undef,0,4)
 
-  s1(u, t, integrator) = u[1] #+ integrator.u[3] - 1
+  s1(u, t, integrator) = u[2] #+ integrator.u[3] - 1
   function h1(integrator) 
-    integrator.u[3] = 0.0
+    integrator.u[4] = 0.0
     evr = vcat(evr, [integrator.t 1 1 1])
   end
   cb1 = ContinuousCallback(s1,nothing, affect_neg! = h1)
 
   function s2(u, t, integrator)
       Ud,w,L,C,R = integrator.p
-      -((Ud*cos(w*t) - integrator.u[2]) + integrator.u[3] - 1e-2)
+      -((Ud*cos(w*t) - integrator.u[3]) + integrator.u[4] - 1e-2)
   end
   function h2(integrator) 
-    integrator.u[3] = 1.0
+    integrator.u[4] = 1.0
     evr = vcat(evr, [integrator.t 1 2 2])
   end
   cb2 = ContinuousCallback(s2, nothing,affect_neg! =h2)
 
-  u0 = [0.0,0.0,1.0,sqrt(2)]
+  u0 = [sqrt(2),0.0,0.0,1.0]
   p = [sqrt(2),100*pi,5e-3,1e-3,50]
   ode_fun = ODEFunction(f,mass_matrix = M)
-  prob = ODEProblem(ode_fun, u0, (0.0, 0.025), p)
+  prob = ODEProblem(ode_fun, u0, (0.0, 0.1), p)
   _prob = remake(prob,p=theta)
   #prob = ODEForwardSensitivityProblem(ode_fun, u0, (0.0, 0.03), p,ForwardDiffSensitivity();)
   #sol = Array(solve(_prob, Rodas4(), callback = CallbackSet(cb1,cb2),dtmax=1e-4))' #,abstol=1e-10, 
-  sol = solve(_prob, Rodas4(), callback = CallbackSet(cb1,cb2),dtmax=1e-4)
+  sol = solve(_prob, Rodas4(), callback = CallbackSet(cb1,cb2),dtmax=5e-5)
   return sol, evr
 end
 
@@ -69,20 +69,20 @@ sym_states = states(mtk)
 symp = parameters(mtk)
 
 hs = Vector{Vector{Num}}(undef,0)
-ident = Num.(vcat(sym_states[1:3],symp))
+ident = Num.(vcat(sym_states[2:4],symp))
 ident[3] = 0.0
 push!(hs,ident)
-ident =  Num.(vcat(sym_states[1:3],symp))
+ident =  Num.(vcat(sym_states[2:4],symp))
 ident[3] = 1.0
 push!(hs,ident)
 
 @parameters t
 s = Vector{Num}(undef,0)
-push!(s,sym_states[1])
-push!(s,-((symp[1]*cos(symp[2]*t) - sym_states[2])+sym_states[3]-1e-2))
+push!(s,sym_states[2])
+push!(s,-((symp[1]*cos(symp[2]*t) - sym_states[3])+sym_states[4]-1e-2))
 
 hybrid_sen = CalcHybridTrajectorySensitivity([mtk],sol,evr,s,hs);
-plot(sol.t,hybrid_sen[6][1,:])
+plot(sol.t,hybrid_sen[4][1,:])
 
 ###################################
 sens_prob = ODEForwardSensitivityProblem(f, u0, (0.0, 0.06), p,callback = CallbackSet(cb1,cb2),sensealg=ForwardDiffSensitivity(;chunk_size = 0,convert_tspan =true))
@@ -129,3 +129,17 @@ ind2 = vcat(setdiff(indexin(evr[:,1],sol.t),[nothing]),length(sol.t))
 ind_sol = Int.(hcat(ind1,ind2))
 
 ind_sol = vcat(2,setdiff(indexin(evr[:,1],sol.t),[nothing]),length(sol.t))
+
+
+tmp = deepcopy(hybrid_sen)
+len_params = 5
+len_d0 = 3
+D0_indices = [1,2,4]
+A_indices = [3]
+len_states =  length(states([mtk][1]))
+tmp2 = zeros(Float64,len_states,length(sol))
+for k in 1:length(sensis)
+  tmp[D0_indices,:] = sensis[k][1:len_d0,:]
+  tmp[A_indices,:] = sensis[k][len_d0+len_params+1:end,:]
+  sensis[k] = deepcopy(tmp)
+end

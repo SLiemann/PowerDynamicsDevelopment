@@ -356,7 +356,6 @@ function InitTrajectorySensitivity(mtk::Vector{ODESystem},sol::ODESolution)
   @parameters yx0[1:length(A_states), 1:len_sens] #yx0 are the symbolic sensitivities regarding algebraic states
   xx0 = Symbolics.scalarize(xx0)
   yx0 = Symbolics.scalarize(yx0)
-  display(yx0)
 
   # die Sensitivität eines Parameters/Zustand muss immer auf alle Zustände/Parameter berechnet werden: x_x1, p_x1, y_x1 
   # somit müssen die Ableitungen für ALLE Zustände berechnet werden!
@@ -385,8 +384,8 @@ function InitTrajectorySensitivity(mtk::Vector{ODESystem},sol::ODESolution)
   for i= eachindex(D_states)
     sensis[i][i,1] = 1.0
   end
-  for i= eachindex(A_states) .+ length(D_states)
-    sensis[i-length(D_states)][i,1] = yx0f[i-length(D_states)]
+  for i= 1:length(sensis)
+    sensis[i][length(D_states)+1:end,1] = yx0f[:,i]
   end
   return xx0_k,yx0_k,A_states,D_states, A_indices, D0_indices, matrices,Δt,len_sens, sensis
 end
@@ -592,6 +591,7 @@ function CalcHybridTrajectorySensitivity(
     #p_sensi::Vector{Int64},
 
     xx0_k,yx0_k,A_states,D_states, A_indices, D0_indices,matrices,Δt,len_sens, sensis = InitTrajectorySensitivity(mtk,sol);
+
     f_all, g_all, J_all, M_all, N_all = matrices
     Fx_all, Fy_all, Gx_all, Gy_all = J_all
     xx0 = [i[1] for i in xx0_k]
@@ -641,6 +641,7 @@ function CalcHybridTrajectorySensitivity(
         for j = eachindex(sensi_part)
             sensis[j][:,ind_sol[i,1]+1:ind_sol[i,2]] = sensi_part[j]
         end
+
         if ind_sol[i,2] ≠ ind_sol[end,2]
             display("Event at t = $(evr[i,1])")
 
@@ -681,10 +682,20 @@ function CalcHybridTrajectorySensitivity(
                                     sy_tmp,
                                 )
             # speichern der Sensis nach dem Sprung
-            for k in size(xx0_k1_float)[2]
+            for k in 1:size(xx0_k1_float)[2]
               sensis[k][:,ind_sol[i,2]+1] = vcat(xx0_k1_float[:,k],yx0_k1_float[:,k])
             end
         else
+            #deleting parameter sensitivities
+            len_params = length(parameters(mtk[1]))
+            len_d0 = length(D0_indices)
+            len_states =  length(states(mtk[1]))
+            tmp = zeros(Float64,len_states,length(sol))
+            for k in 1:length(sensis)
+              tmp[D0_indices,:] = sensis[k][1:len_d0,:] #x_x0
+              tmp[A_indices,:] = sensis[k][len_d0+len_params+1:end,:] #y_x0
+              sensis[k] = deepcopy(tmp)
+            end
             return sensis
         end
 

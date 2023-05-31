@@ -6,7 +6,7 @@ begin
     nothing
 end
 
-pgsol = run_LTVS_N32_simulation(1,1,(0.0,2.0));
+pgsol = run_LTVS_N32_simulation(1,1,(0.0,5.0));
 
 plot([myplot(pgsol,"bus_gfm",:Ps),myplot(pgsol,"bus_gfm",:P0)])
 plot([myplot(pgsol,"bus_gfm",:Qs),myplot(pgsol,"bus_gfm",:Q0)])

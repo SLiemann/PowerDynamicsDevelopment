@@ -81,3 +81,6 @@ push!(s,(0.36*sym_states[1]-sym_states[2])/sym_states[5]+sym_states[5]+1)
 hybrid_sen = CalcHybridTrajectorySensitivity([mtk],sol,evr,s,hs);
 plot(sol.t,hybrid_sen[6][1,:])
 plot!(sol.t,hybrid_sen[6][2,:])
+
+
+tmp_sen = deepcopy(hybrid_sen)
