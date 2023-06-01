@@ -157,6 +157,21 @@ function GetSymbolicFactorizedJacobian(
   return Fx, Fy, Gx, Gy
 end
 
+function GetSymbolicFactorizedJacobian(
+  eqs::Array{Equation,1},
+  aeqs::Array{Equation,1},
+  D_states::Vector{Term{Real, Base.ImmutableDict{DataType, Any}}},
+  A_states::Vector{Term{Real, Base.ImmutableDict{DataType, Any}}},
+)
+  Fx = GetJacobian(eqs,D_states)
+  Fy = GetJacobian(eqs,A_states)
+
+  Gx = GetJacobian(aeqs,D_states)
+  Gy = GetJacobian(aeqs,A_states)
+
+  return Fx, Fy, Gx, Gy
+end
+
 function GetSymbolicFactorizedJacobian(mtsys::ODESystem)
   fulleqs = equations(mtsys)
   symstates = states(mtsys)
@@ -600,10 +615,15 @@ function SortFDResults(res::Array{Float64},num_states)
   return res_sort
 end
 
-function ApproximatedTrajectory(sol::ODESolution,sens::Matrix{Float64},Δx0::Float64)
-  sol_per = similar(sol[:,:])
-  for i in 1:length(sol)
-      sol_per[:,i] = sol[:,i] + sens[:,i].*Δx0
+
+function ApproximatedTrajectory(sol::ODESolution,sens::VecOrMat{Float64},Δx0::Float64)
+  ApproximatedTrajectory(sol[:,:],sens,Δx0)
+end
+
+function ApproximatedTrajectory(sol::VecOrMat{Float64},sens::VecOrMat{Float64},Δx0::Float64)
+  sol_appr = similar(sol[:,:])
+  for i in 1:size(sol)[2]
+    sol_appr[:,i] = sol[:,i] + sens[:,i].*Δx0
   end
-  return sol_per
+  return sol_appr
 end
