@@ -86,23 +86,19 @@ hybrid_sen,Δτ = CalcHybridTrajectorySensitivity([mtk],sol,evr,s,hs);
 sol_appr = ApproximatedTrajectory(sol,hybrid_sen[6],Δp)
 sol_per,evr = Example1(p=[3.0]);
 
-scatter(sol.t,sol[1,:])
-scatter!(sol.t,sol_appr[1,:])
-scatter!(sol_per.t,sol_per[1,:])
-scatter!(sol.t,sol_refin[1,:])
-#,xlims=(0.11,0.12),ylims=(-0.55,-0.49)
-scatter(sol.t,hybrid_sen[6][1,:],xlims=(0.11,0.12))
 
-plot(sol.t,sol[1,:],xlims=(0.18,0.2),ylims=(-0.05,-0.))
-plot!(sol.t,sol_appr[1,:],xlims=(0.09,0.2),ylims=(-0.55,-0.))
-plot(sol_per.t,sol_per[1,:],xlims=(0.18,0.2),ylims=(-0.05,-0.))
-plot!(sol.t,sol_refin[1,:],xlims=(0.09,0.2),ylims=(-0.55,0))
-plot!(sol.t,sol_refin[1,:],xlims=(0.18,0.2),ylims=(-0.05,-0.))
-
+x=4
+xl=(0.09,0.11)
+yl=(-0.55,0)
+plot(sol.t,sol[x,:])
+plot!(sol.t,sol_appr[x,:])
+plot!(sol_per.t,sol_per[x,:])
+plot!(sol.t,sol_refin[x,:])
+# ,xlims=xl,ylims=yl
 
 #Input: [mtk],sol,evr, sensis,Δτ x0_ind, Δx0
-x0_ind = 6
-Δx0 = 0.25
+x0_ind = 4
+Δx0 = 0.5
 mtk = [mtk]
 sensis = deepcopy(hybrid_sen)
 # ind1 = Anfang der Indizes für die kontinuierlichen Sensis
@@ -114,12 +110,15 @@ ind_sol = Int.(hcat(ind1,ind2,zeros(size(ind1)[1],2)))
 
 for i=1:size(ind_sol)[1]-1
     if Δτ[i,x0_ind] >= 0.0
-        ind = findall(>(0),sol.t[ind_sol[i,2]+1] .<= sol.t .< sol.t[ind_sol[i,2]+1] + Δτ[i,x0_ind]*Δx0)
+        ind = findall(>(0),sol.t[ind_sol[i,2]+1] .< sol.t .< sol.t[ind_sol[i,2]+1] + Δτ[i,x0_ind]*Δx0)
+        ind_sol[i,3] = ind[1]-1
+        ind_sol[i,4] = ind[end]
     else
-        ind = findall(>(0),sol.t[ind_sol[i,2]+1] + Δτ[i,x0_ind]*Δx0 .< sol.t .< sol.t[ind_sol[i,2]+1])
+        ind = findall(>(0),sol.t[ind_sol[i,2]+1] + Δτ[i,x0_ind]*Δx0 .< sol.t .<= sol.t[ind_sol[i,2]+1])
+        ind_sol[i,2] = ind[1]-1
+        ind_sol[i,3] = ind[1]
+        ind_sol[i,4] = ind[end]-1
     end
-    ind_sol[i,3] = ind[1]
-    ind_sol[i,4] = ind[end]
 end
 
 
@@ -185,12 +184,52 @@ for i=1:size(ind_sol)[1]
                 sol_refin[A_indices,ind_sol[i,3]+ind-1] = y_part + gygx * dt
             end
         else
-            error("not implemented yet")
+            #for negative values
+
+            # maybe thats not right here, because the evr saves the NEW active 
+            # set of equations, or? So evr[i,] would contain already f+ etc.
+            # For Δτ  than a evr[i-1] have to be used and evr[1] as first entry.
+            f = f_all[Int(evr[i,2])] # here f+ etc. have to be taken
+            Gx = Gx_all[Int(evr[i,2])]
+            Gy = Gy_all[Int(evr[i,2])]
+            
+            #Approximation until jump
+            # if i == 1
+                tmp_sol = sol[:,ind_sol[i,1]:ind_sol[i,2]]
+                tmp_sens = sensis[x0_ind][:,ind_sol[i,1]:ind_sol[i,2]]
+                sol_refin[:,ind_sol[i,1]:ind_sol[i,2]] = ApproximatedTrajectory(tmp_sol,tmp_sens,Δx0)
+            # else # the solution and sensis after the new jumps have to be used
+            #     tmp_sol = sol[:,ind_sol[i,1]+1:ind_sol[i,2]]
+            #     tmp_sens = sensis[x0_ind][:,ind_sol[i-1,4]+1:ind_sol[i,2]]
+            #     sol_refin[:,ind_sol[i-1,4]+1:ind_sol[i,2]] = ApproximatedTrajectory(tmp_sol,tmp_sens,Δx0)
+            # end
+
+            xk = sym_states .=> sol[:,ind_sol[i,4]+1]  # the first values after the original jump -> are used
+            f_f  = Float64.(Substitute(f,[xk;pk]))   # for all approximations within t+Δτ
+            Gx_f = Float64.(Substitute(Gx,[xk;pk]))
+            Gy_f = Float64.(Substitute(Gy,[xk;pk]))
+
+            gygx = inv(Gy_f)*Gx_f*f_f
+
+            x_part = sol[D0_indices,ind_sol[i,4]+1] + sensis[x0_ind][D0_indices,ind_sol[i,4]+1] * Δx0
+            y_part = sol[A_indices,ind_sol[i,4]+1]  + sensis[x0_ind][A_indices,ind_sol[i,4]+1] * Δx0
+ 
+            for (ind,j) in enumerate(sol.t[ind_sol[i,3]:ind_sol[i,4]])
+                dt = j .- sol.t[ind_sol[i,4]+1]
+                sol_refin[D0_indices, ind_sol[i,3]+ind-1] = x_part + f_f  * dt
+                sol_refin[A_indices,ind_sol[i,3]+ind-1] = y_part + gygx * dt
+            end
         end
     else
-        tmp_sol = sol[:,ind_sol[i-1,4]+1:ind_sol[i,2]]
-        tmp_sens = sensis[x0_ind][:,ind_sol[i-1,4]+1:ind_sol[i,2]]
-        sol_refin[:,ind_sol[i-1,4]+1:ind_sol[i,2]] = ApproximatedTrajectory(tmp_sol,tmp_sens,Δx0)
+        if Δτ[i,x0_ind] >= 0.0
+            tmp_sol = sol[:,ind_sol[i-1,4]+1:ind_sol[i,2]]
+            tmp_sens = sensis[x0_ind][:,ind_sol[i-1,4]+1:ind_sol[i,2]]
+            sol_refin[:,ind_sol[i-1,4]+1:ind_sol[i,2]] = ApproximatedTrajectory(tmp_sol,tmp_sens,Δx0)
+        else
+            tmp_sol = sol[:,ind_sol[i,1]:ind_sol[i,2]]
+            tmp_sens = sensis[x0_ind][:,ind_sol[i,1]:ind_sol[i,2]]
+            sol_refin[:,ind_sol[i,1]:ind_sol[i,2]] = ApproximatedTrajectory(tmp_sol,tmp_sens,Δx0)
+        end
     end
 end
 

@@ -81,7 +81,7 @@ s = Vector{Num}(undef,0)
 push!(s,sym_states[2])
 push!(s,-((symp[1]*cos(symp[2]*t) - sym_states[3])+sym_states[4]-1e-2))
 
-hybrid_sen = CalcHybridTrajectorySensitivity([mtk],sol,evr,s,hs);
+hybrid_sen,Δτ = CalcHybridTrajectorySensitivity([mtk],sol,evr,s,hs);
 plot(sol.t,hybrid_sen[4][1,:])
 
 ###################################
