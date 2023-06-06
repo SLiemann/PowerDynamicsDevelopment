@@ -627,3 +627,147 @@ function ApproximatedTrajectory(sol::VecOrMat{Float64},sens::VecOrMat{Float64},�
   end
   return sol_appr
 end
+
+function TrajectoryRefinement(mtk::Vector{ODESystem},sol::ODESolution,evr::Matrix{Float64},sensis::Vector{Array{Float64}},Δτ::Matrix{Float64},x0_ind::Int64,Δx0::Float64)
+
+  # ind1 = Anfang der Indizes für die kontinuierlichen Sensis
+  ind1 = vcat(1,setdiff(indexin(evr[:,1],sol.t),[nothing]).+1)
+  # ind2 = Ende der Indizes für die kontinuierlichen Sensis
+  ind2 = vcat(setdiff(indexin(evr[:,1],sol.t),[nothing]),length(sol.t))
+  # zwischen den Anfang und End Indizes liegt das Event mit Zustandsänderung
+  ind_sol = Int.(hcat(ind1,ind2,zeros(size(ind1)[1],2)))
+  display(ind_sol)
+  for i=1:size(ind_sol)[1]-1
+      if Δτ[i,x0_ind]*Δx0 >= 0.0
+          # WENN EIN EVENT SHIFT ÜBER EIN ANDERES EVENT DRÜBER GEHT  
+          # MÜSSTE MAN EIGENTLICH DIE INDIZES WIEDER ANPASSEN UND NICHT SO WEIT GEHEN.
+          # ANSONSTEN WERDEN WIEDER ALTE WERTE VERÄNDERT
+          ind = findall(>(0),sol.t[ind_sol[i,2]+1] .< sol.t .< sol.t[ind_sol[i,2]+1] + Δτ[i,x0_ind]*Δx0)
+          if isempty(ind) # if the shift in time is not that big to reach the next solution point
+              ind_sol[i,3] = ind_sol[i,2]+1
+              ind_sol[i,4] = ind_sol[i,2]+1
+          else
+              ind_sol[i,3] = ind[1]-1
+              ind_sol[i,4] = ind[end]
+          end
+      else
+          ind = findall(>(0),sol.t[ind_sol[i,2]+1] + Δτ[i,x0_ind]*Δx0 .< sol.t .<= sol.t[ind_sol[i,2]+1])
+          if isempty(ind)
+              ind_sol[i,3] = ind_sol[i,2]+1
+              ind_sol[i,4] = ind_sol[i,2]+1
+          else
+              ind_sol[i,2] = ind[1]-1
+              ind_sol[i,3] = ind[1]
+              ind_sol[i,4] = ind[end]-1
+          end
+      end
+  end
+  display(ind_sol)
+
+  f_all = Vector{Array{Num,1}}(undef,length(mtk))
+  Fx_all = Vector{Array{Num,2}}(undef,length(mtk))
+  Fy_all = similar(Fx_all)
+  Gx_all = similar(Fx_all)
+  Gy_all = similar(Fx_all)
+  for (ind,val) in enumerate(mtk)
+      fulleqs = equations(val)
+      symstates = states(val)
+      sym_params = parameters(val)
+      eqs, aeqs, x, y = GetSymbolicEquationsAndStates(fulleqs, symstates)
+
+      Fx_all[ind],Fy_all[ind],Gx_all[ind],Gy_all[ind] = GetSymbolicFactorizedJacobian(eqs, aeqs, x, y)
+      f_all[ind] = my_rhs.(eqs)
+  end
+  sol_refin = zeros(size(sol))
+
+  #get indices
+  sym_states = states(mtk[1]);
+  sym_params = parameters(mtk[1]);
+
+  D0_states, A_states = GetFactorisedSymbolicStates(mtk[1]);
+
+  D0_indices= Int64.(setdiff(indexin(D0_states, sym_states), [nothing]))
+  A_indices = Int64.(setdiff(indexin(A_states, sym_states), [nothing]))
+
+  pk = sym_params .=> sol.prob.p
+
+  for i=1:size(ind_sol)[1]
+      if i !=size(ind_sol)[1]
+          if Δτ[i,x0_ind]*Δx0 >= 0.0
+              
+              f = f_all[Int(evr[i,2])]
+              Gx = Gx_all[Int(evr[i,2])]
+              Gy = Gy_all[Int(evr[i,2])]
+              
+              #Approximation until jump
+              if i == 1
+                  tmp_sol = sol[:,ind_sol[i,1]:ind_sol[i,2]]
+                  tmp_sens = sensis[x0_ind][:,ind_sol[i,1]:ind_sol[i,2]]
+                  #display(length(tmp_sol))
+                  sol_refin[:,ind_sol[i,1]:ind_sol[i,2]] = ApproximatedTrajectory(tmp_sol,tmp_sens,Δx0)
+              else # the solution and sensis after the new jumps have to be used
+                  tmp_sol = sol[:,ind_sol[i-1,4]+1:ind_sol[i,2]]
+                  tmp_sens = sensis[x0_ind][:,ind_sol[i-1,4]+1:ind_sol[i,2]]
+                  sol_refin[:,ind_sol[i-1,4]+1:ind_sol[i,2]] = ApproximatedTrajectory(tmp_sol,tmp_sens,Δx0)
+              end
+
+              xk = sym_states .=> sol[:,ind_sol[i,2]]  # the last values BEFORE the original jump -> are used
+              f_f  = Float64.(Substitute(f,[xk;pk]))   # for all approximations within t+Δτ
+              Gx_f = Float64.(Substitute(Gx,[xk;pk]))
+              Gy_f = Float64.(Substitute(Gy,[xk;pk]))
+
+              gygx = inv(Gy_f)*Gx_f*f_f
+
+              x_part = sol_refin[D0_indices,ind_sol[i,2]]
+              y_part = sol_refin[A_indices, ind_sol[i,2]]
+  
+              for (ind,j) in enumerate(sol.t[ind_sol[i,3]:ind_sol[i,4]])
+                  dt = j .- sol.t[ind_sol[i,2]]
+                  sol_refin[D0_indices, ind_sol[i,3]+ind-1] = x_part + f_f  * dt
+                  sol_refin[A_indices,ind_sol[i,3]+ind-1] = y_part + gygx * dt
+              end
+          else
+              #for negative values
+              # maybe thats not right here, because the evr saves the NEW active 
+              # set of equations, or? So evr[i,] would contain already f+ etc.
+              # For Δτ  than a evr[i-1] have to be used and evr[1] as first entry.
+              f = f_all[Int(evr[i,2])] # here f+ etc. have to be taken
+              Gx = Gx_all[Int(evr[i,2])]
+              Gy = Gy_all[Int(evr[i,2])]
+              
+              #Approximation until jump
+               if i == 1
+                  tmp_sol = sol[:,ind_sol[i,1]:ind_sol[i,2]]
+                  tmp_sens = sensis[x0_ind][:,ind_sol[i,1]:ind_sol[i,2]]
+                  sol_refin[:,ind_sol[i,1]:ind_sol[i,2]] = ApproximatedTrajectory(tmp_sol,tmp_sens,Δx0)
+               else # the solution and sensis after the new jumps have to be used
+                  tmp_sol = sol[:,ind_sol[i-1,4]+1:ind_sol[i,2]]
+                  tmp_sens = sensis[x0_ind][:,ind_sol[i-1,4]+1:ind_sol[i,2]]
+                  sol_refin[:,ind_sol[i-1,4]+1:ind_sol[i,2]] = ApproximatedTrajectory(tmp_sol,tmp_sens,Δx0)
+               end
+              xk = sym_states .=> sol[:,ind_sol[i,4]+1]  # the first values after the original jump -> are used
+              f_f  = Float64.(Substitute(f,[xk;pk]))   # for all approximations within t+Δτ
+              Gx_f = Float64.(Substitute(Gx,[xk;pk]))
+              Gy_f = Float64.(Substitute(Gy,[xk;pk]))
+
+              gygx = inv(Gy_f)*Gx_f*f_f
+              x_part = sol[D0_indices,ind_sol[i,4]+1] + sensis[x0_ind][D0_indices,ind_sol[i,4]+1] * Δx0
+              y_part = sol[A_indices,ind_sol[i,4]+1]  + sensis[x0_ind][A_indices,ind_sol[i,4]+1] * Δx0
+  
+              for (ind,j) in enumerate(sol.t[ind_sol[i,3]:ind_sol[i,4]])
+                  dt = j .- sol.t[ind_sol[i,4]+1]
+                  sol_refin[D0_indices, ind_sol[i,3]+ind-1] = x_part + f_f  * dt
+                  sol_refin[A_indices,ind_sol[i,3]+ind-1] = y_part + gygx * dt
+              end
+          end
+      else
+              tmp_sol = sol[:,ind_sol[i-1,4]+1:ind_sol[i,2]]
+              tmp_sens = sensis[x0_ind][:,ind_sol[i-1,4]+1:ind_sol[i,2]]
+              sol_refin[:,ind_sol[i-1,4]+1:ind_sol[i,2]] = ApproximatedTrajectory(tmp_sol,tmp_sens,Δx0)
+              # p_sol = sol[:,ind_sol[i,1]:ind_sol[i,2]]
+              # tmp_sens = sensis[x0_ind][:,ind_sol[i,1]:ind_sol[i,2]]
+              # sol_refin[:,ind_sol[i,1]:ind_sol[i,2]] = ApproximatedTrajectory(tmp_sol,tmp_sens,Δx0)
+      end
+  end
+  return sol_refin
+end

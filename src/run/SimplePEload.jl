@@ -4,7 +4,7 @@ using SciMLSensitivity
 using ForwardDiff
 include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/sensitivity_analyses/Local_Sensitivity.jl")
 
-function simPEload(theta)
+function simPEload(;u0=[sqrt(2),0.0,0.0,1.0],p=[sqrt(2),100*pi,5e-3,1e-3,50],dt_max=5e-5)
   function f(dx,x,p,t)
       Ud,w,L,C,R = p
       dx[1] = x[1] - Ud*cos(w*t)
@@ -37,14 +37,12 @@ function simPEload(theta)
   end
   cb2 = ContinuousCallback(s2, nothing,affect_neg! =h2)
 
-  u0 = [sqrt(2),0.0,0.0,1.0]
-  p = [sqrt(2),100*pi,5e-3,1e-3,50]
   ode_fun = ODEFunction(f,mass_matrix = M)
   prob = ODEProblem(ode_fun, u0, (0.0, 0.1), p)
-  _prob = remake(prob,p=theta)
+  #_prob = remake(prob,p=theta)
   #prob = ODEForwardSensitivityProblem(ode_fun, u0, (0.0, 0.03), p,ForwardDiffSensitivity();)
   #sol = Array(solve(_prob, Rodas4(), callback = CallbackSet(cb1,cb2),dtmax=1e-4))' #,abstol=1e-10, 
-  sol = solve(_prob, Rodas4(), callback = CallbackSet(cb1,cb2),dtmax=5e-5)
+  sol = solve(prob, Rodas4(), callback = CallbackSet(cb1,cb2),dtmax=dt_max)
   return sol, evr
 end
 
@@ -55,12 +53,15 @@ plot!(hybrid_sen[5][1,:])
 plot!(sol[3,:])
 
 
-sol,evr = simPEload(p);
+sol,evr = simPEload();
 plot(sol.t,sol[1,:])
 plot!(sol.t,sol[2,:])
 plot!(sol.t,sol[3,:])
 plot!(sol.t,sol[4,:])
-plot(sol)
+using MAT
+dir = "C:\\Users\\liemann\\Desktop\\"
+res_julia = "v0" => sol[:,:]
+matwrite(dir*"res_julia.mat",Dict(res_julia,"t"=>sol.t))
 
 
 ######
@@ -82,7 +83,24 @@ push!(s,sym_states[2])
 push!(s,-((symp[1]*cos(symp[2]*t) - sym_states[3])+sym_states[4]-1e-2))
 
 hybrid_sen,Δτ = CalcHybridTrajectorySensitivity([mtk],sol,evr,s,hs);
-plot(sol.t,hybrid_sen[4][1,:])
+
+x_ind = 7
+Δp = 0.5*1e-3
+sol_appr = ApproximatedTrajectory(sol,hybrid_sen[x_ind],Δp)
+sol_per,evr_per = simPEload(p=[sqrt(2),100*pi,5e-3,1.5*1e-3,50],dt_max= 4e-5);
+sol_refin = TrajectoryRefinement([mtk],sol,evr,hybrid_sen,Δτ,x_ind,0.5*1e-3);
+
+x=3
+xl=(0.01,0.1)
+yl=(0.94,1.6)
+plot!(sol.t,sol[x,:])
+plot(sol_per.t,sol_per[x,:])
+plot!(sol.t,sol_appr[x,:])
+plot!(sol.t,sol_refin[x,:])
+
+plot!(sol.t,sol_refin[x,:] ,xlims=xl,ylims=yl)
+
+
 
 ###################################
 sens_prob = ODEForwardSensitivityProblem(f, u0, (0.0, 0.06), p,callback = CallbackSet(cb1,cb2),sensealg=ForwardDiffSensitivity(;chunk_size = 0,convert_tspan =true))
