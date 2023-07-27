@@ -664,7 +664,7 @@ function InitNode(DR::droop,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Arra
           p_ind = DR.p_ind,
           )
 
-    return [v_d_temp, v_q_temp,θ,udc,idc0,abs(U0),e_ud,e_uq,e_id,e_iq,p,dP,abs(i1),abs(i1),0.0], droop_new #,idc0,abs(E0),P_before,Q_before,p,q
+    return [v_d_temp, v_q_temp,θ,udc,idc0,abs(U0),e_ud,e_uq,e_id,e_iq,p,dP,abs(i1),abs(i1),0.0,p,q], droop_new #,idc0,abs(E0),P_before,Q_before,p,q
 end
 
 function InitNode(VSM0::VSM,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)
@@ -910,3 +910,16 @@ function InitNode(F::ThreePhaseFaultContinouos,ind::Int64,I_c::Vector{Complex{Fl
    v_q_temp = ic_lf[ind_offset+1]
    return [v_d_temp, v_q_temp,F.rfault,F.xfault], F
 end
+
+function InitNode(L::GeneralVoltageDependentLoad,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)
+   v_d_temp = ic_lf[ind_offset]
+   v_q_temp = ic_lf[ind_offset+1]
+
+   U0 = v_d_temp+1im*v_q_temp
+
+   s = U0 * conj(I_c[ind]) 
+   p = real(s)
+   q = imag(s)
+   return [v_d_temp, v_q_temp,p, q], L
+end
+

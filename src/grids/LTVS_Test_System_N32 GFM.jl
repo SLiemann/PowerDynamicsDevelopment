@@ -21,7 +21,7 @@ function LTVS_Test_System_N32_GFM(;gfm=1,awu=1.0) #1 = droop, 2 = matching, 3 = 
     QLoad = -2243.7e6/Sbase 
     position_fault = 0.9 #0 at slack, 1.0 at bus 2
 
-    Srated = 5150e6
+    Srated = 5150e6 #5150e6 for LTVS 
     pref = 4440e6/Sbase
     imax_csa = 1.0
     imax_dc = 1.2
@@ -45,7 +45,7 @@ function LTVS_Test_System_N32_GFM(;gfm=1,awu=1.0) #1 = droop, 2 = matching, 3 = 
     Xcf = 1.0/(100*pi*C_f) /Zbase_gfm
 
     buses=OrderedDict(
-        "bus0" => SlackAlgebraic(U=1.054080675), # 1.0532 for 100% I , 1.0495 for 100% Z
+        "bus0" => SlackAlgebraic(U=1.054275078250000), # 1.0532 for 100% I , 1.0495 for 100% Z 1.054080675
         "bus1" => VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),
         "bus_ehv" => VoltageDependentLoad(P=0.0, Q=Q_Shunt_EHV, U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),
         "bus_hv" => VoltageDependentLoad(P=0.0, Q=Q_Shunt_HV,  U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),
@@ -79,8 +79,8 @@ function LTVS_Test_System_N32_GFM(;gfm=1,awu=1.0) #1 = droop, 2 = matching, 3 = 
     Z_4032_4044 = (9.6 + 1im*80.0)/Zbase
     B_half_4032_4044 = 1im*100*pi*4.770001*1e-6/2.0*Zbase
     #Slack internal resistance  
-    R1 = 1.514082/Zbase
-    X1 = 17.24593/Zbase
+    R1 = 1.514081970099058/Zbase
+    X1 = 17.245934327062923/Zbase
     branches=OrderedDict(
         "Line_0-1"=> PiModelLine(from= "bus0", to = "bus1",y=1.0/(R1+1im*X1), y_shunt_km=0.0, y_shunt_mk=0.0),
         "Line_1-2"=> PiModelLine(from= "bus1", to = "bus_ehv",y=1.0/Z_SumLine, y_shunt_km=B_half_SumLine, y_shunt_mk=B_half_SumLine),
@@ -145,6 +145,7 @@ function Initialize_N32_GFM(gfm_choice,awu_choice)
     Qmin   = -Qmax
     U1,δ1,ic0,cu = PowerFlowClassic(pg,iwamoto = false,max_tol = 1e-4,iter_max = 100,Qmax = Qmax, Qmin = Qmin,Qlimit_iter_check=80)
     pg, ic = InitializeInternalDynamics(pg,ic0)
+    display(U1.=>δ1)
     return pg,ic
 end
 
@@ -432,7 +433,7 @@ function simulate_LTVS_N32_simulation(pg::PowerGrid,ic::Vector{Float64},tspan::T
     #cb6 = DiscreteCallback(check_OLTC_voltage, stop_integration)
     #cb7 = PresetTimeCallback(tfault[1]+0.15, start_LVRT)
     cb8 = PresetTimeCallback(tfault[1]+3.0,end_LVRT)
-    cb80 = PresetTimeCallback(5.0,jump_vref)
+    #cb80 = PresetTimeCallback(5.0,jump_vref)
     cb9 = DiscreteCallback(check_GFM_voltage_LVRT, stop_integration_LVRT)
     cb10 = DiscreteCallback(check_GFM_voltage_HVRT13, stop_integration_HVRT)
     cb11 = DiscreteCallback(check_GFM_voltage_HVRT12, stop_integration_HVRT)
