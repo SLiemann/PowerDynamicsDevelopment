@@ -191,9 +191,9 @@ end
 function Substitute(syms::Union{Vector{Num},Array{Num}}, subs_args::Vector{Pair{SymbolicUtils.Symbolic{Real}, Float64}}) #SymbolicUtils.Symbolic{Real} ::Array{Pair{Num,Float64},1}
   return Symbolics.value.(substitute.(syms, (subs_args,)))
 end
-function Substitute(syms::Matrix{Num}, subs_args::Dict{Any, Any}) #SymbolicUtils.Symbolic{Real} ::Array{Pair{Num,Float64},1}
-  return Symbolics.value.(substitute.(syms, (subs_args,)))
-end
+#function Substitute(syms::Matrix{Num}, subs_args::Dict{Any, Any}) #SymbolicUtils.Symbolic{Real} ::Array{Pair{Num,Float64},1}
+#  return Symbolics.value.(substitute.(syms, (subs_args,)))
+#end
 function Substitute(syms::Matrix{Num}, subs_args::Vector{Pair{_A, Float64} where _A})
   return Symbolics.value.(substitute.(syms, (subs_args,)))
 end
