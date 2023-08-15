@@ -10,6 +10,6 @@ XRv= tmp["XR"];
 XRt= tmp["XR_t"];
 
 #px,py = DetermineBoundary(xr,Rverlauf,Xverlauf)
-px,py = DetermineBoundary(XRv,Rv,Xv)
-write_matfile("droop_I100_own_reduction_absprio_fein.mat"; xj=px, yj=py) 
-plot(px,py)
+x,y = DetermineBoundary(xr,Rverlauf,Xverlauf)
+write_matfile("droop_I099.mat"; xj=x, yj=y) 
+plot(x,y)

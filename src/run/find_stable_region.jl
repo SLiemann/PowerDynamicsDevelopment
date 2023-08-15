@@ -10,8 +10,8 @@ begin
     nothing
 end
 
-pg0,ic0 = Initialize_N32_GFM(1,1);
-@time pgsol0, suc0,FRT0 = simulate_LTVS_N32_simulation(pg0,ic0,(0.0,60.0),(120.0)/Zbase);
+pg0,ic0 = Initialize_N32_GFM(1,0);
+@time pgsol0, suc0,FRT0 = simulate_LTVS_N32_simulation(pg0,ic0,(0.0,5.0),(120.0)/Zbase);
 plot(plotallvoltages(pgsol0))
 plot([myplot(pgsol0,"bus_gfm",:LVRT),plotv(pgsol0,["bus_gfm"])[1]])
 
@@ -55,7 +55,7 @@ plot([p1,p2])
 
 
 function CalcXRMap(Rrange, Xrange)
-    pg, ic =  Initialize_N32_GFM(3,1);
+    pg, ic =  Initialize_N32_GFM(1,0);
 
     length_dr = length(Rrange)
     length_dx = length(Xrange)
@@ -82,8 +82,8 @@ function CalcXRMap(Rrange, Xrange)
     return XR, XR_tend
 end
 
-Rverlauf = 20:-20:0.0
-Xverlauf = 20:-20:0.0
+Rverlauf = 100:-1:0.0
+Xverlauf = 70:-1:0.0
 
 Rverlauf = 20:-1:0.0
 Xverlauf = 20:-1:0.0

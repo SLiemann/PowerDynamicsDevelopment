@@ -10,8 +10,8 @@ begin
     nothing
 end
 
-pg0,ic0 = Initialize_N32_GFM(1,1);
-@time pgsol0, suc0,FRT0 = simulate_LTVS_N32_simulation(pg0,ic0,(0.0,150.0),(1e6)/Zbase);
+pg0,ic0 = Initialize_N32_GFM(1,0);
+@time pgsol0, suc0,FRT0 = simulate_LTVS_N32_simulation(pg0,ic0,(0.0,160.0),(1e6)/Zbase);
 plot(plotallvoltages(pgsol0))
 plot(myplot(pgsol0,"bus_gfm",:P0))
 plot(myplot(pgsol0,"bus_gfm",:Q0))
@@ -22,7 +22,7 @@ plot(myplot(pgsol0,"bus_gfm",:i_abs))
 dir = "\\\\fs0\\home\\liemann\\"
 file = matopen(dir*"vltvs_200s.mat")
 file = matopen(dir*"vltvs_short.mat")
-file = matopen(dir*"vltvs_150s_awu_1_KS_3em6_Rtrafo_1em5.mat")
+file = matopen(dir*"v_droop_secm4.mat")
 #file = matopen(dir*"1em6_Rf_1e6_vltvs2.mat")
 #file = matopen(dir*"awu1_100s_vltvs.mat")
 vltvs = read(file, "Vltvs");
