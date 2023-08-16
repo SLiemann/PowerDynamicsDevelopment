@@ -346,6 +346,18 @@ function Sol2DF(pgsol::PowerGridSolution)
     return sol
 end
 
+function Sol2DFonlyVoltages(pgsol::PowerGridSolution)
+    sol = DataFrame()
+
+    for (ind,val) in enumerate(pgsol.powergrid.nodes)
+        ur = ExtractResult(pgsol,Symbol("u_r_"*string(ind)))
+        ui = ExtractResult(pgsol,Symbol("u_i_"*string(ind)))
+        u = sqrt.(ur.^2 + ui.^2)
+        sol[!,Symbol("uabs_"*string(ind))] = u;
+    end
+    sol[!,Symbol("time")] = pgsol.dqsol.t;
+    return sol
+end
 
 function plotallvoltages(pgsol::PowerGridSolution)
     newdf = Sol2DF(pgsol)

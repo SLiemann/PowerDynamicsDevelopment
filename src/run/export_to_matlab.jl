@@ -9,7 +9,8 @@ Xv = tmp["Xverlauf"];
 XRv= tmp["XR"];
 XRt= tmp["XR_t"];
 
+solv = Array(Sol2DFonlyVoltages(pgsol0))
 #px,py = DetermineBoundary(xr,Rverlauf,Xverlauf)
 x,y = DetermineBoundary(xr,Rverlauf,Xverlauf)
-write_matfile("droop_I099.mat"; xj=x, yj=y) 
+write_matfile("droop_LTVS_secm5.mat"; sol = solv) 
 plot(x,y)

@@ -21,7 +21,7 @@ function LTVS_Test_System_N32_GFM(;gfm=1,awu=1.0) #1 = droop, 2 = matching, 3 = 
     QLoad = -2243.7e6/Sbase 
     position_fault = 0.9 #0 at slack, 1.0 at bus 2
 
-    Srated = 5300e6 #5150e6 for LTVS 
+    Srated = 5150e6 #5150e6 for LTVS 
     pref = 4440e6/Sbase
     imax_csa = 1.0
     imax_dc = 1.2
