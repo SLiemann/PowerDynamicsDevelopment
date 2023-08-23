@@ -21,7 +21,7 @@ function LTVS_Test_System_N32_GFM(;gfm=1,awu=1.0) #1 = droop, 2 = matching, 3 = 
     QLoad = -2243.7e6/Sbase 
     position_fault = 0.9 #0 at slack, 1.0 at bus 2
 
-    Srated = 5150e6 #5150e6 for LTVS 
+    Srated = 5125e6 #5150e6 for LTVS 
     pref = 4440e6/Sbase
     imax_csa = 1.0
     imax_dc = 1.2
@@ -53,7 +53,7 @@ function LTVS_Test_System_N32_GFM(;gfm=1,awu=1.0) #1 = droop, 2 = matching, 3 = 
         "busv" => ThreePhaseFault(rfault=8e3,xfault=8e3,p_ind=collect(1:2)))
 
     if gfm == 1
-        buses["bus_gfm"] = droop(Sbase = Sbase,Srated = Srated, p0set = pref, u0set = 1.00,Kp_droop = pi,Kp_uset = 0.001, Ki_uset = 0.5,
+        buses["bus_gfm"] = droopvq(Sbase = Sbase,Srated = Srated, p0set = pref, u0set = 1.00,Kp_droop = pi,Kp_uset = 0.001, Ki_uset = 0.5,
                                  Kdc = 100.0, gdc = Gdc, cdc = Cdc, xlf = Xlf, rf = R_f, xcf =  Xcf, Tdc = 0.05, Kp_u = 0.52,
                                  Ki_u = 1.161022, Kp_i = 0.738891, Ki_i = 1.19, imax_csa = imax_csa, imax_dc = imax_dc, p_red = anti_windup, LVRT_on = 0.0,
                                  p_ind = collect(6:25))
@@ -105,7 +105,7 @@ function GetParamsGFM(pg::PowerGrid)
     push!(params,1) # for 2nd PiModelLineParam
     push!(params,0) # for OLTC, Δtap_pos
     #push!(params,0) # for OLTC, for timer
-    if typeof(node) == droop
+    if typeof(node) == droop ||  typeof(node) == droopvq
         params = vcat(params,getallParameters(node)[3:22])
     elseif typeof(node) == MatchingControlRed
         params = vcat(params,getallParameters(node)[5:21])
