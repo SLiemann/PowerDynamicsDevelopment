@@ -78,3 +78,40 @@ styles = reshape(styles, 1, length(styles))
 n = length(styles)
 y = cumsum(randn(20, n), dims = 1)
 plot(y, line = (5, styles), label = map(string, styles), legendtitle = "linestyle")
+
+
+using LinearAlgebra
+
+function f(du,u,p,t)
+    du[1] = t + p[1]
+end
+
+function condition1(u,t,integrator)
+    t <-1.0 || t>1.0
+end
+
+function affect1(integrator)
+    integrator.p[1] = -integrator.t
+end
+
+function condition2(u,t,integrator)
+    -1.0 <= t <= 1.0
+end
+function affect2(integrator)
+    integrator.p[1] = 0.0
+end
+
+cb1 = DiscreteCallback(condition1,affect1)
+cb2 = DiscreteCallback(condition2,affect2)
+
+
+ode_fun = ODEFunction(f,mass_matrix = Diagonal([1.0]))
+u0 = [2.0]
+p = [-0.0] 
+prob = ODEProblem(ode_fun, u0, (-2.0, 2.0), p)
+
+sol = solve(prob, Rodas4P(), callback = CallbackSet(cb1,cb2),dtmax=1e-3)
+plot(sol)
+
+
+condition2(-2,0,0)
