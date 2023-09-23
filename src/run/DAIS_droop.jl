@@ -1,15 +1,14 @@
 using ModelingToolkit
 
-
 # independent variable and its differential
 @variables t
 D = Differential(t)
 # Differential states
-@variables x_id(t) x_iq(t) x_vd(t) x_vq(t) x_vdroop(t) x_id(t) p_f(t) Δθ(t) Δv_dc(t) Δp_cf(t) i_dcrefτ(t)
+@variables x_id(t)=0.0002472492531056434 x_iq(t)=3.205784091951831e-5 x_vd(t)=0.0 x_vq(t)=0.0 x_vdroop(t)=1.0 p_f(t)=0.4944985062113048 Δθ(t)=0.0 Δv_dc(t)=0.0 Δp_cf(t)=0.00012431979665145088 i_dcrefτ(t)=0.5501243197966514
 # algebraic states
-@variables v_d(t) v_q(t) v_cd(t) v_cq(t) i_cdlim(t) i_cqlim(t) c_awud(t) c_awuq(t) c_awuvdroop(t) p_ref(t) i_dcref(t)
+@variables v_d(t)=0.982617027200252 v_q(t)=-0.048206051847367 v_cd(t)=1.0 v_cq(t)=0.0 i_cdlim(t) i_cqlim(t) c_awud(t)=0.0 c_awuq(t)=0.0 c_awuvdroop(t)=0.0 p_ref(t)=0.5 i_dcref(t)=0.5501243197966514
 # parameters
-@parameters rf xlf xcf rload xload cdc rdc Tdc kii kip kiv kvp pref0 vdcref=1.0 icmax=1.0 kvidroop kvpdroop ωf=10*pi kd vref=1.0 v_qref = 0.0 idcmax=1.25 kdc
+@parameters rf=0.0005 xlf=0.03141592653589793 xcf=5.305164769729845 rload=2.0 xload=10.0 cdc=0.956 rdc=20.0 Tdc=0.05 kii=1.19 kip=0.738891 kiv=1.161022 kvp=0.52 pref0=0.5 vdcref=1.0 icmax=1.0 kvidroop=0.5 kvpdroop=0.001 ωf=10*pi kd vref=1.0 v_qref = 0.0 idcmax=1.2 kdc=100
 # discrete states
 @variables q_icmax(t)=0.0 q_idcrefτ(t)=0.0
 
@@ -61,5 +60,52 @@ eqs = [
 ]
 
 @named ode = ODESystem(eqs)
+df = ModelingToolkit.defaults(ode);
+substitute(i_dθ + x_vd + (v_dref - v_dθ)*kvp - v_qθ/xcf,ModelingToolkit.defaults(ode))
+substitute(i_qθ + x_vq + (v_qref - v_qθ)*kvp + v_dθ/xcf,ModelingToolkit.defaults(ode))
 
-display.(equations(ode))
+substitute(i_dθ,df)
+
+
+i_qθ + x_vq + (v_qref - v_qθ)*kvp + v_dθ/xcf
+ModelingToolkit.defaults(ode)
+
+
+
+
+using PowerDynamics
+using OrderedCollections: OrderedDict
+using Distributed
+@everywhere using IfElse
+include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/include_custom_nodes_lines_utilities.jl")
+
+Ubase_gfm = 1e3
+Sbase_gfm = 100e6
+Zbase_gfm = Ubase_gfm^2/Sbase_gfm
+
+Zbase_dc_gfm = (3*1e3*sqrt(2/3))^2/Sbase_gfm
+
+Rdc_pu = 1.2/Zbase_dc_gfm
+Gdc = 1.0/Rdc_pu
+Xcdc = 1.0/(100*pi*0.008*200) /Zbase_dc_gfm
+Cdc = 1.0/Xcdc/100/pi
+
+R_f = 0.001/200/Zbase_gfm
+L_f = 1*10^-6;
+Xlf = L_f * 100*pi /Zbase_gfm
+C_f = 200*300*10^-6;
+Xcf = 1.0/(100*pi*C_f) /Zbase_gfm
+
+
+buses=OrderedDict(
+    "bus_gfm" => droop(Sbase = 100e6,Srated = 100e6, p0set = 0.5, u0set = 1.00,Kp_droop = pi,Kp_uset = 0.001, Ki_uset = 0.5,
+                                Kdc = 100.0, gdc = Gdc, cdc = Cdc, xlf = Xlf, rf = R_f, xcf =  Xcf, Tdc = 0.05, Kp_u = 0.52,
+                                Ki_u = 1.161022, Kp_i = 0.738891, Ki_i = 1.19, imax_csa = 1.0, imax_dc = 1.2, p_red = 1, LVRT_on = 0.0,
+                                p_ind = collect(6:25)),
+    "bus_load" => VoltageDependentLoad(P=-0.5, Q=-0.1, U=1.0, A=0.0, B=1.0,Y_n = complex(0.0)))
+branches=OrderedDict(
+    "line"=> PiModelLine(from= "bus_gfm", to = "bus_load",y=1.0/(0.01+1im*0.1), y_shunt_km=0.0, y_shunt_mk=0.0))
+pg=  PowerGrid(buses, branches)
+
+U1,δ1,ic0,cu = PowerFlowClassic(pg,iwamoto = false,max_tol = 1e-4,ind_sl=1)
+pg, ic = InitializeInternalDynamics(pg,ic0)

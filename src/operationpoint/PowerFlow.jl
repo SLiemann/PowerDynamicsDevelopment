@@ -170,7 +170,7 @@ function NodePower(V::Union{droop,droopvq},U)
     end
 end
 
-function PowerFlowClassic(pg::PowerGrid; ind_sl::Int64 = 0,max_tol::Float64 = 1e-7,iter_max::Int64  = 30,iwamoto::Bool =false, Qmax = -1, Qmin = -1, Qlimit_iter_check::Int64 = 3,Ustart = -1, δstart = -1)
+function PowerFlowClassic(pg::PowerGrid; ind_sl::Int64 = 1,max_tol::Float64 = 1e-7,iter_max::Int64  = 30,iwamoto::Bool =false, Qmax = -1, Qmin = -1, Qlimit_iter_check::Int64 = 3,Ustart = -1, δstart = -1)
     number_nodes = length(pg.nodes); #convenience 
     nodetypes = NodeType.(values(pg.nodes))
     if !isempty(findall(x-> x==0, nodetypes)) #if there is no SlackAlgebraic
