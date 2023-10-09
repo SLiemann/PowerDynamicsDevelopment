@@ -952,3 +952,23 @@ function InitNode(L::GeneralVoltageDependentLoad,ind::Int64,I_c::Vector{Complex{
    return [v_d_temp, v_q_temp,p, q], L
 end
 
+function InitNode(L::WeccPeLoad,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)
+   v_d_temp = ic_lf[ind_offset]
+   v_q_temp = ic_lf[ind_offset+1]
+
+   U = abs(v_d_temp+1im*v_q_temp)
+   U0 = v_d_temp+1im*v_q_temp
+
+   s = U0 * conj(I_c[ind]) 
+   p = real(s)
+   q = imag(s)
+   if U > L.Vd1    
+      p = L.P
+      q = L.Q
+   elseif L.Vd2 <= U  <= L.Vd1
+         frac = (U-L.Vd2)/(L.Vd1 - L.Vd2)
+         p = L.P*frac
+         q = L.Q*frac
+   end
+   return [v_d_temp, v_q_temp,p, q], L
+end

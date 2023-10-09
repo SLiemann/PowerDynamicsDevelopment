@@ -21,12 +21,12 @@ Using `SlackAlgebraic` for node ``a`` applies the equation
 ```
 """
 =#
-@DynamicNode SlackAlgebraicParam(U) begin
+@DynamicNode SlackAlgebraicParam(U,p_ind) begin
     MassMatrix()
 end begin
 
 end [] begin
-        U = p[1]
+        U = p[p_ind[1]]
         du = u - U
 end
 

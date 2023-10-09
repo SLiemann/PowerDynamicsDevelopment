@@ -3,7 +3,8 @@ using DifferentialEquations
 using PowerDynamics
 using FFTW
 using LinearAlgebra
-import PlotlyJS: plot
+using PlotlyJS
+using DataFrames
 
 function getStateIndex(pg::PowerGrid,node_str::String,sym::Symbol)
     ind = 0
@@ -375,7 +376,7 @@ function myplot(pgsol::PowerGridSolution,sym::Symbol;y_norm=1.0,y_bias = 0.0)
     t = pgsol.dqsol.t
     y =  pgsol.dqsol[ind,:]./y_norm .+ y_bias
     sc = scatter(x=t,y=y,name=String(sym))
-    #display(plot(sc))
+    display(plot(sc))
     return sc
 end
 
@@ -391,7 +392,7 @@ function myplot(pgsol::Vector{PowerGridSolution},bus::String,sym::Symbol;y_norm=
         tmp  =myplot(i,bus,sym,y_norm=y_norm,y_bias=y_bias)
         push!(p,tmp)
     end
-    #display(plot(p))
+    display(plot(p))
     return p
 end
 
@@ -402,6 +403,7 @@ function plotv(pgsol,bus::String)
     t = pgsol.dqsol.t
     y =  sqrt.(ur.^2 + ui.^2)
     sc = scatter(x=t,y=y,name=bus)
+    display(plot(sc))
     return sc
 end
 
@@ -411,6 +413,7 @@ function plotv(pgsol,bus::Vector{String})
         tmp = plotv(pgsol,val)
         push!(p,tmp)
     end
+    display(plot(p))
     return p
 end
 
@@ -420,6 +423,7 @@ function plotv(pgsol::Vector{PowerGridSolution},bus::String)
         tmp  = plotv(i,bus)
         push!(p,tmp)
     end
+    display(plot(p))
     return p
 end
 

@@ -4,11 +4,11 @@ using ModelingToolkit
 @variables t
 D = Differential(t)
 # Differential states
-@variables x_id(t)=0.0002472492531056434 x_iq(t)=3.205784091951831e-5 x_vd(t)=0.0 x_vq(t)=0.0 x_vdroop(t)=1.0 p_f(t)=0.4944985062113048 Δθ(t)=0.0 Δv_dc(t)=0.0 Δp_cf(t)=0.00012431979665145088 i_dcrefτ(t)=0.5501243197966514
+@variables x_id(t)=0.00024336012925086628 x_iq(t)=3.205784091951831e-5 x_vd(t)=0.0 x_vq(t)=0.0 x_vdroop(t)=1.0 p_f(t)=0.48672025850164813 Δθ(t)=0.0 Δv_dc(t)=0.0 Δp_cf(t)=0.00012065787101550596 i_dcrefτ(t)=0.5501206578710156
 # algebraic states
-@variables v_d(t)=0.982617027200252 v_q(t)=-0.048206051847367 v_cd(t)=1.0 v_cq(t)=0.0 i_cdlim(t) i_cqlim(t) c_awud(t)=0.0 c_awuq(t)=0.0 c_awuvdroop(t)=0.0 p_ref(t)=0.5 i_dcref(t)=0.5501243197966514
-# parameters
-@parameters rf=0.0005 xlf=0.03141592653589793 xcf=5.305164769729845 rload=2.0 xload=10.0 cdc=0.956 rdc=20.0 Tdc=0.05 kii=1.19 kip=0.738891 kiv=1.161022 kvp=0.52 pref0=0.5 vdcref=1.0 icmax=1.0 kvidroop=0.5 kvpdroop=0.001 ωf=10*pi kd vref=1.0 v_qref = 0.0 idcmax=1.2 kdc=100
+@variables v_d(t)=0.9829308967154399 v_q(t)=-0.04745183578021046 v_cd(t)=1.0 v_cq(t)=0.0 i_cdlim(t)=1 i_cqlim(t)=0 c_awud(t)=0.0 c_awuq(t)=0.0 c_awuvdroop(t)=0.0 p_ref(t)=0.5 i_dcref(t)=0.5501206578710156
+
+@parameters rf=0.0005 xlf=0.03141592653589793 xcf=5.305164769729845 rload=2.0 xload=10.0 cdc=0.956 rdc=20.0 Tdc=0.05 kii=1.19 kip=0.738891 kiv=1.161022 kvp=0.52 pref0=0.5 vdcref=1.0 icmax=1.0 kvidroop=0.5 kvpdroop=0.001 ωf=10*pi kd vref=1.0 v_qref = 0.0 idcmax=1.2 kdc=100 load_step= 1.0
 # discrete states
 @variables q_icmax(t)=0.0 q_idcrefτ(t)=0.0
 
@@ -57,15 +57,22 @@ eqs = [
     0.0 ~ i_dcref - (1.0 - q_idcrefτ)*i_dcrefτ - q_idcrefτ*(sign(i_dcrefτ)*idcmax)
     D(i_dcrefτ) ~ (i_dcref0 - i_dcrefτ)/Tdc
     D(Δp_cf) ~ (Δp_c - Δp_cf)*ωf
+    D(q_icmax) ~ 0.0
+    D(q_idcrefτ) ~ 0.0
 ]
 
-@named ode = ODESystem(eqs)
+step = (t == load_step) => [rload ~ 1.0]
+
+@named odesys = ODESystem(eqs,t)
 df = ModelingToolkit.defaults(ode);
 substitute(i_dθ + x_vd + (v_dref - v_dθ)*kvp - v_qθ/xcf,ModelingToolkit.defaults(ode))
 substitute(i_qθ + x_vq + (v_qref - v_qθ)*kvp + v_dθ/xcf,ModelingToolkit.defaults(ode))
 
 substitute(i_dθ,df)
 
+state_vector = states(ode)
+typeof(state_vector)
+matrices, lin_sys = ModelingToolkit.linearize_symbolic(odesys,state_vector,state_vector)
 
 i_qθ + x_vq + (v_qref - v_qθ)*kvp + v_dθ/xcf
 ModelingToolkit.defaults(ode)
@@ -76,6 +83,7 @@ ModelingToolkit.defaults(ode)
 using PowerDynamics
 using OrderedCollections: OrderedDict
 using Distributed
+import DiffEqBase: initialize_dae!
 @everywhere using IfElse
 include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/include_custom_nodes_lines_utilities.jl")
 
@@ -101,11 +109,39 @@ buses=OrderedDict(
     "bus_gfm" => droop(Sbase = 100e6,Srated = 100e6, p0set = 0.5, u0set = 1.00,Kp_droop = pi,Kp_uset = 0.001, Ki_uset = 0.5,
                                 Kdc = 100.0, gdc = Gdc, cdc = Cdc, xlf = Xlf, rf = R_f, xcf =  Xcf, Tdc = 0.05, Kp_u = 0.52,
                                 Ki_u = 1.161022, Kp_i = 0.738891, Ki_i = 1.19, imax_csa = 1.0, imax_dc = 1.2, p_red = 1, LVRT_on = 0.0,
-                                p_ind = collect(6:25)),
-    "bus_load" => VoltageDependentLoad(P=-0.5, Q=-0.1, U=1.0, A=0.0, B=1.0,Y_n = complex(0.0)))
+                                p_ind = collect(1:20)),
+    "bus_load" => VoltageDependentLoad(P=-0.5, Q=-0.1, U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)))
 branches=OrderedDict(
     "line"=> PiModelLine(from= "bus_gfm", to = "bus_load",y=1.0/(0.01+1im*0.1), y_shunt_km=0.0, y_shunt_mk=0.0))
 pg=  PowerGrid(buses, branches)
 
-U1,δ1,ic0,cu = PowerFlowClassic(pg,iwamoto = false,max_tol = 1e-4,ind_sl=1)
+nodes_postfault = deepcopy(pg.nodes)
+branches_postfault = deepcopy(pg.lines)
+nodes_postfault["bus_load"] = VoltageDependentLoad(P=-1.5, Q=-0.1, U=1.0, A=1.0, B=0.0,Y_n = complex(0.0))
+pg2 =  PowerGrid(nodes_postfault,branches_postfault)
+
+
+U1,δ1,ic0,cu = PowerFlowClassic(pg,iwamoto = true,max_tol = 1e-7,ind_sl=1)
 pg, ic = InitializeInternalDynamics(pg,ic0)
+
+function loadstep(integrator)
+        ic_init= deepcopy(integrator.sol[end])
+        op_prob = ODEProblem(rhs(pg2), ic_init, (0.0, 0.002), integrator.p)
+        x2 = solve(op_prob,Rodas4(),dtmax=1e-4,initializealg = BrownFullBasicInit(),alg_hints=:stiff,verbose=false,abstol=1e-8,reltol=1e-8)
+        
+        ode = deepcopy(rhs(pg2))
+        integrator.f = ode
+        integrator.cache.tf.f = integrator.f
+        integrator.u = deepcopy(x2.u[end])
+        initialize_dae!(integrator,BrownFullBasicInit())
+        auto_dt_reset!(integrator)
+end
+
+cb = PresetTimeCallback([1.0], loadstep)
+params = getallParameters(pg.nodes["bus_gfm"])[3:22]
+problem= ODEProblem{true}(rhs(pg),ic,(0.0,5.0),params)
+
+sol = solve(problem, Rodas4(), callback = cb, tstops=[1.0], dtmax = 1e-3,force_dtmin=false,maxiters=1e6, initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-8,reltol=1e-8)
+pgsol = PowerGridSolution(sol,pg)
+plotallvoltages(pgsol)
+myplot(pgsol,"bus_gfm",:i_abs)
