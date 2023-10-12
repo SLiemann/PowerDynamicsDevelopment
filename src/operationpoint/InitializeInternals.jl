@@ -595,7 +595,7 @@ function InitNode(VOC::dVOC,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Arra
     return [v_d_temp, v_q_temp,θ,udc,idc0,vd_int,e_ud,e_uq,e_id,e_iq,p,q,dP,abs(i1),0.0,0.0], VOC_new #,idmeas,iqmeas,id,iq
 end
 
-function InitNode(DR::Union{droop,droopvq},ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)
+function InitNode(DR::Union{droop,droopvq,droopIsland},ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)
    v_d_temp = ic_lf[ind_offset]
    v_q_temp = ic_lf[ind_offset+1]
    U0 = v_d_temp+1im*v_q_temp
@@ -621,7 +621,7 @@ function InitNode(DR::Union{droop,droopvq},ind::Int64,I_c::Vector{Complex{Float6
    Q_before = imag(conj(i1) * E)
    dP =  P_before - p
    idc0 = DR.gdc + DR.p0set/ (DR.Srated/DR.Sbase)  + dP
-   p0_new = idc0 - DR.gdc - dP
+   p0_new = p# idc0 - DR.gdc - dP
    udc = 0.0 #ist hier nur das delta
 
    U0 = U0*(cos(-θ)+1im*sin(-θ))
@@ -641,6 +641,32 @@ function InitNode(DR::Union{droop,droopvq},ind::Int64,I_c::Vector{Complex{Float6
 
    if typeof(DR) == droopvq
       droop_new = droopvq(
+         Sbase = DR.Sbase,
+         Srated = DR.Srated,
+         p0set = p0_new, #new
+         u0set = DR.u0set,
+         Kp_droop = DR.Kp_droop,
+         Kp_uset = DR.Kp_uset,
+         Ki_uset = DR.Ki_uset,
+         Kdc = DR.Kdc,
+         gdc = DR.gdc,
+         cdc = DR.cdc,
+         xlf = DR.xlf,
+         rf = DR.rf,
+         xcf =  DR.xcf,
+         Tdc = DR.Tdc,
+         Kp_u = DR.Kp_u,
+         Ki_u = DR.Ki_u,
+         Kp_i = DR.Kp_i,
+         Ki_i = DR.Ki_i,
+         imax_csa = DR.imax_csa,
+         imax_dc = DR.imax_dc,
+         p_red = DR.p_red,
+         LVRT_on = DR.LVRT_on,
+         p_ind = DR.p_ind,
+         )
+   elseif   typeof(DR) == droopIsland
+      droop_new = droopIsland(
          Sbase = DR.Sbase,
          Srated = DR.Srated,
          p0set = p0_new, #new
@@ -940,7 +966,7 @@ function InitNode(F::ThreePhaseFaultContinouos,ind::Int64,I_c::Vector{Complex{Fl
    return [v_d_temp, v_q_temp,F.rfault,F.xfault], F
 end
 
-function InitNode(L::GeneralVoltageDependentLoad,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)
+function InitNode(L::Union{GeneralVoltageDependentLoad,GeneralVoltageDependentLoadParam},ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)
    v_d_temp = ic_lf[ind_offset]
    v_q_temp = ic_lf[ind_offset+1]
 

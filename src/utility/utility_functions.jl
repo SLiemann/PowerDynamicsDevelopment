@@ -386,6 +386,22 @@ function myplot(pgsol::PowerGridSolution,bus::String,sym::Symbol;y_norm=1.0,y_bi
     myplot(pgsol,sym,y_norm=y_norm,y_bias=y_bias)
 end
 
+function myplot(pgsol::PowerGridSolution,bus::String,symv::Vector{Symbol};y_norm=1.0,y_bias = 0.0)
+    ind_bus = findfirst(x->x==bus,collect(keys(pgsol.powergrid.nodes)))
+    p = Vector{GenericTrace}()
+    for sym in symv
+        sym = Symbol(string(sym)*"_"*string(ind_bus))
+        ind = findfirst(x->x==sym,collect(rhs(pgsol.powergrid).syms))
+        t = pgsol.dqsol.t
+        y =  pgsol.dqsol[ind,:]./y_norm .+ y_bias
+        sc = scatter(x=t,y=y,name=String(sym))
+        push!(p,sc)
+    end
+    display(plot(p))
+    return p
+end
+
+
 function myplot(pgsol::Vector{PowerGridSolution},bus::String,sym::Symbol;y_norm=1.0,y_bias = 0.0)
     p = Vector{GenericTrace}()
     for i in pgsol

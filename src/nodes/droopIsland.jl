@@ -1,29 +1,11 @@
-#= Sebastian Liemann, ie3 TU Dortmund, based on F. Milano, Power System Modelling and Scripting, Springer Verlag, 2010
-@doc doc"""
-```Julia
-GridFormingConverter(Sbase,Srated,p0set,u0set,Kp_droop,Kq_droop,ωf,xlf,rf,xcf,Kp_u,Ki_u,Kp_i,Ki_i)
-```
-
-A node type that applies..
-
-The model has the following internal dynamic variables:
-* ``u`` is here an algebraic constraint
-* ``θ`` representing the angle of the rotor with respect to the voltage angle ``ϕ``.
-
-# Keyword Arguments
-- `Sbase`: "Base apparent power of the grid in VA, should be >0"
-- `Srated`: "Rated apperent power of the machine in VA, should be >0"
-
-
-"""
-=#
-@DynamicNode MatchingControlRed(Sbase,Srated,p0set,u0set,Kp_uset,Ki_uset,Kdc,gdc,cdc,xlf,rf,xcf,Tdc,Kp_u,Ki_u,Kp_i,Ki_i,imax_csa,imax_dc,p_red,LVRT_on,p_ind) begin
-    MassMatrix(m_int =[true,true,true,true,true,true,true,true,true,false,true])#,false,false,false,false
+@DynamicNode droopIsland(Sbase,Srated,p0set,u0set,Kp_droop,Kp_uset,Ki_uset,Kdc,gdc,cdc,xlf,rf,xcf,Tdc,Kp_u,Ki_u,Kp_i,Ki_i,imax_csa,imax_dc,p_red,LVRT_on,p_ind) begin
+    MassMatrix(m_int =[true,true,true,true,true,true,true,true,true,true,false,false,true,false,false])#,false,false,false,false
 end begin
     @assert Sbase > 0 "Base apparent power of the grid in VA, should be >0"
     @assert Srated > 0 "Rated apperent power of the machine in VA, should be >0"
     @assert p0set >= 0 "Set point for active power in p.u, should be >0"
     @assert u0set > 0 "Set point for voltage in p.u, should be >0"
+    @assert Kp_droop >= 0 "Droop constant for active power in p.u, should be >=0"
     @assert Kp_uset >= 0 "P-Gain for voltage control, should be >=0"
     @assert Ki_uset >= 0 "I-Gain for voltage control.u, should be >=0"
     @assert Kdc >= 0 "Droop constant for current control in p.u, should be >=0"
@@ -41,27 +23,27 @@ end begin
     @assert imax_dc >= 0 "max. current of dc source in p.u., should be >=0"
     @assert p_red == 0 || p_red == 1 "Boolean value vor activating or deactivating power reduction in case of limited current"
 
-
-end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_iq],[Pdelta,dPdelta],[iset_abs,diset_abs],[LVRT,dLVRT]] begin #[Ps,dPs],[Qs,dQs],[P0,dP0],[Q0,dQ0] #,[i_abs,di_abs]
-    Kp_uset = p[p_ind[1]]
-    Ki_uset = p[p_ind[2]]
-    Kdc = p[p_ind[3]]
-    gdc = p[p_ind[4]]
-    cdc = p[p_ind[5]]
-
-    xlf = p[p_ind[6]]
-    rf = p[p_ind[7]]
-    xcf = p[p_ind[8]]
-    Tdc = p[p_ind[9]]
-    Kp_u = p[p_ind[10]]
-    Ki_u = p[p_ind[11]]
-    Kp_i = p[p_ind[12]]
-    Ki_i = p[p_ind[13]]
-    imax_csa = p[p_ind[14]]
-    imax_dc = p[p_ind[15]]
-    p_red = p[p_ind[16]]
-    LVRT_on = p[p_ind[17]]
-
+end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq],[e_id,de_id],[e_iq,de_iq],[Pf,dPf],[Pdelta,dPdelta],[i_abs,di_abs],[iset_abs,diset_abs],[LVRT,dLVRT],[Q0,dQ0],[P0,dP0]] begin #,[idc0_lim,didc0_lim],[Um,dUm],[Ps,dPs],[Qs,dQs]
+    p0set = p[p_ind[1]]    
+    u0set = p[p_ind[2]]
+    Kp_droop = p[p_ind[3]]
+    Kp_uset = p[p_ind[4]]
+    Ki_uset = p[p_ind[5]]
+    Kdc = p[p_ind[6]] #
+    gdc = p[p_ind[7]] #
+    cdc = p[p_ind[8]] #
+    xlf = p[p_ind[9]]
+    rf = p[p_ind[10]]
+    xcf = p[p_ind[11]]
+    Tdc = p[p_ind[12]] #
+    Kp_u = p[p_ind[13]]
+    Ki_u = p[p_ind[14]]
+    Kp_i = p[p_ind[15]]
+    Ki_i = p[p_ind[16]]
+    imax_csa = p[p_ind[17]]
+    imax_dc = p[p_ind[18]]
+    p_red = p[p_ind[19]]
+    LVRT_on = p[p_ind[20]]
 
     #after filter
     umeas = u*(cos(-θ)+1im*sin(-θ))
@@ -70,34 +52,36 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
     imeas = i*(cos(-θ)+1im*sin(-θ))/(Srated/Sbase) #1im*
     idmeas = real(imeas)
     iqmeas = imag(imeas)
+    pmeas = real(u * conj(i))
+    qmeas = imag(u * conj(i))
     pmeas = real(umeas * conj(imeas))
     qmeas = imag(umeas * conj(imeas))
 
     #before filter
-    #The current of the capacitor has to be related, since rf,xlf and xcf are related to Sbase!!!
     idq =  imeas + umeas / (-1im * xcf) #/ (Srated/Sbase)
-    id = real(idq)
-    iq = imag(idq)
+    id  = real(idq)
+    iq  = imag(idq)
 
     E = umeas + (rf + 1im*xlf) * idq
     p_before_filter = real(conj(idq) * E)
     q_before_filter = imag(conj(idq) * E)
     ix  = p_before_filter   #AC/DC coupling
 
-    #Matching control
-    dθ = udc * 2.0 * pi * 50.0
+    #filtered power
+    dPf = 10.0*pi*(pmeas - Pf)
 
+    #Voltage control
     Δuabs = u0set - abs(u)
     #dx_uabs = Ki_uset * Δuabs
     Uset = x_uabs + Kp_uset * Δuabs
 
     #Building voltage reference
-    udset = Uset #- Δud_vi
-    uqset = 0.0 #- Δuq_vi
+    udset = Uset
+    uqset = 0.0
 
     #Voltage control
-    de_ud = (udset - udmeas) * Ki_u
-    de_uq = (uqset - uqmeas) * Ki_u
+    #de_ud = (udset - udmeas) * Ki_u
+    #de_uq = (uqset - uqmeas) * Ki_u
 
     idset = idmeas - uqmeas / xcf + Kp_u * (udset - udmeas) + e_ud
     iqset = iqmeas + udmeas / xcf + Kp_u * (uqset - uqmeas) + e_uq
@@ -114,14 +98,12 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
     de_ud = IfElse.ifelse(anti_windup,0.0, (udset - udmeas) * Ki_u)
     de_uq = IfElse.ifelse(anti_windup,0.0, (uqset - uqmeas) * Ki_u)
 
-    #dx_uabs = IfElse.ifelse(anti_windup,0.0, Ki_uset * Δuabs)
-
     #Current control
     de_id = (idset_csa - id) * Ki_i
     de_iq = (iqset_csa - iq) * Ki_i
 
-    umd = udmeas - iq * xlf + Kp_i * (idset_csa - id) + e_id #+ id * rf
-    umq = uqmeas + id * xlf + Kp_i * (iqset_csa - iq) + e_iq #+ iq * rf
+    umd = udmeas - iq * xlf + Kp_i * (idset_csa - id) + e_id
+    umq = uqmeas + id * xlf + Kp_i * (iqset_csa - iq) + e_iq
 
     #Coupling with DC voltage
     um_abs = (udc + 1.0) * hypot(umd,umq)
@@ -147,27 +129,35 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
 
     du = u - u0 #algebraic constraint
 
-    dx_uabs = IfElse.ifelse(iset_abs >=  imax_csa && p_red > 0,0.0,Ki_uset * Δuabs)
-    #DC current control
+    di_abs = i_abs - I_abs
+
+    dx_uabs = IfElse.ifelse(iset_abs >= imax_csa && p_red > 0 ,0.0,Ki_uset * Δuabs)#&& abs(u) < 0.9
+   
+    #Pref reduction
     plim = idset_csa * udmeas + iqset_csa * uqmeas
-    #pmax = IfElse.ifelse(plim > p0set, p0set, IfElse.ifelse(plim < -p0set, -p0set, plim))
     pmax = IfElse.ifelse(plim > 1.0, 1.0 , IfElse.ifelse(plim < -1.0 , -1.0 , plim))
-    dP = IfElse.ifelse(iset_abs >=  imax_csa && p_red > 0,p_red*(p0set -pmax), 0.0)
-    #idc = Kdc * (1.0 - udc) + p0set/1.0 + udc*gdc + (p_before_filter - pmeas)
+    #dP = IfElse.ifelse(iset_abs >= imax_csa,p_red*dpmax, 0.0)
+    dP = IfElse.ifelse(iset_abs >=  imax_csa && p_red > 0 ,p_red*(p0set -pmax), 0.0) #&& abs(u)<0.9
+
+    #w = (p0set - dP - Pf) * Kp_droop
+    dθ = 0.0
+
+    #DC current control
     dPdelta = 10.0*pi*(p_before_filter - pmeas - Pdelta)
     idc = -Kdc * udc + p0set - dP + (1.0+udc)*gdc + Pdelta
     didc0 = (idc - idc0) / Tdc
 
-    idc0_lim = IfElse.ifelse(idc0 >=  imax_dc, imax_dc, IfElse.ifelse(idc0 < -imax_dc,-imax_dc,idc0))
+    #didc0_lim = idc0_lim - IfElse.ifelse(idc0 > imax_dc, imax_dc, IfElse.ifelse(idc0 < -imax_dc,-imax_dc,idc0))
+    idc0_lim =  IfElse.ifelse(idc0 >= imax_dc, imax_dc, IfElse.ifelse(idc0 <= -imax_dc,-imax_dc,idc0))
     #DC circuit
-    dudc = (idc0_lim - gdc * (1.0+udc) - ix) / cdc
+    dudc = 0.0 #(idc0_lim - gdc * (1.0+udc) - ix) / cdc
 
-    #di_abs = i_abs - I_abs
     #dPs = Ps - p_before_filter
     #dQs = Qs - q_before_filter
-    #dP0 = P0 - pmeas
-    #dQ0 = Q0 - qmeas
+    dP0 = P0 - pmeas
+    dQ0 = Q0 - qmeas
+    #dUm = Um - abs(um)
     dLVRT = LVRT_on
 end
 
-export MatchingControlRed
+export droopIsland

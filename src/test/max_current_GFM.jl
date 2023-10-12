@@ -1,12 +1,4 @@
-using ModelingToolkit
 using NonlinearSolve, Plots
-
-@parameters Rload Xload Rl Xl Xcf Xlf Rf
-
-Zgrid = (Rload+1im*Xload)/(Rload*1im*Xload) + Rl + 1im*Xlf
-Zeq = (Zgrid + -1im*Xcf)/(-1im*Xcf*Zgrid) + Rf +1im*Xlf
-abs(Zeq)
-
 
 function f_Zeq(u,p)
     Rload = u[1]
@@ -21,7 +13,6 @@ function f_Zeq(u,p)
     Zeq = (Zgrid + -1im*Xcf)/(-1im*Xcf*Zgrid) + Rf +1im*Xlf
     1.0 - abs(Zeq)
 end
-
 
 
 RX = 0.1
@@ -56,3 +47,10 @@ end
 plot(r,x)
 
 
+
+#using ModelingToolkit
+#@parameters Rload Xload Rl Xl Xcf Xlf Rf
+
+#Zgrid = (Rload+1im*Xload)/(Rload*1im*Xload) + Rl + 1im*Xlf
+#Zeq = (Zgrid + -1im*Xcf)/(-1im*Xcf*Zgrid) + Rf +1im*Xlf
+#abs(Zeq)

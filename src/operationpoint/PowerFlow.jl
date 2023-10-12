@@ -60,6 +60,7 @@ end
 # NodeTypes: 0 = Slack, 1 = PV, 2 = PQ
 NodeType(S::SlackAlgebraic) = 0
 NodeType(S::SlackAlgebraicParam) = 0
+NodeType(S::droopIsland) = 0
 NodeType(F::SixOrderMarconatoMachine)  = 1
 NodeType(F::SixOrderMarconatoMachineAVROEL)  = 1
 NodeType(F::FourthOrderEq)  = 1
@@ -93,7 +94,7 @@ NodeType(L::dVOC) = 1
 NodeType(L::Union{droop,droopvq}) = 1
 NodeType(L::VSM) = 1
 NodeType(L::Union{gentpj,gentpjAVROEL}) = 1
-NodeType(L::GeneralVoltageDependentLoad) = 2
+NodeType(L::Union{GeneralVoltageDependentLoad,GeneralVoltageDependentLoadParam}) = 2
 NodeType(L::WeccPeLoad) = 2
 NodeType(L::Union{ThreePhaseFault,ThreePhaseFaultContinouos}) = 2
 
@@ -133,7 +134,7 @@ function NodePower(L::Union{ThreePhaseFault,ThreePhaseFaultContinouos},U)
     Y_n = 1.0 / (L.rfault + 1im * L.xfault)
    return -conj(Y_n*U)*U*0
 end
-function NodePower(L::GeneralVoltageDependentLoad,U)
+function NodePower(L::Union{GeneralVoltageDependentLoad,GeneralVoltageDependentLoadParam},U)
     u_rel = abs(U)/L.U
     Pv = L.P * (L.Ap * u_rel^2 + L.Bp * u_rel + 1.0 - L.Ap - L.Bp)
     Qv = L.Q * (L.Aq * u_rel^2 + L.Bq * u_rel + 1.0 - L.Aq -L. Bq)
@@ -174,7 +175,7 @@ NodePower(M::Union{MatchingControl,MatchingControlRed},U) = M.p0set
 NodePower(V::dVOC,U) = V.p0set
 NodePower(V::VSM,U) = V.p0set
 NodePower(V::Union{gentpj,gentpjAVROEL},U) = V.P
-function NodePower(V::Union{droop,droopvq},U)  
+function NodePower(V::Union{droop,droopvq,droopIsland},U)  
     if V.p0set/abs(U) > V.imax_csa
         return V.p0set #V.imax_csa*abs(U) #voltage dependent power injection
     else
@@ -500,6 +501,13 @@ function GetInitialVoltages(pg::PowerGrid, ind_sl::Int64,number_nodes::Int64)
 
     if droopvq ∈ collect(values(pg.nodes)) .|> typeof
         pv = findall(collect(values(pg.nodes).|> typeof).== droopvq)
+        for i in pv
+            U[i] = collect(values(pg.nodes))[i].u0set
+        end
+    end
+
+    if droopIsland ∈ collect(values(pg.nodes)) .|> typeof
+        pv = findall(collect(values(pg.nodes).|> typeof).== droopIsland)
         for i in pv
             U[i] = collect(values(pg.nodes))[i].u0set
         end
