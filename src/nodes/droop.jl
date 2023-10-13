@@ -52,8 +52,8 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
     imeas = i*(cos(-θ)+1im*sin(-θ))/(Srated/Sbase) #1im*
     idmeas = real(imeas)
     iqmeas = imag(imeas)
-    pmeas = real(u * conj(i))
-    qmeas = imag(u * conj(i))
+    #pmeas = real(u * conj(i))
+    #qmeas = imag(u * conj(i))
     pmeas = real(umeas * conj(imeas))
     qmeas = imag(umeas * conj(imeas))
 

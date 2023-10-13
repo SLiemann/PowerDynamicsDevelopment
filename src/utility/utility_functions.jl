@@ -367,7 +367,7 @@ function plotallvoltages(pgsol::PowerGridSolution)
         tmp = scatter(x=newdf.timestamp,y=newdf[:,"uabs_"*string(ind)],name=val[1])
         push!(p,tmp)
     end
-    display(plot(p))
+    display(PlotlyJS.plot(p))
     return p
 end
 
@@ -375,8 +375,8 @@ function myplot(pgsol::PowerGridSolution,sym::Symbol;y_norm=1.0,y_bias = 0.0)
     ind = findfirst(x->x==sym,collect(rhs(pgsol.powergrid).syms))
     t = pgsol.dqsol.t
     y =  pgsol.dqsol[ind,:]./y_norm .+ y_bias
-    sc = scatter(x=t,y=y,name=String(sym))
-    display(plot(sc))
+    sc = PlotlyJS.scatter(x=t,y=y,name=String(sym))
+    display(PlotlyJS.plot(sc))
     return sc
 end
 
@@ -394,10 +394,10 @@ function myplot(pgsol::PowerGridSolution,bus::String,symv::Vector{Symbol};y_norm
         ind = findfirst(x->x==sym,collect(rhs(pgsol.powergrid).syms))
         t = pgsol.dqsol.t
         y =  pgsol.dqsol[ind,:]./y_norm .+ y_bias
-        sc = scatter(x=t,y=y,name=String(sym))
+        sc = PlotlyJS.scatter(x=t,y=y,name=String(sym))
         push!(p,sc)
     end
-    display(plot(p))
+    display(PlotlyJS.plot(p))
     return p
 end
 
