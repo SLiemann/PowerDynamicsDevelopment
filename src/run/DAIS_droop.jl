@@ -112,7 +112,7 @@ plot!(pgsol,"bus_gfm",:θ)
 plot(sol,idxs=[q_cmax])
 
 plot(sol,idxs=[Δv_dc])
-plot!(pgsol,"bus_gfm",:udc,xlims=[0.98,1.2])
+plot!(pgsol,"bus_gfm",:udc)
 
 plot(sol,idxs=[v_q])
 plot!(pgsol,"bus_gfm",:u_i)
@@ -125,8 +125,19 @@ substitute((1.0 - q_icmax)*i_cdref - q_icmax*i_cdref*icmax/i_absref,df)
 substitute((1.0 - q_icmax)*i_cqref - q_icmax*i_cqref*icmax/i_absref,df)
 substitute((1.0 - q_idcrefτ)*i_dcrefτ - q_idcrefτ*(sign(i_dcrefτ)*idcmax),df)
 
-#state_vector = states(odesys)
-#matrices, lin_sys = ModelingToolkit.linearize(odesys,state_vector,state_vector)
+###########################
+ic_imax = states(odesys) .=> sol[end]
+@named new_odesys = ODESystem(eqs,t,[diff_states; alg_states;discrete_states],tmp_params; defaults = ic_imax)
+
+matrices, simplified_sys = linearize(odesys, [], [])
+Plots.scatter(eigvals(matrices.A))
+matrices_new, simplified_sys_new = linearize(new_odesys, [], [])
+Plots.scatter!(eigvals(matrices_new.A)) #,xlims=[-5,1],ylims=[-1,1]
+
+states(simplified_sys) .=> eigvals(matrices.A) 
+states(simplified_sys) .=> eigvals(matrices_new.A) 
+
+# -> nach Khalil(S. 42-43): Eigenwerte gleich null bedeuten, dass es eine Vielzahl von Equilibrium points gibt (verschiedene Spannungen)
 
 
 
