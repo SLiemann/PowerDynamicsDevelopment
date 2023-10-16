@@ -119,19 +119,24 @@ function PiModel(y, y_shunt_km, y_shunt_mk, t_km::Num, t_mk)
     Π
 end
 
-function CalcEigenValues(pg::PowerGrid, p; output::Bool = false, plot::Bool = false)
-  mtsys = GetMTKSystem(pg, (0.0, 1.0), p)
+function CalcEigenValues(pg::PowerGrid, p)
+    mtsys = GetMTKSystem(pg, (0.0, 1.0), p)
+    CalcEigenValues(mtsys)
+end
+
+function CalcEigenValues(mtsys::ODESystem; output::Bool = false, plot::Bool = false)
   Fx, Fy, Gx, Gy = GetSymbolicFactorizedJacobian(mtsys)
   Fxf, Fyf, Gxf, Gyf = [
-    Substitute(f, mtsys.defaults) for
+    substitute(f, mtsys.defaults,fold=true) for
     f in [Fx, Fy, Gx, Gy]
   ]
   Af = Fxf - Fyf * inv(Gyf) * Gxf
-  EW = eigvals(Af)
+  Af = substitute.(Symbolics.value.(Af),([],)) # um alle Ausdrücke innerhalb der Matrix einmal auszuwerten!
+  EW = eigvals(Symbolics.value.(Af))
 
-  x,y = GetSymbolicStates(mtsys)
+  eqs,aeqs,x,y = GetSymbolicEquationsAndStates(mtsys)
   index = indexin(x, states(mtsys))
-  syms = rhs(pg).syms[index]
+  syms = states(mtsys)[index]
   if output
     display("|ID | Real-part | Imag-part | Frequency | Damping Time Constant |")
     for (ind, ew) in enumerate(EW)
@@ -141,18 +146,18 @@ function CalcEigenValues(pg::PowerGrid, p; output::Bool = false, plot::Bool = fa
     end
   end
   if plot
-      scatter([real(EW)[1]],[imag(EW)[1]], legend = :outertopright,label = String(syms[1]))
+      Plots.scatter([real(EW)[1]],[imag(EW)[1]], legend = :outertopright) #,label = String(syms[1])
       for i in 2:length(EW)
-          scatter!([real(EW)[i]],[imag(EW)[i]],label = String(syms[i]))
+         Plots.scatter!([real(EW)[i]],[imag(EW)[i]]) #,label = String(syms[i])
       end
       ylims!((-maximum(imag.(EW))*1.1,maximum(imag.(EW))*1.1))
       min_real_ew = minimum(real.(EW))
-      plot!([min_real_ew;0.0],[min_real_ew*20.0;0.0], linestyle=:dash,linecolor = :red, label = "5 % damping")
-      plot!([min_real_ew;0.0],[-min_real_ew*20.0;0.0], linestyle=:dash,linecolor = :red, label = nothing)
-      plot!([min_real_ew;0.0],[min_real_ew*10.0;0.0], linestyle=:dash,linecolor = :blue, label = "10 % damping")
-      plot!([min_real_ew;0.0],[-min_real_ew*10.0;0.0], linestyle=:dash,linecolor = :blue, label = nothing)
-      plot!([min_real_ew;0.0],[min_real_ew*5.0;0.0], linestyle=:dash,linecolor = :green, label = "20 % damping")
-      display(plot!([min_real_ew;0.0],[-min_real_ew*5.0;0.0], linestyle=:dash,linecolor = :green, label = nothing));
+      Plots.plot!([min_real_ew;0.0],[min_real_ew*20.0;0.0], linestyle=:dash,linecolor = :red, label = "5 % damping")
+      Plots.plot!([min_real_ew;0.0],[-min_real_ew*20.0;0.0], linestyle=:dash,linecolor = :red, label = nothing)
+      Plots.plot!([min_real_ew;0.0],[min_real_ew*10.0;0.0], linestyle=:dash,linecolor = :blue, label = "10 % damping")
+      Plots.plot!([min_real_ew;0.0],[-min_real_ew*10.0;0.0], linestyle=:dash,linecolor = :blue, label = nothing)
+      Plots.plot!([min_real_ew;0.0],[min_real_ew*5.0;0.0], linestyle=:dash,linecolor = :green, label = "20 % damping")
+      display(Plots.plot!([min_real_ew;0.0],[-min_real_ew*5.0;0.0], linestyle=:dash,linecolor = :green, label = nothing));
   end
   return EW
 end
@@ -364,7 +369,7 @@ function plotallvoltages(pgsol::PowerGridSolution)
     newdf = Sol2DF(pgsol)
     p = Vector{GenericTrace}()
     for (ind,val) in enumerate(pgsol.powergrid.nodes)
-        tmp = scatter(x=newdf.timestamp,y=newdf[:,"uabs_"*string(ind)],name=val[1])
+        tmp = PlotlyJS.scatter(x=newdf.timestamp,y=newdf[:,"uabs_"*string(ind)],name=val[1])
         push!(p,tmp)
     end
     display(PlotlyJS.plot(p))

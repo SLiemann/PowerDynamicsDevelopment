@@ -65,12 +65,12 @@ function GetSymbolicEquationsAndStates(
   A_states = similar(state,0)
   D_states = similar(state,0)
   for (index, value) in enumerate(fulleqs)
-    if my_lhs(value) !== 0
-      push!(eqs, value)
-      push!(D_states, state[index])
-    elseif my_lhs(value) === 0
+    if my_lhs(value) === 0 || my_lhs(value) === 0.0
       push!(aeqs, value)
       push!(A_states, state[index])
+    elseif my_lhs(value) !== 0 || my_lhs(value) !== 0.0
+        push!(eqs, value)
+        push!(D_states, state[index])
     else
       error("Can not interprete LHS of equation; $value")
     end

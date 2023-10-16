@@ -1,6 +1,6 @@
 using ModelingToolkit
 using DifferentialEquations
-using Plots
+using Plots, LinearAlgebra
 import DiffEqBase: initialize_dae!
 # independent variable and its differential 1.0008309834581939  0.015337314442955285
 @variables t
@@ -40,8 +40,11 @@ i_cq = v_q/rload - v_d/xload + v_d/xcf
 i_dcref0 = p_ref/vdcref +  -Δv_dc*kdc + (1.0 + Δv_dc)/rdc + Δp_cf/vdcref
 Δp_c = v_cdθ*i_cdθ + v_cqθ*i_cqθ - p_measθ
 
+#i_d = i_dθ*cos(Δθ) - i_qθ*sin(Δθ)
+#i_q = i_qθ*cos(Δθ) + i_dθ*sin(Δθ)
+#i_abs = hypot(i_d,i_q)
 
-eqs = [ 
+eqs_gfm = [ 
     0.0 ~ v_d - v_cd +  rf*(v_d/rload + v_q/xload - v_q/xcf) - xlf*(v_q/rload - v_d/xload + v_d/xcf)
     0.0 ~ v_q - v_cq + xlf*(v_d/rload + v_q/xload - v_q/xcf) +  rf*(v_q/rload - v_d/xload + v_d/xcf)
     0.0 ~ v_cd - vcdm0*(1.0 + Δv_dc)/vdcref
@@ -93,7 +96,10 @@ idcmax_off = (i_dcrefτ < idcmax) => (affect_idcmax_off,[q_idcrefτ],[],[])
 
 all_disc_events = [step_load,imax_on,imax_off,idcmax_on,idcmax_off]
 
-@named odesys = ODESystem(eqs,t,[diff_states; alg_states;discrete_states],tmp_params; discrete_events = all_disc_events)
+ordered_states = [v_d,v_q,v_cd,v_cq,x_id,x_iq,i_cdlim,i_cqlim,x_vd,x_vq,x_vdroop,p_f,Δθ,p_ref,Δv_dc,i_dcref,i_dcrefτ,Δp_cf,q_icmax,q_idcrefτ]
+loose_states = [diff_states; alg_states;discrete_states]
+
+@named odesys = ODESystem(eqs_gfm,t,ordered_states,tmp_params; discrete_events = all_disc_events)
 tmp = ModelingToolkit.get_defaults(odesys)
 
 ind_states = indexin(states(odesys),collect(keys(tmp)))
@@ -104,6 +110,7 @@ params = parameters(odesys) .=> collect(values(tmp))[ind_params]
 prob  = ODEProblem(odesys, u0,(0.0,5.0),params)
 sol = solve(prob,Rodas4(),dtmax=1e-3,; tstops = [1.0,2.0,3.0], initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-8,reltol=1e-8);
 plot(sol,idxs=[p_f])
+
 plot!(pgsol,"bus_gfm",:Pf,ylims=[0.88,0.92])
 
 plot(sol,idxs=[Δθ])
@@ -125,17 +132,33 @@ substitute((1.0 - q_icmax)*i_cdref - q_icmax*i_cdref*icmax/i_absref,df)
 substitute((1.0 - q_icmax)*i_cqref - q_icmax*i_cqref*icmax/i_absref,df)
 substitute((1.0 - q_idcrefτ)*i_dcrefτ - q_idcrefτ*(sign(i_dcrefτ)*idcmax),df)
 
-###########################
+#######Eigenvalue calculatoin####################
+ew_noimax = CalcEigenValues(odesys,output = false,plot=true)
+
 ic_imax = states(odesys) .=> sol[end]
-@named new_odesys = ODESystem(eqs,t,[diff_states; alg_states;discrete_states],tmp_params; defaults = ic_imax)
+@named new_odesys = ODESystem(eqs_gfm,t,ordered_states,tmp_params; defaults = ic_imax)
+ew_imax = CalcEigenValues(new_odesys,plot=true)
 
-matrices, simplified_sys = linearize(odesys, [], [])
-Plots.scatter(eigvals(matrices.A))
-matrices_new, simplified_sys_new = linearize(new_odesys, [], [])
-Plots.scatter!(eigvals(matrices_new.A)) #,xlims=[-5,1],ylims=[-1,1]
+f1 = my_rhs.(eqs_gfm);
+states(odesys) .=> substitute(Num.(f1),new_odesys.defaults)
 
-states(simplified_sys) .=> eigvals(matrices.A) 
-states(simplified_sys) .=> eigvals(matrices_new.A) 
+#Taken from states(simplified_sys)
+char_states = ["x_id(t)",
+"x_iq(t)",
+"x_vd(t)",
+"x_vq(t)",
+"x_vdroop(t)",
+"p_f(t)",
+"Δθ(t)",
+"Δv_dc(t)",
+"i_dcrefτ(t)",
+"Δp_cf(t)",
+"q_icmax(t)",
+"q_idcrefτ(t)",
+]
+
+using MATLAB
+write_matfile("eigvals_GFM_DAIS.mat"; noimax = ew_noimax,imax=ew_imax,states=char_states)
 
 # -> nach Khalil(S. 42-43): Eigenwerte gleich null bedeuten, dass es eine Vielzahl von Equilibrium points gibt (verschiedene Spannungen)
 
@@ -200,7 +223,7 @@ end
 cb = PresetTimeCallback([1.0,2.0,3.0], loadstep)
 params = getallParameters(pg.nodes["bus_gfm"])[3:22]
 params = vcat(params,[p0,q0])
-problem= ODEProblem{true}(rhs(pg),ic,(0.0,5),params)
+problem= ODEProblem{true}(rhs(pg),ic,(0.0,5.0),params)
 
 sol1 = solve(problem, Rodas4(), callback = cb, tstops=[1.0], dtmax = 1e-3,force_dtmin=false,maxiters=1e6, initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-8,reltol=1e-8);
 pgsol = PowerGridSolution(sol1,pg);
@@ -208,5 +231,20 @@ myplot(pgsol,"bus_gfm",[:Pf])
 plotallvoltages(pgsol)
 myplot(pgsol,"bus_gfm",:θ)
 myplot(pgsol,"bus_gfm",[:P0,:Pf])
+myplot(pgsol,"bus_gfm",[:i_abs])
+
 
 plot(pgsol,"bus_gfm",:Pf)
+
+
+vr1 =  ExtractResult(pgsol,:u_r_1)
+vi1 =  ExtractResult(pgsol,:u_i_1)
+v = hypot.(vr1,vi1)
+iabs =  ExtractResult(pgsol,:i_abs_1)
+p0 =  ExtractResult(pgsol,:P0_1)
+q0 =  ExtractResult(pgsol,:Q0_1)
+tsol = pgsol.dqsol.t
+theta =  ExtractResult(pgsol,:θ_1)
+udc =  ExtractResult(pgsol,:udc_1)
+plot(udc)
+write_matfile("sol_GFM_DAIS.mat",t=tsol,vgfm = v,iabs=iabs,p=p0,q=q0,theta=theta,udc=udc)
