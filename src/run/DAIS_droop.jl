@@ -8,7 +8,7 @@ D = Differential(t)
 # Differential states
 diff_states = @variables x_id(t)=0.0002499998300626934 x_iq(t)= 4.424770956641677e-5 x_vd(t)=0.0 x_vq(t)=0.0 x_vdroop(t)=1.0 p_f(t)=0.5 Δθ(t)=0.0 Δv_dc(t)=0.0 Δp_cf(t)=0.00012891554966654173 i_dcrefτ(t)=0.5501289155496666
 # algebraic states
-alg_states = @variables v_d(t)=1.0 v_q(t)=0.0 v_cd(t)=1.00 v_cq(t)=0.0  i_cdlim(t)=0.5 i_cqlim(t)=0.08849555921538757 p_ref(t)=0.5 i_dcref(t)=0.5501289155496666
+alg_states = @variables v_d(t)=1.0 v_q(t)=0.0 v_cd(t)=1.00 v_cq(t)=0.0  i_cdlim(t)=0.5 i_cqlim(t)=0.08849555921538757 p_ref(t)=0.5 i_dcref(t)=0.5501289155496666 i_absref0(t) = sqrt(0.08849555921538757^2 + 0.5^2)
 
 tmp_params = @parameters rf=0.0005 xlf=0.03141592653589793 xcf=5.305164769729845 rload=2.0 xload=10.0 cdc=0.0956 rdc=20.0 Tdc=0.05 kii=1.19 kip=0.738891 kiv=1.161022 kvp=0.52 pref0=0.5 vdcref=1.0 icmax=1.0 kvidroop=0.5 kvpdroop=0.001 ωf=10*pi kd=pi vref=1.0 v_qref = 0.0 idcmax=1.2 kdc=100.0
 # discrete states
@@ -65,16 +65,34 @@ eqs_gfm = [
     D(Δp_cf) ~ (Δp_c - Δp_cf)*ωf
     D(q_icmax) ~ 0.0
     D(q_idcrefτ) ~ 0.0
+    0.0 ~ i_absref0 - i_absref
 ]
 
 all_states = [diff_states; alg_states;discrete_states]
 step_load = [1.0,2.0,3.0] => [rload ~ rload*5.0/(rload + 5.0)]
 
+function step_load_init(integ,u,p,ctx)
+    integ.p[p.rload] = integ.p[p.rload]*5.0/(integ.p[p.rload] + 5.0)
+    initialize_dae!(integ,BrownFullBasicInit())
+end
+
+step_load_discr = [1.0,2.0,3.0] => (step_load_init,[],[rload],nothing)
+
 function affect_imax_on(integ,u,p,ctx)
     integ.u[u.q_icmax] = 1.0
     initialize_dae!(integ,BrownFullBasicInit())
 end  
+
+function affect_imax_onoff(integ,u,p,ctx)
+    display(integ.t)
+    integ.u[u.q_icmax] = 1.0 - integ.u[u.q_icmax]
+    initialize_dae!(integ,BrownFullBasicInit())
+end  
+
 imax_on = (i_absref >= icmax) => (affect_imax_on,[q_icmax],[],nothing)
+imax_on_cont =  [i_absref0-icmax-0.01~0.0] => (affect_imax_onoff,[q_icmax],[],nothing)
+imax_off_cont = [i_absref0-icmax+0.01~0.0] => (affect_imax_onoff,[q_icmax],[],nothing)
+
 
 function affect_imax_off(integ,u,p,ctx)
     integ.u[u.q_icmax] = 0.0
@@ -92,24 +110,40 @@ function affect_idcmax_off(integ,u,p,ctx)
     integ.u[u.q_idcrefτ] = 0.0
     initialize_dae!(integ,BrownFullBasicInit())
 end  
+
 idcmax_off = (i_dcrefτ < idcmax) => (affect_idcmax_off,[q_idcrefτ],[],[])
+all_disc_events = [step_load_discr,imax_on,imax_off,idcmax_on,idcmax_off]
 
-all_disc_events = [step_load,imax_on,imax_off,idcmax_on,idcmax_off]
-
-ordered_states = [v_d,v_q,v_cd,v_cq,x_id,x_iq,i_cdlim,i_cqlim,x_vd,x_vq,x_vdroop,p_f,Δθ,p_ref,Δv_dc,i_dcref,i_dcrefτ,Δp_cf,q_icmax,q_idcrefτ]
+ordered_states = [v_d,v_q,v_cd,v_cq,x_id,x_iq,i_cdlim,i_cqlim,x_vd,x_vq,x_vdroop,p_f,Δθ,p_ref,Δv_dc,i_dcref,i_dcrefτ,Δp_cf,q_icmax,q_idcrefτ,i_absref0]
 loose_states = [diff_states; alg_states;discrete_states]
 
-@named odesys = ODESystem(eqs_gfm,t,ordered_states,tmp_params; discrete_events = all_disc_events)
+@named odesys =     ODESystem(eqs_gfm,t,ordered_states,tmp_params; discrete_events = all_disc_events)
 tmp = ModelingToolkit.get_defaults(odesys)
-
 ind_states = indexin(states(odesys),collect(keys(tmp)))
 u0 = states(odesys) .=> collect(values(tmp))[ind_states] 
 ind_params = setdiff(indexin(parameters(odesys),collect(keys(tmp))),[nothing])
 params = parameters(odesys) .=> collect(values(tmp))[ind_params] 
-
 prob  = ODEProblem(odesys, u0,(0.0,5.0),params)
-sol = solve(prob,Rodas4(),dtmax=1e-3,; tstops = [1.0,2.0,3.0], initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-8,reltol=1e-8);
+sol = solve(prob,Rodas4(),dtmax=1e-4,; tstops = [1.0,2.0,3.0], initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-8,reltol=1e-8);
+plot(sol,idxs=[q_icmax])
 plot(sol,idxs=[p_f])
+
+@named odesyscont = ODESystem(eqs_gfm,t,ordered_states,tmp_params; continuous_events = [imax_on_cont,imax_off_cont], discrete_events=step_load_discr)
+tmp = ModelingToolkit.get_defaults(odesyscont)
+ind_states = indexin(states(odesyscont),collect(keys(tmp)))
+u0 = states(odesyscont) .=> collect(values(tmp))[ind_states] 
+ind_params = setdiff(indexin(parameters(odesyscont),collect(keys(tmp))),[nothing])
+params = parameters(odesyscont) .=> collect(values(tmp))[ind_params] 
+tmp = ModelingToolkit.get_defaults(odesyscont);
+
+probcont  = ODEProblem(odesyscont, u0,(0.0,4.0),params)
+solcont = solve(probcont,Rodas4(),dtmax=1e-4; tstops = [1.0,2.0,3.0], initializealg = BrownFullBasicInit(),alg_hints=:stiff);
+plot(solcont,idxs=[q_icmax])
+plot(solcont,idxs=[p_f])
+
+plot(solcont,idxs=[i_absref0],ylims=(0.98,1.02))
+plot(solcont,idxs=[i_absref0])
+
 
 plot!(pgsol,"bus_gfm",:Pf,ylims=[0.88,0.92])
 
