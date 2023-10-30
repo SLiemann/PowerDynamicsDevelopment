@@ -127,6 +127,9 @@ prob  = ODEProblem(odesys, u0,(0.0,5.0),params)
 sol = solve(prob,Rodas4(),dtmax=1e-4,; tstops = [1.0,2.0,3.0], initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-8,reltol=1e-8);
 plot(sol,idxs=[q_icmax])
 plot(sol,idxs=[p_f])
+plot(sol,idxs=[Δθ])
+
+
 
 @named odesyscont = ODESystem(eqs_gfm,t,ordered_states,tmp_params; continuous_events = [imax_on_cont,imax_off_cont], discrete_events=step_load_discr)
 tmp = ModelingToolkit.get_defaults(odesyscont)
@@ -267,6 +270,7 @@ myplot(pgsol,"bus_gfm",:θ)
 myplot(pgsol,"bus_gfm",[:P0,:Pf])
 myplot(pgsol,"bus_gfm",[:i_abs])
 
+myplot(pgsol,"bus_gfm",[:udc])
 
 plot(pgsol,"bus_gfm",:Pf)
 

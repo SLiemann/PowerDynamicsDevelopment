@@ -20,7 +20,7 @@ begin
         du[11] = 0.0 # hilf_t_off
     end
 
-    u0 = [0.0, 230*sqrt(2),0.0,0.0034,0.00511210289264389,0.0,0.0,0.0,230*sqrt(2),0.0,0.0]
+    u0 = [0.0, 302.8363396315289,0.0,0.0034,0.00511210289264389,0.0,0.3228826988911387,1.0,302.8155,0.0,0.0]
     p =  [230*sqrt(2),100*pi,1000.0,700e-6]
 
     M = Diagonal([0, 1, 1, 1, 1, 1, 1, 1,0,1,1])
@@ -96,8 +96,8 @@ begin
         Ud,w,Pdc,Cd = p
         T = 0.02
         Ud = integrator.u[9]
-        te = integrator.u[4]
-        ta = integrator.u[5]
+        te = integrator.u[4] #_ton
+        ta = integrator.u[5] #t_off
 
         Teil1 = Ud*(1/2)*w*Cd*(ta-te+1/(2*w)*(sin(2*w*ta)-sin(2*w*te)))
         Teil2 = Pdc/(Ud*w)*(log(abs(sin(w*ta)))-log(abs(sin(w*te))))
@@ -128,9 +128,15 @@ begin
     nothing
 end
 
-plot(sol,idxs=[9])
+plot(sol,idxs=[7,8])
+plot(sol,idxs=[2])
 
 plot(sol.t.-sol[9,:])
+
+using MATLAB
+using FileIO
+write_matfile("pe_power_response.mat";t=sol.t, sol = sol[:,:]) 
+
 
 
 
