@@ -127,9 +127,32 @@ prob  = ODEProblem(odesys, u0,(0.0,5.0),params)
 sol = solve(prob,Rodas4(),dtmax=1e-4,; tstops = [1.0,2.0,3.0], initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-8,reltol=1e-8);
 plot(sol,idxs=[q_icmax])
 plot(sol,idxs=[p_f])
-plot(sol,idxs=[Δθ])
+plot(sol,idxs=[v_cq])
 
+using NonlinearSolve
+u0f = Float64.(collect(values(tmp))[ind_states])
+pf = Float64.(collect(values(tmp))[ind_params])
+nprob = SteadyStateProblem(prob.f, u0f,pf)
+nsol = solve(nprob,DynamicSS(Rodas4()))
 
+pf[4] = 0.9
+u0f[19] = 0.0
+nprob = SteadyStateProblem(prob.f, u0f,pf)
+nsol = solve(nprob,DynamicSS(Rodas4()))
+states(odesys) .=> u0f .- nsol.u
+
+pf[4] = 0.9
+u0f[19] = 1.0
+nprob = SteadyStateProblem(prob.f, u0f,pf)
+nsol = solve(nprob,DynamicSS(Rodas4()),reltol=1e-10,abstol=1e-10)
+states(odesys) .=> nsol.u
+
+u0_steady = states(odesys) .=> nsol.u
+params_steady = parameters(odesys) .=> pf
+prob_steady = ODEProblem(odesys, u0_steady,(0.0,1.0),params_steady)
+sol_steady = solve(prob_steady,Rodas4())
+plot(sol_steady,idxs=[p_f])
+plot(sol_steady,idxs=[Δθ])
 
 @named odesyscont = ODESystem(eqs_gfm,t,ordered_states,tmp_params; continuous_events = [imax_on_cont,imax_off_cont], discrete_events=step_load_discr)
 tmp = ModelingToolkit.get_defaults(odesyscont)
