@@ -43,11 +43,10 @@ begin
         Ud,w,Pdc,Cd = integrator.p
         integrator.u[6] = 1.0
         integrator.u[3] = mod(integrator.t,0.01)
-        if integrator.u[4] > 0
-            u_off = integrator.u[9]*sin(w*integrator.u[5])
+        u_off = integrator.u[9]*sin(w*integrator.u[5])
+        if integrator.u[4] >= 0
             integrator.u[2] = sqrt(u_off^2 - 2*Pdc*(0.01-integrator.u[5])/Cd)
         else
-            u_off = integrator.u[9]*sin(w*integrator.u[5])
             integrator.u[2] = maximum(real(sqrt(Complex(integrator.u[2]^2 - 2*Pdc*(0.01)/Cd))))
         end
     end    
