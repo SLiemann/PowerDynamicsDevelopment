@@ -265,7 +265,7 @@ p0 = -0.5;
 q0 = -0.1;
 
 buses=OrderedDict(
-    "bus_gfm" => droop(Sbase = 100e6,Srated = 100e6, p0set = 0.5, u0set = 1.00,Kp_droop = pi,Kp_uset = 0.001, Ki_uset = 0.5,
+    "bus_gfm" => droop(Sbase = 100e6,Srated = 100e6, p0set = 0.5, u0set = 1.00,Kp_droop = pi/100,Kp_uset = 0.001, Ki_uset = 0.5,
                                 Kdc = 100.0, gdc = Gdc, cdc = Cdc, xlf = Xlf, rf = R_f, xcf =  Xcf, Tdc = 0.05, Kp_u = 0.52,
                                 Ki_u = 1.161022, Kp_i = 0.738891, Ki_i = 1.19, imax_csa = 1.0, imax_dc = 1.2, p_red = 1, LVRT_on = 0.0,
                                 p_ind = collect(1:20)),
@@ -273,7 +273,7 @@ buses=OrderedDict(
 
 # HIER EXTREM KURZE LEITUNG UM DIE LAST DIREKT AM CONVERTER ZU SIMULIEREN
 branches=OrderedDict(
-    "line"=> PiModelLine(from= "bus_gfm", to = "bus_load",y=1.0/(0.000001+1im*0.000001), y_shunt_km=0.0, y_shunt_mk=0.0))
+    "line"=> PiModelLine(from= "bus_gfm", to = "bus_load",y=1.0/(0.0001+1im*0.0001), y_shunt_km=0.0, y_shunt_mk=0.0))
 pg=  PowerGrid(buses, branches)
 
 #nodes_postfault = deepcopy(pg.nodes)
@@ -293,13 +293,24 @@ function loadstep(integrator)
 end
 
 cb = PresetTimeCallback([1.0,2.0,3.0], loadstep)
+
+function loadstep_decrease(integrator)
+    integrator.p[21] += 0.4
+    initialize_dae!(integrator,BrownFullBasicInit())
+    auto_dt_reset!(integrator)
+end
+
+cb2 = PresetTimeCallback([5.0], loadstep_decrease)
+
 params = getallParameters(pg.nodes["bus_gfm"])[3:22]
 params = vcat(params,[p0,q0])
-problem= ODEProblem{true}(rhs(pg),ic,(0.0,5.0),params)
+problem= ODEProblem{true}(rhs(pg),ic,(0.0,6.0),params)
 
-sol1 = solve(problem, Rodas4(), callback = cb, tstops=[1.0], dtmax = 1e-3,force_dtmin=false,maxiters=1e6, initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-8,reltol=1e-8);
+sol1 = solve(problem, Rodas4(), callback = CallbackSet(cb,cb2), tstops=[1.0,5.0], dtmax = 1e-3,force_dtmin=false,maxiters=1e6, initializealg = BrownFullBasicInit(),alg_hints=:stiff)
 pgsol = PowerGridSolution(sol1,pg);
 myplot(pgsol,"bus_gfm",[:Pf])
+myplot(pgsol,"bus_gfm",[:ω0],y_norm=1/50,y_bias=50)
+
 plotallvoltages(pgsol)
 myplot(pgsol,"bus_gfm",:θ)
 myplot(pgsol,"bus_gfm",[:P0,:Pf])
@@ -309,6 +320,7 @@ myplot(pgsol,"bus_gfm",[:udc])
 
 plot(pgsol,"bus_gfm",:Pf)
 
+using MATLAB
 
 vr1 =  ExtractResult(pgsol,:u_r_1)
 vi1 =  ExtractResult(pgsol,:u_i_1)
@@ -319,5 +331,8 @@ q0 =  ExtractResult(pgsol,:Q0_1)
 tsol = pgsol.dqsol.t
 theta =  ExtractResult(pgsol,:θ_1)
 udc =  ExtractResult(pgsol,:udc_1)
-plot(udc)
-write_matfile("sol_GFM_DAIS.mat",t=tsol,vgfm = v,iabs=iabs,p=p0,q=q0,theta=theta,udc=udc)
+freq =  ExtractResult(pgsol,:ω0_1).*50 .+50
+write_matfile("sol_GFM_DAIS.mat",t=tsol,vgfm = v,iabs=iabs,p=p0,q=q0,theta=theta,udc=udc,freq=freq)
+
+plot( ExtractResult(pgsol,:ω0_1).*50 .+50)
+plot(ExtractResult(pgsol,:θ_1)*180/pi*50)
