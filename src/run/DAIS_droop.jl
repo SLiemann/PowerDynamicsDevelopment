@@ -69,16 +69,25 @@ eqs_gfm = [
 ]
 
 all_states = [diff_states; alg_states;discrete_states]
-step_load = [1.0,2.0,3.0] => [rload ~ rload*5.0/(rload + 5.0)]
+t_events_on = [];
+t_events_off = [];
 
 function step_load_init(integ,u,p,ctx)
     integ.p[p.rload] = integ.p[p.rload]*5.0/(integ.p[p.rload] + 5.0)
     initialize_dae!(integ,BrownFullBasicInit())
 end
 
-step_load_discr = [1.0,2.0,3.0] => (step_load_init,[],[rload],nothing)
+step_load_incr = [1.0,2.0,3.0] => (step_load_init,[],[rload],nothing)
+
+function step_load_decrease(integ,u,p,ctx)
+    integ.p[p.rload] = 2.0
+    initialize_dae!(integ,BrownFullBasicInit())
+end
+
+step_load_decr =  [5.0] => (step_load_decrease,[],[rload],nothing)
 
 function affect_imax_on(integ,u,p,ctx)
+    append!(t_events_on,integ.t)
     integ.u[u.q_icmax] = 1.0
     initialize_dae!(integ,BrownFullBasicInit())
 end  
@@ -89,16 +98,17 @@ function affect_imax_onoff(integ,u,p,ctx)
     initialize_dae!(integ,BrownFullBasicInit())
 end  
 
-imax_on = (i_absref >= icmax) => (affect_imax_on,[q_icmax],[],nothing)
+imax_on = (i_absref-icmax-q_icmax>= 0.0) => (affect_imax_on,[q_icmax],[],nothing)
 imax_on_cont =  [i_absref0-icmax-0.01~0.0] => (affect_imax_onoff,[q_icmax],[],nothing)
 imax_off_cont = [i_absref0-icmax+0.01~0.0] => (affect_imax_onoff,[q_icmax],[],nothing)
 
 
 function affect_imax_off(integ,u,p,ctx)
+    append!(t_events_off,integ.t)
     integ.u[u.q_icmax] = 0.0
     initialize_dae!(integ,BrownFullBasicInit())
 end  
-imax_off = (i_absref < icmax) => (affect_imax_off,[q_icmax],[],[])
+imax_off = ((i_absref-icmax)*q_icmax < 0.0) => (affect_imax_off,[q_icmax],[],[])
 
 function affect_idcmax_on(integ,u,p,ctx)
     integ.u[u.q_idcrefτ] = 1.0
@@ -112,7 +122,7 @@ function affect_idcmax_off(integ,u,p,ctx)
 end  
 
 idcmax_off = (i_dcrefτ < idcmax) => (affect_idcmax_off,[q_idcrefτ],[],[])
-all_disc_events = [step_load_discr,imax_on,imax_off,idcmax_on,idcmax_off]
+all_disc_events = [step_load_incr,step_load_decr,imax_on,imax_off,idcmax_on,idcmax_off]
 
 ordered_states = [v_d,v_q,v_cd,v_cq,x_id,x_iq,i_cdlim,i_cqlim,x_vd,x_vq,x_vdroop,p_f,Δθ,p_ref,Δv_dc,i_dcref,i_dcrefτ,Δp_cf,q_icmax,q_idcrefτ,i_absref0]
 loose_states = [diff_states; alg_states;discrete_states]
@@ -123,9 +133,11 @@ ind_states = indexin(states(odesys),collect(keys(tmp)))
 u0 = states(odesys) .=> collect(values(tmp))[ind_states] 
 ind_params = setdiff(indexin(parameters(odesys),collect(keys(tmp))),[nothing])
 params = parameters(odesys) .=> collect(values(tmp))[ind_params] 
-prob  = ODEProblem(odesys, u0,(0.0,5.0),params)
+prob  = ODEProblem(odesys, u0,(0.0,6.0),params)
 sol = solve(prob,Rodas4(),dtmax=1e-4,; tstops = [1.0,2.0,3.0], initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-8,reltol=1e-8);
 plot(sol,idxs=[q_icmax])
+t_events_off
+t_events_on
 plot(sol,idxs=[p_f])
 plot(sol,idxs=[v_cq])
 
@@ -154,7 +166,7 @@ sol_steady = solve(prob_steady,Rodas4())
 plot(sol_steady,idxs=[p_f])
 plot(sol_steady,idxs=[Δθ])
 
-@named odesyscont = ODESystem(eqs_gfm,t,ordered_states,tmp_params; continuous_events = [imax_on_cont,imax_off_cont], discrete_events=step_load_discr)
+@named odesyscont = ODESystem(eqs_gfm,t,ordered_states,tmp_params; continuous_events = [imax_on_cont,imax_off_cont], discrete_events=step_load_incr)
 tmp = ModelingToolkit.get_defaults(odesyscont)
 ind_states = indexin(states(odesyscont),collect(keys(tmp)))
 u0 = states(odesyscont) .=> collect(values(tmp))[ind_states] 
