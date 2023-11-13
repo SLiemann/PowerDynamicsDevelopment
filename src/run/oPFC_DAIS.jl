@@ -41,16 +41,15 @@ begin
         du[3] = 0.0 # t_sum
         du[4] = 0.0 # t_on
         du[5] = 0.0 # t_off
-        du[6] = 0.0 # half_cycle
-        du[7] = 0.0 # a
-        du[8] = 0.0 # b
-        du[9] = u[9] - Ud#*exp(-t)
+        du[6] = 0.0 # a
+        du[7] = 0.0 # b
+        du[8] = u[8] - Ud#*exp(-t)
     end
 
-    u0 = [0.0, 302.8363396315289,0.0,0.0034,0.00511210289264389,0.0,0.3228826988911387,1.0,302.8155]
+    u0 = [0.0, 302.8363396315289,0.0,0.0034,0.00511210289264389,0.3228826988911387,1.0,302.8155]
     p =  [230*sqrt(2),100*pi,1000.0,700e-6]
 
-    M = Diagonal([0, 1, 1, 1, 1, 1, 1, 1,0])
+    M = Diagonal([0, 1, 1, 1, 1, 1, 1,0])
 
     function fault_start(integrator)
         integrator.p[1] = 0.5*integrator.p[1]
@@ -68,27 +67,29 @@ begin
     s1(u, t, integrator) = u[3] >= 0.01
     function h1(integrator) 
         Ud,w,Pdc,Cd = integrator.p
-        integrator.u[6] = 1.0
+        #integrator.u[6] = 1.0
         integrator.u[3] = mod(integrator.t,0.01)
-        u_off = integrator.u[9]*sin(w*integrator.u[5])
+        u_off = integrator.u[8]*sin(w*integrator.u[5])
         if integrator.u[4] >= 0
             integrator.u[2] = sqrt(u_off^2 - 2*Pdc*(0.01-integrator.u[5])/Cd)
         else
             integrator.u[2] = maximum(real(sqrt(Complex(integrator.u[2]^2 - 2*Pdc*(0.01)/Cd))))
         end
+        h2(integrator)
+        h3(integrator)
     end    
 
-    s3(u, t, integrator) = mod(t,0.01) < u[5]
-    function h3(integrator) 
+    s2(u, t, integrator) = mod(t,0.01) < u[5]
+    function h2(integrator) 
         Ud,w,Pdc,Cd = integrator.p
-        integrator.u[5] = (pi + asin(2*Pdc/(w*Cd*integrator.u[9]^2)))/(2*w)
+        integrator.u[5] = (pi + asin(2*Pdc/(w*Cd*integrator.u[8]^2)))/(2*w)
     end 
 
-    s4(u, t, integrator) = mod(t,0.01) < u[4]
-    function h4(integrator)
+    s3(u, t, integrator) = mod(t,0.01) < u[4]
+    function h3(integrator)
         Ud,w,Pdc,Cd = integrator.p
         uofft2 = integrator.u[2]
-        u0 = integrator.u[9]
+        u0 = integrator.u[8]
         x1 = 0.004517042542168
         x2 = -0.084973441092720
         x3 =  1.367157627046003
@@ -102,25 +103,17 @@ begin
         integrator.u[4] = CardanosFormular(A,B,C,D)
     end
     
-    sx(u,t,integrator) = u[6] == 1.0
-    function hx(integrator)
-        h3(integrator)
-        h4(integrator)
-        display(integrator.t)
+    s4(u, t, integrator) = u[4] <= 0.0
+    function h4(integrator)
         integrator.u[6] = 0.0
-    end
-
-    s5(u, t, integrator) = u[4] <= 0.0
-    function h5(integrator)
         integrator.u[7] = 0.0
-        integrator.u[8] = 0.0
     end
 
-    s6(u, t, integrator) = u[4] > 0.0
-    function h6(integrator)
+    s5(u, t, integrator) = u[4] > 0.0
+    function h5(integrator)
         Ud,w,Pdc,Cd = p
         T = 0.02
-        Ud = integrator.u[9]
+        Ud = integrator.u[8]
         te = integrator.u[4] #_ton
         ta = integrator.u[5] #t_off
 
@@ -132,8 +125,8 @@ begin
         Teil2b = Pdc/Ud*(ta-te)
         bn = 4/T*(Teil1b+Teil2b)
 
-        integrator.u[7] = an*Ud/2/Pdc
-        integrator.u[8] = bn*Ud/2/Pdc
+        integrator.u[6] = an*Ud/2/Pdc
+        integrator.u[7] = bn*Ud/2/Pdc
     end
 
     cb_fault = PresetTimeCallback([0.04],fault_start)
@@ -141,21 +134,19 @@ begin
 
     cb0 = DiscreteCallback(s0,h0)
     cb1 = DiscreteCallback(s1,h1)
-    #cb2 = DiscreteCallback(s2,h2)
+    cb2 = DiscreteCallback(s2,h2)
     cb3 = DiscreteCallback(s3,h3)
     cb4 = DiscreteCallback(s4,h4)
     cb5 = DiscreteCallback(s5,h5)
-    cb6 = DiscreteCallback(s6,h6)
-    cbx = DiscreteCallback(sx,hx)
 
     ode_fun = ODEFunction(f,mass_matrix = M)
     prob = ODEProblem(ode_fun, u0, (0.0, 0.14), p)
-    sol = solve(prob, Rodas4P(), callback = CallbackSet(cb_fault,cb_clear,cb0,cb1,cbx,cb3,cb4,cb5,cb6),dtmax=1e-3);
+    sol = solve(prob, Rodas4P(), callback = CallbackSet(cb_fault,cb_clear,cb0,cb1,cb2,cb3,cb4,cb5),dtmax=1e-3);
     nothing
 end
 
-plot(sol,idxs=[7,8])
-plot(sol,idxs=[6])
+plot(sol,idxs=[6,7])
+plot(sol,idxs=[8])
 
 plot(sol.t.-sol[9,:])
 
