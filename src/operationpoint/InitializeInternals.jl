@@ -902,6 +902,9 @@ function InitNode(GP::gentpjAVROEL,ind::Int64,I_c::Vector{Complex{Float64}},ic_l
    S_d = sat_exponential(E_l)
    S_q = (GP.X_q)/(GP.X_d) * S_d
 
+   display(E_l)
+   display(S_d)
+   display(S_q)
    #Calulate Polradspannung
    Xdsatss = (GP.X_dss - GP.X_l) /  (1 + S_d) + GP.X_l
    Xqsatss = (GP.X_qss - GP.X_l) /  (1 + S_q) + GP.X_l   

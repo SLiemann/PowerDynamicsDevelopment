@@ -67,7 +67,6 @@ begin
     s1(u, t, integrator) = u[3] >= 0.01
     function h1(integrator) 
         Ud,w,Pdc,Cd = integrator.p
-        #integrator.u[6] = 1.0
         integrator.u[3] = mod(integrator.t,0.01)
         u_off = integrator.u[8]*sin(w*integrator.u[5])
         if integrator.u[4] >= 0
