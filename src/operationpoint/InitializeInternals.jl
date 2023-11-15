@@ -902,9 +902,6 @@ function InitNode(GP::gentpjAVROEL,ind::Int64,I_c::Vector{Complex{Float64}},ic_l
    S_d = sat_exponential(E_l)
    S_q = (GP.X_q)/(GP.X_d) * S_d
 
-   display(E_l)
-   display(S_d)
-   display(S_q)
    #Calulate Polradspannung
    Xdsatss = (GP.X_dss - GP.X_l) /  (1 + S_d) + GP.X_l
    Xqsatss = (GP.X_qss - GP.X_l) /  (1 + S_q) + GP.X_l   
@@ -914,7 +911,7 @@ function InitNode(GP::gentpjAVROEL,ind::Int64,I_c::Vector{Complex{Float64}},ic_l
    #calculate δ
    K_temp = (GP.X_q-GP.X_l)/(1 + S_q) + GP.X_l
    δ = atan((v_i_term+i_r*K_temp + GP.R_a *i_i)/(v_r_term - i_i*K_temp +GP.R_a *i_r))
-
+  
    #terminal voltage transformation to local dq-system
    v = v_r_term+1im*v_i_term
    v = 1im*v*exp(-1im*δ)
