@@ -36,20 +36,19 @@ begin
     function f(du,u,p,t)
         Ud,w,Pdc,Cd = p
 
-        du[1] = u[1] - Ud*sin(w*t)#*exp(-t)
+        du[1] = u[1] - Ud
         du[2] = 0.0 # u_off
         du[3] = 0.0 # t_sum
         du[4] = 0.0 # t_on
         du[5] = 0.0 # t_off
         du[6] = 0.0 # a
         du[7] = 0.0 # b
-        du[8] = u[8] - Ud#*exp(-t)
     end
 
-    u0 = [0.0, 302.8363396315289,0.0,0.0034,0.00511210289264389,0.3228826988911387,1.0,302.8155]
+    u0 = [230*sqrt(2), 302.8363396315289,0.0,0.0034,0.00511210289264389,0.3228826988911387,1.0]
     p =  [230*sqrt(2),100*pi,1000.0,700e-6]
 
-    M = Diagonal([0, 1, 1, 1, 1, 1, 1,0])
+    M = Diagonal([0, 1, 1, 1, 1, 1, 1])
 
     function fault_start(integrator)
         integrator.p[1] = 0.5*integrator.p[1]
@@ -68,7 +67,7 @@ begin
     function h1(integrator) 
         Ud,w,Pdc,Cd = integrator.p
         integrator.u[3] = mod(integrator.t,0.01)
-        u_off = integrator.u[8]*sin(w*integrator.u[5])
+        u_off = integrator.u[1]*sin(w*integrator.u[5])
         if integrator.u[4] >= 0
             integrator.u[2] = sqrt(u_off^2 - 2*Pdc*(0.01-integrator.u[5])/Cd)
         else
@@ -81,14 +80,14 @@ begin
     s2(u, t, integrator) = mod(t,0.01) < u[5]
     function h2(integrator) 
         Ud,w,Pdc,Cd = integrator.p
-        integrator.u[5] = (pi + asin(2*Pdc/(w*Cd*integrator.u[8]^2)))/(2*w)
+        integrator.u[5] = (pi + asin(2*Pdc/(w*Cd*integrator.u[1]^2)))/(2*w)
     end 
 
     s3(u, t, integrator) = mod(t,0.01) < u[4]
     function h3(integrator)
         Ud,w,Pdc,Cd = integrator.p
         uofft2 = integrator.u[2]
-        u0 = integrator.u[8]
+        u0 = integrator.u[1]
         x1 = 0.004517042542168
         x2 = -0.084973441092720
         x3 =  1.367157627046003
@@ -112,7 +111,7 @@ begin
     function h5(integrator)
         Ud,w,Pdc,Cd = p
         T = 0.02
-        Ud = integrator.u[8]
+        Ud = integrator.u[1]
         te = integrator.u[4] #_ton
         ta = integrator.u[5] #t_off
 
@@ -145,7 +144,7 @@ begin
 end
 
 plot(sol,idxs=[6,7])
-plot(sol,idxs=[8])
+plot(sol,idxs=[1])
 
 plot(sol.t.-sol[9,:])
 
