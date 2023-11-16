@@ -595,7 +595,7 @@ function InitNode(VOC::dVOC,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Arra
     return [v_d_temp, v_q_temp,θ,udc,idc0,vd_int,e_ud,e_uq,e_id,e_iq,p,q,dP,abs(i1),0.0,0.0], VOC_new #,idmeas,iqmeas,id,iq
 end
 
-function InitNode(DR::Union{droop,droopvq,droopIsland},ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)
+function InitNode(DR::Union{droop,droopTS,droopvq,droopIsland},ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)
    v_d_temp = ic_lf[ind_offset]
    v_q_temp = ic_lf[ind_offset+1]
    U0 = v_d_temp+1im*v_q_temp
@@ -691,6 +691,32 @@ function InitNode(DR::Union{droop,droopvq,droopIsland},ind::Int64,I_c::Vector{Co
          LVRT_on = DR.LVRT_on,
          p_ind = DR.p_ind,
          )
+   elseif typeof(DR) == droopTS
+      droop_new = droopTS(
+            Sbase = DR.Sbase,
+            Srated = DR.Srated,
+            p0set = p0_new, #new
+            u0set = DR.u0set,
+            Kp_droop = DR.Kp_droop,
+            Kp_uset = DR.Kp_uset,
+            Ki_uset = DR.Ki_uset,
+            Kdc = DR.Kdc,
+            gdc = DR.gdc,
+            cdc = DR.cdc,
+            xlf = DR.xlf,
+            rf = DR.rf,
+            xcf =  DR.xcf,
+            Tdc = DR.Tdc,
+            Kp_u = DR.Kp_u,
+            Ki_u = DR.Ki_u,
+            Kp_i = DR.Kp_i,
+            Ki_i = DR.Ki_i,
+            imax_csa = DR.imax_csa,
+            imax_dc = DR.imax_dc,
+            LVRT_on = DR.LVRT_on,
+            p_ind = DR.p_ind,
+            )
+         return [v_d_temp, v_q_temp,θ,udc,idc0,abs(U0),e_ud,e_uq,e_id,e_iq,p,dP,abs(i1),abs(i1),0.0,q,p,0,0], droop_new
    else 
       droop_new = droop(
             Sbase = DR.Sbase,

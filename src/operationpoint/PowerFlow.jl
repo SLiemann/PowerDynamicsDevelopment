@@ -91,7 +91,7 @@ NodeType(
 ) = 1
 NodeType(L::Union{MatchingControl,MatchingControlRed}) = 1
 NodeType(L::dVOC) = 1
-NodeType(L::Union{droop,droopvq}) = 1
+NodeType(L::Union{droop,droopvq,droopTS}) = 1
 NodeType(L::VSM) = 1
 NodeType(L::Union{gentpj,gentpjAVROEL}) = 1
 NodeType(L::Union{GeneralVoltageDependentLoad,GeneralVoltageDependentLoadParam}) = 2
@@ -175,7 +175,7 @@ NodePower(M::Union{MatchingControl,MatchingControlRed},U) = M.p0set
 NodePower(V::dVOC,U) = V.p0set
 NodePower(V::VSM,U) = V.p0set
 NodePower(V::Union{gentpj,gentpjAVROEL},U) = V.P
-function NodePower(V::Union{droop,droopvq,droopIsland},U)  
+function NodePower(V::Union{droop,droopvq,droopIsland,droopTS},U)  
     if V.p0set/abs(U) > V.imax_csa
         return V.p0set #V.imax_csa*abs(U) #voltage dependent power injection
     else
@@ -494,6 +494,13 @@ function GetInitialVoltages(pg::PowerGrid, ind_sl::Int64,number_nodes::Int64)
 
     if droop ∈ collect(values(pg.nodes)) .|> typeof
         pv = findall(collect(values(pg.nodes).|> typeof).== droop)
+        for i in pv
+            U[i] = collect(values(pg.nodes))[i].u0set
+        end
+    end
+
+    if droopTS ∈ collect(values(pg.nodes)) .|> typeof
+        pv = findall(collect(values(pg.nodes).|> typeof).== droopTS)
         for i in pv
             U[i] = collect(values(pg.nodes))[i].u0set
         end
