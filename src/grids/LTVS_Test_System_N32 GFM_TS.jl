@@ -169,9 +169,12 @@ function simulate_LTVS_N32_simulation_TS(pg::PowerGrid,ic::Vector{Float64},tspan
     rfault = real(zfault) <= 0.0 ? 1e-5 : real(zfault)
     xfault = imag(zfault) <= 0.0 ? 1e-5 : imag(zfault)
 
+    evr = Array{Float64}(undef,0,4)
+
     branch_oltc = "OLTC"
     index_U_oltc = PowerDynamics.variable_index(pg.nodes,pg.lines[branch_oltc].to,:u_r)
     index_U_gfm = PowerDynamics.variable_index(pg.nodes,"bus_gfm",:u_r)
+    index_LVRT_gfm = PowerDynamics.variable_index(pg.nodes,"bus_gfm",:LVRT)
     index_U_load = PowerDynamics.variable_index(pg.nodes,"bus_load",:u_r)
 
     function TapState(integrator)
@@ -343,7 +346,7 @@ function simulate_LTVS_N32_simulation_TS(pg::PowerGrid,ic::Vector{Float64},tspan
     end
 
     function check_GFM_voltage_LVRT(u,t,integrator)
-        sqrt(u[index_U_gfm]*u[index_U_gfm] + u[index_U_gfm+1]*u[index_U_gfm+1]) < integrator.u[end]
+        sqrt(u[index_U_gfm]*u[index_U_gfm] + u[index_U_gfm+1]*u[index_U_gfm+1]) < integrator.u[index_LVRT_gfm]
     end
 
     function check_GFM_voltage_HVRT13(u,t,integrator)
@@ -377,51 +380,56 @@ function simulate_LTVS_N32_simulation_TS(pg::PowerGrid,ic::Vector{Float64},tspan
     end
 
     function affect_imax_on(integrator)
+        evr = vcat(evr, [integrator.t 1 1 1])
         integrator.u[ind_qimax] = 1.0
         initialize_dae!(integrator,BrownFullBasicInit())
         auto_dt_reset!(integrator)
     end
 
     function affect_imax_off(integrator)
+        evr = vcat(evr, [integrator.t 1 2 2])
         integrator.u[ind_qimax] = 0.0
         initialize_dae!(integrator,BrownFullBasicInit())
         auto_dt_reset!(integrator)
     end
 
     function affect_idcmax_on(integrator)
+        evr = vcat(evr, [integrator.t 1 3 3])
         integrator.u[ind_qidcmax] = 1.0
         initialize_dae!(integrator,BrownFullBasicInit())
         auto_dt_reset!(integrator)
     end
 
     function affect_idcmax_off(integrator)
+        evr = vcat(evr, [integrator.t 1 4 4])
         integrator.u[ind_qidcmax] = 1.0
         initialize_dae!(integrator,BrownFullBasicInit())
         auto_dt_reset!(integrator)
     end
 
-    cb1 = DiscreteCallback(voltage_deadband, timer_off)
+    cb1 = DiscreteCallback(voltage_deadband, timer_off) 
     cb2 = DiscreteCallback(voltage_outside_low, timer_on_low)
     cb21 = DiscreteCallback(voltage_outside_high, timer_on_high)
     cb3 = DiscreteCallback(timer_hit, TapState)
     cb4 = PresetTimeCallback(tfault[1], errorState)
     cb5 = PresetTimeCallback(tfault[2], regularState)
-    cb7 = PresetTimeCallback(tfault[1]+0.15, start_LVRT)
-    cb8 = PresetTimeCallback(tfault[1]+3.0,end_LVRT)
-    cb9 = DiscreteCallback(check_GFM_voltage_LVRT, stop_integration_LVRT)
-    cb10 = DiscreteCallback(check_GFM_voltage_HVRT13, stop_integration_HVRT)
-    cb11 = DiscreteCallback(check_GFM_voltage_HVRT12, stop_integration_HVRT)
+    #cb7 = PresetTimeCallback(tfault[1]+0.15, start_LVRT)
+    #cb8 = PresetTimeCallback(tfault[1]+3.0,end_LVRT)
+    #cb9 = DiscreteCallback(check_GFM_voltage_LVRT, stop_integration_LVRT)
+    #cb10 = DiscreteCallback(check_GFM_voltage_HVRT13, stop_integration_HVRT)
+    #cb11 = DiscreteCallback(check_GFM_voltage_HVRT12, stop_integration_HVRT)
     cb12 = DiscreteCallback(imax_on, affect_imax_on)
     cb13 = DiscreteCallback(imax_off, affect_imax_off)
     cb14 = DiscreteCallback(idcmax_on, affect_idcmax_on)
     cb15 = DiscreteCallback(idcmax_off, affect_idcmax_off)
 
     stiff  = repeat([:stiff],length(ic))
-    sol = solve(problem, Rodas5(autodiff=true), callback = CallbackSet(cb1,cb2,cb21,cb3,cb4,cb7,cb5,cb8,cb9,cb10,cb11,cb12,cb13,cb14,cb15), tstops=[tfault[1],tfault[2]], dtmax = dt_max(),force_dtmin=false,maxiters=1e6, initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-8,reltol=1e-8) #
+    #cb7,cb8,cb9,cb10,cb11,
+    sol = solve(problem, Rodas5(autodiff=true), callback = CallbackSet(cb1,cb2,cb21,cb3,cb4,cb5,cb12,cb13,cb14,cb15), tstops=[tfault[1],tfault[2]], dtmax = dt_max(),force_dtmin=false,maxiters=1e6, initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-8,reltol=1e-8) #
     # good values abstol=1e-8,reltol=1e-8 and Rodas5(autodiff=true) for droop
-    success = deepcopy(sol.retcode)
+    #success = deepcopy(sol.retcode)
     if sol.retcode != :Success
         sol = DiffEqBase.solution_new_retcode(sol, :Success)
     end
-    return PowerGridSolution(sol, pg), success, FRT
+    return PowerGridSolution(sol, pg), evr
 end

@@ -80,10 +80,9 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
 
     #Current saturation algorithm
     diset_abs = iset_abs - hypot(idset,iqset)
-    iset_lim = IfElse.ifelse(iset_abs >= imax_csa,imax_csa,iset_abs)
     ϕ1 = atan(iqset,idset)
-    idset_csa = iset_lim*cos(ϕ1)
-    iqset_csa = iset_lim*sin(ϕ1)
+    idset_csa = idset * (1.0 - q_imax) + imax_csa *cos(ϕ1) * q_imax 
+    iqset_csa = iqset * (1.0 - q_imax) + imax_csa *sin(ϕ1) * q_imax 
 
     de_ud = (udset - udmeas) * Ki_u * (1.0 - q_imax)
     de_uq = (uqset - uqmeas) * Ki_u * (1.0 - q_imax)
@@ -131,7 +130,7 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
     dPdelta = 10.0*pi*(p_before_filter - pmeas - Pdelta)
     idc = -Kdc * udc + p0set - dP + (1.0+udc)*gdc + Pdelta
     didc0 = (idc - idc0) / Tdc
-    idc0_lim = imax_dc * (1.0 - q_idcmax) + sign(imax_dc) * q_idcmax
+    idc0_lim = idc0 * (1.0 - q_idcmax) + sign(imax_dc) * q_idcmax
     dudc = (idc0_lim - gdc * (1.0+udc) - ix) / cdc
 
     dP0 = P0 - pmeas
