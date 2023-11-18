@@ -12,7 +12,7 @@ begin
 end
 
 pg0,ic0 = Initialize_N32_GFM_TS();
-@time pgsol0, evr_sol = simulate_LTVS_N32_simulation_TS(pg0,ic0,(0.0,1.0),(1200.0)/Zbase);
+@time pgsol0, evr_sol = simulate_LTVS_N32_simulation_TS(pg0,ic0,(0.0,0.21),(1200.0)/Zbase);
 plotallvoltages(pgsol0)
 plot([myplot(pgsol0,"bus_gfm",:LVRT),plotv(pgsol0,["bus_gfm"])[1]])
 
@@ -51,5 +51,7 @@ push!(s,(sym_states[7] - symp[22] - 10*sym_states[32]))
 push!(s,((abs(sym_states[7]) - symp[22])*sym_states[32]))
 push!(s,(sym_states[19] - symp[23] - 10*sym_states[33]))
 push!(s,((abs(sym_states[19]) - symp[23])*sym_states[33]))
+
+@time tmp =  InitTrajectorySensitivity([mtk],pgsol0.dqsol);
 
 @time hybrid_sen,Δτ = CalcHybridTrajectorySensitivity([mtk],pgsol0.dqsol,evr_sol,s,hs);
