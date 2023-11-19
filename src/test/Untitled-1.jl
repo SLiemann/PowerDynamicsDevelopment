@@ -41,10 +41,12 @@ Fx_all,Fy_all,Gx_all,Gy_all = J_all;
 
 #Initialisierung der differntialen symbolischen Sensitivitäten: xx0 enthält die Sensis für x, q und p 
 xx0_k = xx0 .=> 0.0
+xx0_float = zeros(size(xx0));
 for (ind,val) in enumerate(ind_d_sens)
     d_state = sym_states[val]
     ind_tmp = Int64.(setdiff(indexin([d_state], D_states), [nothing]))[1]
     xx0_k[ind_tmp,ind] = xx0[ind_tmp] => 1.0
+    xx0_float[ind_tmp,ind] = 1.0
 end
 
 for (ind,val) in enumerate(ind_p_sens)
@@ -52,8 +54,8 @@ for (ind,val) in enumerate(ind_p_sens)
   ind_tmp = Int64.(setdiff(indexin([p_state], D_states), [nothing]))[1]
   display(ind_tmp)
   xx0_k[ind_tmp,ind+length(ind_d_sens)] = xx0[ind_tmp] => 1.0
+  xx0_float[ind_tmp,ind+length(ind_d_sens)] = 1.0
 end
-
 
 sym_all_y = Num.(A_states) .=> sol.prob.u0[A_indices]; 
 sym_all_x = Num.(D_states) .=> [sol.prob.u0[D0_indices]; sol.prob.p];
@@ -61,7 +63,7 @@ sym_all_x = Num.(D_states) .=> [sol.prob.u0[D0_indices]; sol.prob.p];
 #Initialisierung der algebraischen symbolischen Sensitivitäten
 Gy_float = Float64.(Substitute(Gy_all[1], [sym_all_x; sym_all_y; t => sol.t[1]]))
 Gx_float = Float64.(Substitute(Gx_all[1], [sym_all_x; sym_all_y; t => sol.t[1]]))
-yx0f = -inv(Gy_float) * Gx_float * I[1:length(D_states),1:len_sens];
+yx0f = -inv(Gy_float) * Gx_float * xx0_float;
 yx0_k = yx0 .=> yx0f
 
 #Objekterstelleung der Trajektorien Sensitivität
@@ -70,6 +72,7 @@ for i = 1:length(sensis)
   sensis[i] = zeros(Float64,size(D_states)[1] + size(A_states)[1],size(sol)[2])
 end
 # Initialisierung der Trajektorien Sensitivität
+# LESEZEICHEN HIER WEITERMACHEN
 for i= eachindex(D_states)
   sensis[i][i,1] = 1.0
 end
