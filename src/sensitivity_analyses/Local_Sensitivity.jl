@@ -400,6 +400,11 @@ function CalcSensitivityAfterJump(
     end
     τx0 = -τx0_nom ./ τx0_denom
 
+    display(size(hx_pre))
+    display(size(hy_pre))
+    display(size(gygx))
+
+
     xx0_post = hx_star  * xx0_k_float - (f_post_float - hx_star * f_pre_float) * τx0
     yx0_post = -inv(gy_post_float) * gx_post_float * xx0_post
 
@@ -431,6 +436,7 @@ function GetEqsJacobianSensMatrices(mtk::Vector{ODESystem},xx0::Matrix{Num},yx0:
           eqs = vcat(eqs,D(sym_params[i])~0.0)
       end
       Fx[ind],Fy[ind],Gx[ind],Gy[ind] = GetSymbolicFactorizedJacobian(eqs, aeqs, x, y)
+      display(size(Fx[ind]))
 
       M[ind],N[ind] = TrajectorySensitivityMatrices([Fx[ind],Fy[ind],Gx[ind],Gy[ind]],xx0,yx0)
       f[ind] = my_rhs.(eqs)

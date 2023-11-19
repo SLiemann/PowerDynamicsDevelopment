@@ -12,7 +12,7 @@ begin
 end
 
 pg0,ic0 = Initialize_N32_GFM_TS();
-@time pgsol0, evr_sol = simulate_LTVS_N32_simulation_TS(pg0,ic0,(0.0,0.21),(1200.0)/Zbase);
+@time pgsol0, evr_sol = simulate_LTVS_N32_simulation_TS(pg0,ic0,(0.0,0.03),(1200.0)/Zbase);
 plotallvoltages(pgsol0)
 plot([myplot(pgsol0,"bus_gfm",:LVRT),plotv(pgsol0,["bus_gfm"])[1]])
 
@@ -22,7 +22,7 @@ plot(myplot(pgsol0,"bus_gfm",:udc))
 
 ###### Trajectory Sensitivity Analysis ######
 include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/sensitivity_analyses/Local_Sensitivity.jl")
-mtk = modelingtoolkitize(pgsol0.dqsol.prob)
+mtk = modelingtoolkitize(pgsol0.dqsol.prob);
 sym_states = states(mtk)
 symp = parameters(mtk)
 eq = equations(mtk)
@@ -32,17 +32,20 @@ eq = equations(mtk)
 # iset_abs = 7, idc0 = 19, q_imax = 32, q_idcmax = 33,
 # imax_csa = 22, idcmax = 23
 
+# Bei h(x,q,p) darauf achten, dass keine algebraischen Zustände resettet werden
+
+d,a  = GetFactorisedSymbolicStates(mtk);
 hs = Vector{Vector{Num}}(undef,0)
-ident = Num.(vcat(sym_states,symp))
+ident = Num.(vcat(d,symp))
 ident[32] = 1.0
 push!(hs,ident)
-ident = Num.(vcat(sym_states,symp))
+ident = Num.(vcat(d,symp))
 ident[32] = 0.0
 push!(hs,ident)
-ident = Num.(vcat(sym_states,symp))
+ident = Num.(vcat(d,symp))
 ident[33] = 1.0
 push!(hs,ident)
-ident = Num.(vcat(sym_states,symp))
+ident = Num.(vcat(d,symp))
 ident[33] = 0.0
 push!(hs,ident)
 

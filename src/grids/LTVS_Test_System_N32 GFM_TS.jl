@@ -10,9 +10,9 @@ Ibase = Sbase/Ubase/sqrt(3)
 Zbase = Ubase^2/Sbase
 
 zfault() = (20+1im*20)/Zbase
-tfault_on() = 0.1
-tfault_off() =  tfault_on() + 0.10
-dt_max() = 1e-2
+tfault_on() = 0.01
+tfault_off() =  tfault_on() + 0.01
+dt_max() = 2e-2
 
 function LTVS_Test_System_N32_GFM_TS(;gfm=1,awu=1.0) #1 = droop, 2 = matching, 3 = dVOC, 4 = VSM
     Q_Shunt_EHV = 600e6/Sbase
