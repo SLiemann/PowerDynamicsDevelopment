@@ -60,3 +60,6 @@ push!(s,((abs(sym_states[19]) - symp[23])*sym_states[33]))
 @time tmp =  InitTrajectorySensitivity(mtk,pgsol0.dqsol,[17,20],[8,9]);
 
 @time hybrid_sen,Δτ = CalcHybridTrajectorySensitivity(mtk,pgsol0.dqsol,evr_sol,s,hs,[17,20],[8,9]);
+
+size(hybrid_sen[1])
+plot(pgsol0.dqsol.t,hybrid_sen[4][17,:])
