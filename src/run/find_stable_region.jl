@@ -11,17 +11,24 @@ begin
 end
 
 pg0,ic0 = Initialize_N32_GFM(1,1);
-@time pgsol0, suc0,FRT0 = simulate_LTVS_N32_simulation(pg0,ic0,(0.0,1.0),(20.0)+1im*20/Zbase);
+@time pgsol0, suc0,FRT0 = simulate_LTVS_N32_simulation(pg0,ic0,(0.0,0.4),(20.0+1im*20)/Zbase);
 plot(plotallvoltages(pgsol0))
 plot([myplot(pgsol0,"bus_gfm",:LVRT),plotv(pgsol0,["bus_gfm"])[1]])
 
 plot(myplot(pgsol0,"bus_gfm",:i_abs))
+plot(myplot(pgsol0,"bus_gfm",:idc0))
 plot(myplot(pgsol0,"bus_gfm",:udc))
-plot(myplot(pgsol0,"bus_gfm",:Q0))
 plot(myplot(pgsol0,"bus_gfm",:Pf))
 plotallvoltages(pgsol0)
 plot(myplot(pgsol0,"bus_gfm",:θ))
 plot(myplot(pgsol0,"bus_gfm",:θ,y_norm=pi/180,y_bias=18.5807))
+
+# plot([myplot(pgsol0,"bus_gfm",:idc0),pidc0_ts])
+# plot([myplot(pgsol0,"bus_gfm",:Q0),pidc0_ts])
+# plot([myplot(pgsol0,"bus_gfm",:udc),pudc_ts])
+
+# pidclim = myplot(pgsol0,"bus_gfm",:Q0)
+
 
 using MAT
 dir = "\\\\fs0\\home\\liemann\\"

@@ -10,9 +10,9 @@ Ibase = Sbase/Ubase/sqrt(3)
 Zbase = Ubase^2/Sbase
 
 zfault() = (20+1im*20)/Zbase
-tfault_on() = 0.005
-tfault_off() =  tfault_on() + 0.005
-dt_max() = 1e-3
+tfault_on() = 0.1
+tfault_off() =  tfault_on() + 0.1
+dt_max() = 1e-2
 
 function LTVS_Test_System_N32_GFM_TS(;gfm=1,awu=1.0) #1 = droop, 2 = matching, 3 = dVOC, 4 = VSM
     Q_Shunt_EHV = 600e6/Sbase
@@ -281,9 +281,7 @@ function simulate_LTVS_N32_simulation_TS(pg::PowerGrid,ic::Vector{Float64},tspan
         ic_tmp[34] = 0.0
         ic_tmp[35] = 0.0
         op_prob = ODEProblem(rhs(pg_pcfault), ic_tmp, (0.0, 0.02), integrator.p)
-        display(ic_tmp)
         x2 = solve(op_prob,Rodas4(),dtmax=1e-4,initializealg = BrownFullBasicInit(),alg_hints=:stiff,verbose=false,abstol=1e-8,reltol=1e-8)
-        display(x2.u[end])
         # pgsol_tmp = PowerGridSolution(x2,pg_pcfault)
         # plotallvoltages(pgsol_tmp);
         # plot(myplot(pgsol_tmp,"bus_gfm",:q_imax))
@@ -417,7 +415,7 @@ function simulate_LTVS_N32_simulation_TS(pg::PowerGrid,ic::Vector{Float64},tspan
 
     function affect_idcmax_off(integrator)
         evr = vcat(evr, [integrator.t 1 4 4])
-        integrator.u[ind_qidcmax] = 1.0
+        integrator.u[ind_qidcmax] = 0.0
         initialize_dae!(integrator,BrownFullBasicInit())
         auto_dt_reset!(integrator)
     end

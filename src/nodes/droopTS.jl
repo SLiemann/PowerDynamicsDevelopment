@@ -130,7 +130,7 @@ end [[θ,dθ],[udc,dudc],[idc0,didc0],[x_uabs,dx_uabs],[e_ud,de_ud],[e_uq,de_uq]
     dPdelta = 10.0*pi*(p_before_filter - pmeas - Pdelta)
     idc = -Kdc * udc + p0set - dP + (1.0+udc)*gdc + Pdelta
     didc0 = (idc - idc0) / Tdc
-    idc0_lim = idc0 * (1.0 - q_idcmax) + sign(imax_dc) * q_idcmax
+    idc0_lim = idc0 * (1.0 - q_idcmax) + sign(idc0) * imax_dc * q_idcmax
     dudc = (idc0_lim - gdc * (1.0+udc) - ix) / cdc
 
     dP0 = P0 - pmeas

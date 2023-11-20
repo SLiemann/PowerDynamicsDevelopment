@@ -12,12 +12,18 @@ begin
 end
 
 pg0,ic0 = Initialize_N32_GFM_TS();
-@time pgsol0, evr_sol = simulate_LTVS_N32_simulation_TS(pg0,ic0,(0.0,0.1),(20.0+1im*20)/Zbase);
+@time pgsol0, evr_sol = simulate_LTVS_N32_simulation_TS(pg0,ic0,(0.0,0.4),(20.0+1im*20)/Zbase);
 plotallvoltages(pgsol0);
 plot([myplot(pgsol0,"bus_gfm",:LVRT),plotv(pgsol0,["bus_gfm"])[1]])
 
 plot(myplot(pgsol0,"bus_gfm",:q_imax))
+plot(myplot(pgsol0,"bus_gfm",:q_idcmax))
+plot(myplot(pgsol0,"bus_gfm",:idc0))
 plot(myplot(pgsol0,"bus_gfm",:udc))
+pudc_ts = myplot(pgsol0,"bus_gfm",:udc);
+pidc0_ts = myplot(pgsol0,"bus_gfm",:idc0);
+
+plot([pidclim,myplot(pgsol0,"bus_gfm",:Q0)])
 
 
 ###### Trajectory Sensitivity Analysis ######
