@@ -296,3 +296,4 @@ for (ind,val) in enumerate(evr[:,1])
     ind_sol[ind+1,1] = tmp_ind[end]
 end
 ind_sol[end,2] = length(pgsol0.dqsol.t);
+ind_sol
