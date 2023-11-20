@@ -55,11 +55,11 @@ push!(s,((abs(sym_states[7]) - symp[22])*sym_states[32]))
 push!(s,(sym_states[19] - symp[23] - 10*sym_states[33]))
 push!(s,((abs(sym_states[19]) - symp[23])*sym_states[33]))
 
-# 17 = θ, 20=0.005
+# 17 = θ, 20=udc
 # 8 = Kp_droop, 9 = Kp_uset
 @time tmp =  InitTrajectorySensitivity(mtk,pgsol0.dqsol,[17,20],[8,9]);
 
 @time hybrid_sen,Δτ = CalcHybridTrajectorySensitivity(mtk,pgsol0.dqsol,evr_sol,s,hs,[17,20],[8,9]);
 
 size(hybrid_sen[1])
-plot(pgsol0.dqsol.t,hybrid_sen[4][17,:])
+plot(pgsol0.dqsol.t,hybrid_sen[3][25,:])
