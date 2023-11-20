@@ -10,9 +10,9 @@ Ibase = Sbase/Ubase/sqrt(3)
 Zbase = Ubase^2/Sbase
 
 zfault() = (20+1im*20)/Zbase
-tfault_on() = 0.1
-tfault_off() =  tfault_on() + 0.1
-dt_max() = 1e-2
+tfault_on() = 0.005
+tfault_off() =  tfault_on() + 0.005
+dt_max() = 2e-2
 
 function LTVS_Test_System_N32_GFM_TS(;gfm=1,awu=1.0) #1 = droop, 2 = matching, 3 = dVOC, 4 = VSM
     Q_Shunt_EHV = 600e6/Sbase
@@ -131,7 +131,7 @@ function GetContFaultPG(pg::PowerGrid)
     return pg_fault
 end
 
-function GetPostFaultLTVSPG(pg::PowerGrid)
+function GetPostFaultLTVSPG_TS(pg::PowerGrid)
     nodes_postfault = deepcopy(pg.nodes)
     branches_postfault = deepcopy(pg.lines)
     delete!(branches_postfault,"Line_v-2")
@@ -159,7 +159,7 @@ function run_LTVS_N32_simulation_TS(gfm_choice,awu_choice,tspan::Tuple{Float64,F
 end
 
 function simulate_LTVS_N32_simulation_TS(pg::PowerGrid,ic::Vector{Float64},tspan::Tuple{Float64,Float64},zfault::Union{Float64,Complex{Float64},Complex{Int64}})
-    pg_postfault = GetPostFaultLTVSPG(pg)
+    pg_postfault = GetPostFaultLTVSPG_TS(pg)
     params = GetParamsGFM_TS(pg)
     problem= ODEProblem{true}(rhs(pg),ic,tspan,params)
     tfault = [tfault_on(), tfault_off()]
@@ -169,7 +169,11 @@ function simulate_LTVS_N32_simulation_TS(pg::PowerGrid,ic::Vector{Float64},tspan
     rfault = real(zfault) <= 0.0 ? 1e-5 : real(zfault)
     xfault = imag(zfault) <= 0.0 ? 1e-5 : imag(zfault)
 
-    evr = Array{Float64}(undef,0,4)
+    # ODESystems = 1=prefault and fault, 2=postfault
+    # wenn bei h und s "null" steht, steht dies für ein Ereignis welches zwar Parameter ändert,
+    # aber eigentlich kein richtiges event ist! 
+    evr = Array{Float64}(undef,0,4+length(params))
+    ind_odesys = 1;
 
     branch_oltc = "OLTC"
     index_U_oltc = PowerDynamics.variable_index(pg.nodes,pg.lines[branch_oltc].to,:u_r)
@@ -183,6 +187,7 @@ function simulate_LTVS_N32_simulation_TS(pg::PowerGrid,ic::Vector{Float64},tspan
         integrator.p[5] += 1*tap_dir 
         initialize_dae!(integrator,BrownFullBasicInit())
         auto_dt_reset!(integrator)
+        evr = vcat(evr, [integrator.t ind_odesys 0 0 integrator.p'])
     end
 
     function voltage_deadband(u,t,integrator)
@@ -228,6 +233,10 @@ function simulate_LTVS_N32_simulation_TS(pg::PowerGrid,ic::Vector{Float64},tspan
     function errorState(integrator)
         integrator.p[1] = rfault
         integrator.p[2] = xfault
+        ind_odesys = 1;
+        
+        # Den evr würde man nur benötigen, wenn qimax und error NICHT  zusammenfallsen 
+        #evr = vcat(evr, [integrator.t ind_odesys 0 0 integrator.p'])
         
         pg_cfault = GetContFaultPG(pg);
         ic_init= deepcopy(integrator.sol[end])
@@ -269,10 +278,11 @@ function simulate_LTVS_N32_simulation_TS(pg::PowerGrid,ic::Vector{Float64},tspan
     function regularState(integrator)
         integrator.p[1] = 8e3 #fault is zero again
         integrator.p[2] = 8e3 #fault is zero again
+        ind_odesys = 2;
 
         #First create continouos fault and then post-fault grid
         pg_pcfault = GetContFaultPG(pg);
-        #pg_pcfault = GetPostFaultLTVSPG(pg_pcfault);
+        #pg_pcfault = GetPostFaultLTVSPG_TS(pg_pcfault);
         ic_init= deepcopy(integrator.sol[end])
         len = length(symbolsof(pg.nodes["bus_gfm"]))
         # insert two extra states for continouos fault
@@ -308,7 +318,7 @@ function simulate_LTVS_N32_simulation_TS(pg::PowerGrid,ic::Vector{Float64},tspan
 
             ic_init[32] = 0.0
             ic_init[33] = 0.0
-            evr = vcat(evr, [integrator.t 1 2 2])
+            evr = vcat(evr, [integrator.t ind_odesys 2 2 integrator.p'])
 
             integrator.u = deepcopy(ic_init)
             initialize_dae!(integrator,BrownFullBasicInit())
@@ -393,28 +403,28 @@ function simulate_LTVS_N32_simulation_TS(pg::PowerGrid,ic::Vector{Float64},tspan
     end
 
     function affect_imax_on(integrator)
-        evr = vcat(evr, [integrator.t 1 1 1])
+        evr = vcat(evr, [integrator.t ind_odesys 1 1 integrator.p'])
         integrator.u[ind_qimax] = 1.0
         initialize_dae!(integrator,BrownFullBasicInit())
         auto_dt_reset!(integrator)
     end
 
     function affect_imax_off(integrator)
-        evr = vcat(evr, [integrator.t 1 2 2])
+        evr = vcat(evr, [integrator.t ind_odesys 2 2 integrator.p'])
         integrator.u[ind_qimax] = 0.0
         initialize_dae!(integrator,BrownFullBasicInit())
         auto_dt_reset!(integrator)
     end
 
     function affect_idcmax_on(integrator)
-        evr = vcat(evr, [integrator.t 1 3 3])
+        evr = vcat(evr, [integrator.t ind_odesys 3 3 integrator.p'])
         integrator.u[ind_qidcmax] = 1.0
         initialize_dae!(integrator,BrownFullBasicInit())
         auto_dt_reset!(integrator)
     end
 
     function affect_idcmax_off(integrator)
-        evr = vcat(evr, [integrator.t 1 4 4])
+        evr = vcat(evr, [integrator.t ind_odesys 4 4 integrator.p'])
         integrator.u[ind_qidcmax] = 0.0
         initialize_dae!(integrator,BrownFullBasicInit())
         auto_dt_reset!(integrator)

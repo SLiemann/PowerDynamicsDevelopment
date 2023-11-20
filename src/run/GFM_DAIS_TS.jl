@@ -12,35 +12,29 @@ begin
 end
 
 pg0,ic0 = Initialize_N32_GFM_TS();
-@time pgsol0, evr_sol = simulate_LTVS_N32_simulation_TS(pg0,ic0,(0.0,0.4),(20.0+1im*20)/Zbase);
+@time pgsol0, evr_sol = simulate_LTVS_N32_simulation_TS(pg0,ic0,(0.0,0.02),(20.0+1im*20)/Zbase);
 plotallvoltages(pgsol0);
-plot([myplot(pgsol0,"bus_gfm",:LVRT),plotv(pgsol0,["bus_gfm"])[1]])
-
 plot(myplot(pgsol0,"bus_gfm",:q_imax))
 plot(myplot(pgsol0,"bus_gfm",:q_idcmax))
 plot(myplot(pgsol0,"bus_gfm",:idc0))
 plot(myplot(pgsol0,"bus_gfm",:udc))
-pudc_ts = myplot(pgsol0,"bus_gfm",:udc);
-pidc0_ts = myplot(pgsol0,"bus_gfm",:idc0);
-
-plot([pidclim,myplot(pgsol0,"bus_gfm",:Q0)])
 
 
 ###### Trajectory Sensitivity Analysis ######
 include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/sensitivity_analyses/Local_Sensitivity.jl")
-mtk = modelingtoolkitize(pgsol0.dqsol.prob);
-sym_states = states(mtk)
-symp = parameters(mtk)
-eq = equations(mtk)
+mtk1 = modelingtoolkitize(pgsol0.dqsol.prob)
+mtk2 = modelingtoolkitize(ODEProblem(rhs(GetPostFaultLTVSPG(pg0)), ic0, (0.0, 1.0), pgsol0.dqsol.prob.p))
+mtk = [mtk1,mtk2];
+sym_states = states(mtk[1])
+symp = parameters(mtk[1])
+eq = equations(mtk[1]);
 
-#rhs(pg0).syms .=> sym_states
-#p_float = GetParamsGFM_TS(pg0)[23]
 # iset_abs = 7, idc0 = 19, q_imax = 32, q_idcmax = 33,
 # imax_csa = 22, idcmax = 23
 
 # Bei h(x,q,p) darauf achten, dass keine algebraischen Zustände resettet werden
 
-d,a  = GetFactorisedSymbolicStates(mtk);
+d,a  = GetFactorisedSymbolicStates(mtk[1]);
 hs = Vector{Vector{Num}}(undef,0)
 ident = Num.(vcat(d,symp))
 ident[32] = 1.0
@@ -61,6 +55,8 @@ push!(s,((abs(sym_states[7]) - symp[22])*sym_states[32]))
 push!(s,(sym_states[19] - symp[23] - 10*sym_states[33]))
 push!(s,((abs(sym_states[19]) - symp[23])*sym_states[33]))
 
-@time tmp =  InitTrajectorySensitivity([mtk],pgsol0.dqsol);
+# 17 = θ, 20=0.005
+# 8 = Kp_droop, 9 = Kp_uset
+@time tmp =  InitTrajectorySensitivity(mtk,pgsol0.dqsol,[17,20],[8,9]);
 
-@time hybrid_sen,Δτ = CalcHybridTrajectorySensitivity([mtk],pgsol0.dqsol,evr_sol,s,hs,[17,20],[8,9]);
+@time hybrid_sen,Δτ = CalcHybridTrajectorySensitivity(mtk,pgsol0.dqsol,evr_sol,s,hs,[17,20],[8,9]);

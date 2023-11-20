@@ -532,7 +532,14 @@ function CalcHybridTrajectorySensitivity(
 
     # NEUE HERANGEHENSWEIS hier wird bei jedem zu beachtenden Callback die Option save_positions=(false,true)
     # gesetzt damit der letzte gefundende Index genau dem Sprung nach dem Callback darstellt. 
-    
+    ind_sol = zeros(Int64,size(evr)[1]+1,2)
+    ind_sol[1,1] = 1;
+    for (ind,val) in enumerate(evr[:,1])
+        tmp_ind = findall(==(val),pgsol0.dqsol.t) 
+        ind_sol[ind,2] = tmp_ind[end-1]
+        ind_sol[ind+1,1] = tmp_ind[end]
+    end
+    ind_sol[end,2] = length(pgsol0.dqsol.t);
 
     @parameters t
 
@@ -545,7 +552,12 @@ function CalcHybridTrajectorySensitivity(
     for i = 1:size(ind_sol)[1]
         sol_part = sol[ind_sol[i,1]:ind_sol[i,2]]
         # Hier ist viel Potential für Fehler!!
-        presubs = vcat(Num.(all_states[ind_q]),sym_params) .=> [sol_part[1][ind_q]; sol.prob.p]
+        p_selection = sol.prob.p; #nur Initialisierung
+        if i !=1
+          p_selection = evr[i-1,5:end]
+        end
+
+        presubs = vcat(Num.(all_states[ind_q]),sym_params) .=> [sol_part[1][ind_q]; p_selection]
         display("Zeitpunkt der kontinuierlichen Sensis: $(sol_part.t[1])");
         display("Werte der diskreten Zustände: $(sol_part[2][ind_q]) von $(all_states[ind_q])");
         sensi_part,xx0_k,yx0_k = ContinuousSensitivity(
@@ -570,8 +582,8 @@ function CalcHybridTrajectorySensitivity(
 
             xx0_k_float = [i[2] for i in xx0_k]
 
-            xk = D_states .=> vcat(sol[D0_indices,ind_sol[i,2]],sol.prob.p)    #hier τ-
-            xk1 = D_states .=> vcat(sol[D0_indices,ind_sol[i,2]+1],sol.prob.p) #hier τ+
+            xk = D_states .=> vcat(sol[D0_indices,ind_sol[i,2]],p_selection)    #hier τ-
+            xk1 = D_states .=> vcat(sol[D0_indices,ind_sol[i,2]+1],evr[i,5:end]) #hier τ+
         
             yk  = A_states .=> sol[A_indices,ind_sol[i,2]]   #hier τ-
             yk1 = A_states .=> sol[A_indices,ind_sol[i,2]+1] #hier τ+
