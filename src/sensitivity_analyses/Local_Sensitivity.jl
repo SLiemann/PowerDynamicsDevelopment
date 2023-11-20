@@ -95,6 +95,17 @@ function GetSymbolicEquations(fulleqs::Array{Equation,1})
   return eqs, aeqs
 end
 
+GetDiscreteStatePositions(mtsys::ODESystem) = GetDiscreteStatePositions(equations(mtsys))
+function GetDiscreteStatePositions(fulleqs::Array{Equation,1})
+  ind = Vector{Int64}()
+  for (index, value) in enumerate(fulleqs)
+    if my_lhs(value) !== 0 && my_rhs(value) === 0.0
+      push!(ind, index)
+    end
+  end
+  return ind
+end
+
 function GetJacobian(
   eqs::Array{Num},
   states::Vector{Num},
@@ -211,7 +222,7 @@ function GetMTKSystem(pg::PowerGrid, time_interval::Tuple{Float64,Float64}, p)
   return modelingtoolkitize(ODEProb)
 end
 
-function InitTrajectorySensitivity(mtk::Vector{ODESystem},sol::ODESolution)
+function InitTrajectorySensitivity(mtk::Vector{ODESystem},sol::ODESolution,ind_d_sens::Vector{Int64},ind_p_sens::Vector{Int64})
   sym_states = states(mtk[1]);
   sym_params = parameters(mtk[1]);
 
@@ -223,13 +234,11 @@ function InitTrajectorySensitivity(mtk::Vector{ODESystem},sol::ODESolution)
   A_indices = Int64.(setdiff(indexin(A_states, sym_states), [nothing]));
 
   #Hier anpassen, welche Zustände Parameter berücksichtigt werden soll
-  sensis_x = D_states; #anpassen bei variabler Größe
-  sensis_y = A_states; #anpassen bei variabler Größe?
+  sensis_x = Num.(vcat(sym_states[ind_d_sens],sym_params[ind_p_sens])); #anpassen bei variabler Größe
 
   #dict from states and parameters with their starting values
-  sym_x = sensis_x .=> vcat(sol.prob.u0[D0_indices],sol.prob.p);
-  sym_y = sensis_y .=> sol.prob.u0[A_indices]; 
-  len_sens = length(sym_x) #+ length(sym_y) #den Einfluss der algebraischen Variablen steckt indirekt in den Gleichungen!!
+  sym_x = sensis_x .=> vcat(sol.prob.u0[ind_d_sens],sol.prob.p[ind_p_sens])
+  len_sens = length(sym_x) # #den Einfluss der algebraischen Variablen steckt indirekt in den Gleichungen!!
 
   @parameters Δt t
   @parameters xx0[1:length(D_states), 1:len_sens] #xx0 are the symbolic sensitivities regarding differential states
@@ -239,20 +248,37 @@ function InitTrajectorySensitivity(mtk::Vector{ODESystem},sol::ODESolution)
 
   # die Sensitivität eines Parameters/Zustand muss immer auf alle Zustände/Parameter berechnet werden: x_x1, p_x1, y_x1 
   # somit müssen die Ableitungen für ALLE Zustände berechnet werden!
-  matrices =  GetEqsJacobianSensMatrices(mtk,xx0,yx0) #anpassen wenn nicht alle Variablen gerechnet werden sollen
+  matrices =  GetEqsJacobianSensMatrices(mtk,xx0,yx0); #anpassen wenn nicht alle Variablen gerechnet werden sollen
   F_all,G_all,J_all,M,N = matrices;
   Fx_all,Fy_all,Gx_all,Gy_all = J_all;
 
   #Initialisierung der differntialen symbolischen Sensitivitäten: xx0 enthält die Sensis für x, q und p 
   xx0_k = xx0 .=> 0.0
-  for i in diagind(xx0)
-      xx0_k[i] = xx0[i] => 1.0
+  xx0_float = zeros(size(xx0))
+  ind_dp_sens = zeros(Int64,len_sens,1)
+  for (ind,val) in enumerate(ind_d_sens)
+      d_state = sym_states[val]
+      ind_tmp = Int64.(setdiff(indexin([d_state], D_states), [nothing]))[1]
+      ind_dp_sens[ind] = deepcopy(ind_tmp)
+      xx0_k[ind_tmp,ind] = xx0[ind_tmp,ind] => 1.0
+      xx0_float[ind_tmp,ind] = 1.0
   end
 
+  for (ind,val) in enumerate(ind_p_sens)
+    p_state = sym_params[val]
+    ind_tmp = Int64.(setdiff(indexin([p_state], D_states), [nothing]))[1]
+    ind_dp_sens[ind+length(ind_d_sens)] = deepcopy(ind_tmp)
+    xx0_k[ind_tmp,ind+length(ind_d_sens)] = xx0[ind_tmp,ind+length(ind_d_sens)] => 1.0
+    xx0_float[ind_tmp,ind+length(ind_d_sens)] = 1.0
+  end
+
+  sym_all_y = Num.(A_states) .=> sol.prob.u0[A_indices]; 
+  sym_all_x = Num.(D_states) .=> [sol.prob.u0[D0_indices]; sol.prob.p];
+
   #Initialisierung der algebraischen symbolischen Sensitivitäten
-  Gy_float = Float64.(Substitute(Gy_all[1], [sym_x; sym_y; t => sol.t[1]]))
-  Gx_float = Float64.(Substitute(Gx_all[1], [sym_x; sym_y; t => sol.t[1]]))
-  yx0f = -inv(Gy_float) * Gx_float
+  Gy_float = Float64.(Substitute(Gy_all[1], [sym_all_x; sym_all_y; t => sol.t[1]]))
+  Gx_float = Float64.(Substitute(Gx_all[1], [sym_all_x; sym_all_y; t => sol.t[1]]))
+  yx0f = -inv(Gy_float) * Gx_float * xx0_float; #wichtig hier mit xx0_float zu multiplizieren (bei Hisken wird dies als Einheitsmatrix angenommne)
   yx0_k = yx0 .=> yx0f
 
   #Objekterstelleung der Trajektorien Sensitivität
@@ -261,12 +287,13 @@ function InitTrajectorySensitivity(mtk::Vector{ODESystem},sol::ODESolution)
     sensis[i] = zeros(Float64,size(D_states)[1] + size(A_states)[1],size(sol)[2])
   end
   # Initialisierung der Trajektorien Sensitivität
-  for i= eachindex(D_states)
-    sensis[i][i,1] = 1.0
+  for (ind,val) in enumerate(ind_dp_sens)
+    sensis[ind][val,1] = 1.0
   end
   for i= 1:length(sensis)
     sensis[i][length(D_states)+1:end,1] = yx0f[:,i]
   end
+
   return xx0_k,yx0_k,A_states,D_states, A_indices, D0_indices, matrices,Δt,len_sens, sensis
 end
 
@@ -298,6 +325,7 @@ function ContinuousSensitivity(
   N::Matrix{Num},
   Δt::Num,
   len_sens::Int64,
+  discrete_state_pos::Vector{Pair{Num, Float64}}
 )
   #lokaler Speicher für die berechneten Trajektorien Senstivitäten
   sensi = Vector{Array{Float64}}(undef, len_sens)
@@ -400,11 +428,6 @@ function CalcSensitivityAfterJump(
     end
     τx0 = -τx0_nom ./ τx0_denom
 
-    display(size(hx_pre))
-    display(size(hy_pre))
-    display(size(gygx))
-
-
     xx0_post = hx_star  * xx0_k_float - (f_post_float - hx_star * f_pre_float) * τx0
     yx0_post = -inv(gy_post_float) * gx_post_float * xx0_post
 
@@ -436,8 +459,6 @@ function GetEqsJacobianSensMatrices(mtk::Vector{ODESystem},xx0::Matrix{Num},yx0:
           eqs = vcat(eqs,D(sym_params[i])~0.0)
       end
       Fx[ind],Fy[ind],Gx[ind],Gy[ind] = GetSymbolicFactorizedJacobian(eqs, aeqs, x, y)
-      display(size(Fx[ind]))
-
       M[ind],N[ind] = TrajectorySensitivityMatrices([Fx[ind],Fy[ind],Gx[ind],Gy[ind]],xx0,yx0)
       f[ind] = my_rhs.(eqs)
       g[ind] = my_rhs.(aeqs)
@@ -446,25 +467,25 @@ function GetEqsJacobianSensMatrices(mtk::Vector{ODESystem},xx0::Matrix{Num},yx0:
   return f,g,[Fx,Fy,Gx,Gy],M,N
 end
 
-function CalcContinuousSensitivity(mtk::Vector{ODESystem},sol::ODESolution)
-    xx0_k,yx0_k,A_states,D_states, A_indices, D0_indices,matrices,Δt,len_sens, sensis = InitTrajectorySensitivity(mtk,sol);
-    f_all, g_all, J_all, M_all, N_all = matrices
+# function CalcContinuousSensitivity(mtk::Vector{ODESystem},sol::ODESolution)
+#     xx0_k,yx0_k,A_states,D_states, A_indices, D0_indices,matrices,Δt,len_sens, sensis = InitTrajectorySensitivity(mtk,sol);
+#     f_all, g_all, J_all, M_all, N_all = matrices
 
-    sensi_part,xx0_k,yx0_k = ContinuousSensitivity(
-      sol,
-      xx0_k,
-      yx0_k,
-      A_states, 
-      D_states, 
-      A_indices,
-      D0_indices,
-      M_all[1], 
-      N_all[1], 
-      Δt,
-      len_sens)
+#     sensi_part,xx0_k,yx0_k = ContinuousSensitivity(
+#       sol,
+#       xx0_k,
+#       yx0_k,
+#       A_states, 
+#       D_states, 
+#       A_indices,
+#       D0_indices,
+#       M_all[1], 
+#       N_all[1], 
+#       Δt,
+#       len_sens)
 
-    return sensi_part
-end
+#     return sensi_part
+# end
 
 function CalcHybridTrajectorySensitivity(
   mtk::Vector{ODESystem},
@@ -472,11 +493,11 @@ function CalcHybridTrajectorySensitivity(
   evr::Matrix{Float64},
   s::Vector{Num},
   h::Vector{Vector{Num}},
-)
-    #u0_sensi::Vector{Union{Int64,Any}},
-    #p_sensi::Vector{Int64},
+  ind_d_sensi::Vector{Int64},
+  ind_p_sensi::Vector{Int64}
+  )
 
-    xx0_k,yx0_k,A_states,D_states, A_indices, D0_indices,matrices,Δt,len_sens, sensis = InitTrajectorySensitivity(mtk,sol);
+    xx0_k,yx0_k,A_states,D_states, A_indices, D0_indices,matrices,Δt,len_sens, sensis = InitTrajectorySensitivity(mtk,sol,ind_d_sensi,ind_p_sensi);
 
     f_all, g_all, J_all, M_all, N_all = matrices
     Fx_all, Fy_all, Gx_all, Gy_all = J_all
@@ -501,19 +522,32 @@ function CalcHybridTrajectorySensitivity(
     # Bestimmung der Zeitpunkte der Events im Loesungsobjekt + Anfang & Ende 
     #ind_sol = vcat(2,setdiff(indexin(evr[:,1],sol.t),[nothing]),length(sol.t))
 
-    # ind1 = Anfang der Indizes für die kontinuierlichen Sensis
-    ind1 = vcat(1,setdiff(indexin(evr[:,1],sol.t),[nothing]).+1)
-    # ind2 = Ende der Indizes für die kontinuierlichen Sensis
-    ind2 = vcat(setdiff(indexin(evr[:,1],sol.t),[nothing]),length(sol.t))
-    # zwischen den Anfang und End Indizes liegt das Event mit Zustandsänderung
-    ind_sol = Int.(hcat(ind1,ind2))
+    # ALTE HERANGEHENSWEISE
+    # # ind1 = Anfang der Indizes für die kontinuierlichen Sensis
+    # ind1 = vcat(1,setdiff(indexin(evr[:,1],sol.t),[nothing]).+1)
+    # # ind2 = Ende der Indizes für die kontinuierlichen Sensis
+    # ind2 = vcat(setdiff(indexin(evr[:,1],sol.t),[nothing]),length(sol.t))
+    # # zwischen den Anfang und End Indizes liegt das Event mit Zustandsänderung
+    # ind_sol = Int.(hcat(ind1,ind2))
+
+    # NEUE HERANGEHENSWEIS hier wird bei jedem zu beachtenden Callback die Option save_positions=(false,true)
+    # gesetzt damit der letzte gefundende Index genau dem Sprung nach dem Callback darstellt. 
+    
 
     @parameters t
 
     τx0 = zeros(size(evr)[1],len_sens)
 
+    ind_q = GetDiscreteStatePositions(mtk[1]); # sollte überall gleich sein.
+    sym_params = parameters(mtk[1]); # sollte überall gleich sein.
+    all_states = states(mtk[1]);# sollte überall gleich sein.
+
     for i = 1:size(ind_sol)[1]
         sol_part = sol[ind_sol[i,1]:ind_sol[i,2]]
+        # Hier ist viel Potential für Fehler!!
+        presubs = vcat(Num.(all_states[ind_q]),sym_params) .=> [sol_part[1][ind_q]; sol.prob.p]
+        display("Zeitpunkt der kontinuierlichen Sensis: $(sol_part.t[1])");
+        display("Werte der diskreten Zustände: $(sol_part[2][ind_q]) von $(all_states[ind_q])");
         sensi_part,xx0_k,yx0_k = ContinuousSensitivity(
                                                       sol_part,
                                                       xx0_k,
@@ -525,7 +559,8 @@ function CalcHybridTrajectorySensitivity(
                                                       Mcont, 
                                                       Ncont, 
                                                       Δt,
-                                                      len_sens)
+                                                      len_sens,
+                                                      presubs)
         for j = eachindex(sensi_part)
             sensis[j][:,ind_sol[i,1]+1:ind_sol[i,2]] = sensi_part[j]
         end

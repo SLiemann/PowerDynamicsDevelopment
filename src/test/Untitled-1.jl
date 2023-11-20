@@ -1,3 +1,5 @@
+equations(mtk)
+
 
 mtk = [mtk]
 sol = pgsol0.dqsol
@@ -41,19 +43,23 @@ Fx_all,Fy_all,Gx_all,Gy_all = J_all;
 
 #Initialisierung der differntialen symbolischen Sensitivitäten: xx0 enthält die Sensis für x, q und p 
 xx0_k = xx0 .=> 0.0
-xx0_float = zeros(size(xx0));
+xx0_float = zeros(size(xx0))
+ind_dp_sens = zeros(Int64,len_sens,1)
 for (ind,val) in enumerate(ind_d_sens)
     d_state = sym_states[val]
     ind_tmp = Int64.(setdiff(indexin([d_state], D_states), [nothing]))[1]
-    xx0_k[ind_tmp,ind] = xx0[ind_tmp] => 1.0
+    ind_dp_sens[ind] = deepcopy(ind_tmp)
+    display(ind_tmp)
+    display(ind)
+    xx0_k[ind_tmp,ind] = xx0[ind_tmp,ind] => 1.0
     xx0_float[ind_tmp,ind] = 1.0
 end
 
 for (ind,val) in enumerate(ind_p_sens)
   p_state = sym_params[val]
   ind_tmp = Int64.(setdiff(indexin([p_state], D_states), [nothing]))[1]
-  display(ind_tmp)
-  xx0_k[ind_tmp,ind+length(ind_d_sens)] = xx0[ind_tmp] => 1.0
+  ind_dp_sens[ind+length(ind_d_sens)] = deepcopy(ind_tmp)
+  xx0_k[ind_tmp,ind+length(ind_d_sens)] = xx0[ind_tmp,ind+length(ind_d_sens)] => 1.0
   xx0_float[ind_tmp,ind+length(ind_d_sens)] = 1.0
 end
 
@@ -72,9 +78,8 @@ for i = 1:length(sensis)
   sensis[i] = zeros(Float64,size(D_states)[1] + size(A_states)[1],size(sol)[2])
 end
 # Initialisierung der Trajektorien Sensitivität
-# LESEZEICHEN HIER WEITERMACHEN
-for i= eachindex(D_states)
-  sensis[i][i,1] = 1.0
+for (ind,val) in enumerate(ind_dp_sens)
+  sensis[ind][val,1] = 1.0
 end
 for i= 1:length(sensis)
   sensis[i][length(D_states)+1:end,1] = yx0f[:,i]
@@ -119,8 +124,15 @@ ind_sol = Int.(hcat(ind1,ind2))
 
 τx0 = zeros(size(evr)[1],len_sens)
 
-i=1
+i=2
 sol_part = sol[ind_sol[i,1]:ind_sol[i,2]]
+ind_q = GetDiscreteStatePositions(mtk[1]) # sollte überall gleich sein.
+sym_params = parameters(mtk[1]) # sollte überall gleich sein.
+all_states = states(mtk[1])
+sym_all_x = vcat(Num.(all_states[ind_q]),sym_params) .=> [sol_part[1][ind_q]; sol.prob.p]
+display("Zeitpunkt der kontinuierlichen Sensis: $(sol_part.t[1])");
+display("Werte der diskreten Zustände: $(sol_part[2][ind_q]) von $(all_states[ind_q])");
+
 sol0 = sol_part;
 M0 = Mcont;
 N0 = Ncont; 
@@ -141,6 +153,8 @@ yx0 = [i[1] for i in yx0_k]
 #ind_y = Int64.(setdiff(indexin(A_states, sym_states), [nothing]))
 #ind_x = Int64.(setdiff(indexin(D_states, sym_states), [nothing]))
 @parameters t
+
+#HIER DIE SUBSTITUTION MIT Q-Diffs und Params machen 
 
 for i = 2:size(sol0)[2]
   dt = sol0.t[i] - sol0.t[i-1]
@@ -197,7 +211,7 @@ g_post = g_all[Int(evr[i,2])]
 f_pre_float = Float64.(Substitute(f_pre, [xk; yk;  t => sol.t[ind_sol[i,2]]]))
 f_post_float = Float64.(Substitute(f_post, [xk1;yk1; t => sol.t[ind_sol[i,2]+1]]))
 
-xx0_k1_float, yx0_k1_float, tmp_τx0 = CalcSensitivityAfterJump(
+@time xx0_k1_float, yx0_k1_float, tmp_τx0 = CalcSensitivityAfterJump(
   [xk; yk;  t => sol.t[ind_sol[i,2]]],
   [xk1;yk1; t => sol.t[ind_sol[i,2]+1]],
   xx0_k_float,
@@ -264,12 +278,21 @@ subs_args = [xk1; yk1; Δt => dt; t => sol0.t[i]];
 for i=1:5
   @time substitute.(syms, (subs_args,));
 end
-tmp = xk1[12:13]
+tmp = vcat(xk1[12:13],xk1[14:end])
 @time tmp2 = substitute.(syms, (tmp,));
 for i=1:5
   @time tmp1 = substitute.(tmp2, (subs_args,));
 end
-  
+
 
 @time  substitute.(N[1], (subs_args,));
 @time  substitute.(N0, (subs_args,));
+
+ind_sol = zeros(Int64,size(evr)[1]+1,2)
+ind_sol[1,1] = 1;
+for (ind,val) in enumerate(evr[:,1])
+    tmp_ind = findall(==(val),pgsol0.dqsol.t) 
+    ind_sol[ind,2] = tmp_ind[end-1]
+    ind_sol[ind+1,1] = tmp_ind[end]
+end
+ind_sol[end,2] = length(pgsol0.dqsol.t);

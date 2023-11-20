@@ -10,9 +10,9 @@ Ibase = Sbase/Ubase/sqrt(3)
 Zbase = Ubase^2/Sbase
 
 zfault() = (20+1im*20)/Zbase
-tfault_on() = 0.01
-tfault_off() =  tfault_on() + 0.01
-dt_max() = 2e-2
+tfault_on() = 0.005
+tfault_off() =  tfault_on() + 0.005
+dt_max() = 1e-3
 
 function LTVS_Test_System_N32_GFM_TS(;gfm=1,awu=1.0) #1 = droop, 2 = matching, 3 = dVOC, 4 = VSM
     Q_Shunt_EHV = 600e6/Sbase
@@ -21,7 +21,7 @@ function LTVS_Test_System_N32_GFM_TS(;gfm=1,awu=1.0) #1 = droop, 2 = matching, 3
     QLoad = -2243.7e6/Sbase 
     position_fault = 0.9 #0 at slack, 1.0 at bus 2
 
-    Srated = 5125e6 #5150e6 for LTVS 
+    Srated = 5300e6 #5150e6 for LTVS 
     pref = 4440e6/Sbase
     imax_csa = 1.0
     imax_dc = 1.2
@@ -278,17 +278,27 @@ function simulate_LTVS_N32_simulation_TS(pg::PowerGrid,ic::Vector{Float64},tspan
         # insert two extra states for continouos fault
         ic_tmp = vcat(ic_init[1:end-len],[rfault,xfault],ic_init[end-len+1:end])
         # create problem and simulate for 2 ms
-        op_prob = ODEProblem(rhs(pg_pcfault), ic_tmp, (0.0, 0.002), integrator.p)
+        ic_tmp[34] = 0.0
+        ic_tmp[35] = 0.0
+        op_prob = ODEProblem(rhs(pg_pcfault), ic_tmp, (0.0, 0.02), integrator.p)
+        display(ic_tmp)
         x2 = solve(op_prob,Rodas4(),dtmax=1e-4,initializealg = BrownFullBasicInit(),alg_hints=:stiff,verbose=false,abstol=1e-8,reltol=1e-8)
-        
+        display(x2.u[end])
+        # pgsol_tmp = PowerGridSolution(x2,pg_pcfault)
+        # plotallvoltages(pgsol_tmp);
+        # plot(myplot(pgsol_tmp,"bus_gfm",:q_imax))
+
         tmp_retcode = deepcopy(x2.retcode)
 
         ode   = rhs(pg_postfault)
         integrator.f = ode
         integrator.cache.tf.f = integrator.f
         
+        # integrator.u = deepcopy(ic_init)
+        # initialize_dae!(integrator,BrownFullBasicInit())
+        # auto_dt_reset!(integrator)
 
-        if tmp_retcode == :Success
+        if tmp_retcode == ReturnCode.Success
             ic_end = x2.u[end]
             # delete states of continouos fault
             ic_end = vcat(ic_end[1:end-len-2],ic_end[end-len+1:end])
@@ -297,10 +307,15 @@ function simulate_LTVS_N32_simulation_TS(pg::PowerGrid,ic::Vector{Float64},tspan
             for i in ind_as
                 ic_init[i] = ic_end[i]
             end
+
+            ic_init[32] = 0.0
+            ic_init[33] = 0.0
+            evr = vcat(evr, [integrator.t 1 2 2])
+
             integrator.u = deepcopy(ic_init)
             initialize_dae!(integrator,BrownFullBasicInit())
             auto_dt_reset!(integrator)
-        elseif tmp_retcode == :Unstable
+        elseif tmp_retcode == ReturnCode.Unstable
             println("Terminated at $(integrator.t) due to detected instability at post-fault initialisation.")
             terminate!(integrator)
         else
@@ -418,14 +433,14 @@ function simulate_LTVS_N32_simulation_TS(pg::PowerGrid,ic::Vector{Float64},tspan
     #cb9 = DiscreteCallback(check_GFM_voltage_LVRT, stop_integration_LVRT)
     #cb10 = DiscreteCallback(check_GFM_voltage_HVRT13, stop_integration_HVRT)
     #cb11 = DiscreteCallback(check_GFM_voltage_HVRT12, stop_integration_HVRT)
-    cb12 = DiscreteCallback(imax_on, affect_imax_on)
-    cb13 = DiscreteCallback(imax_off, affect_imax_off)
-    cb14 = DiscreteCallback(idcmax_on, affect_idcmax_on)
-    cb15 = DiscreteCallback(idcmax_off, affect_idcmax_off)
+    cb12 = DiscreteCallback(imax_on, affect_imax_on, save_positions=(false,true))
+    cb13 = DiscreteCallback(imax_off, affect_imax_off, save_positions=(false,true))
+    cb14 = DiscreteCallback(idcmax_on, affect_idcmax_on, save_positions=(false,true))
+    cb15 = DiscreteCallback(idcmax_off, affect_idcmax_off, save_positions=(false,true))
 
     stiff  = repeat([:stiff],length(ic))
     #cb7,cb8,cb9,cb10,cb11,
-    sol = solve(problem, Rodas5(autodiff=true), callback = CallbackSet(cb1,cb2,cb21,cb3,cb4,cb5,cb12,cb13,cb14,cb15), tstops=[tfault[1],tfault[2]], dtmax = dt_max(),force_dtmin=false,maxiters=1e6, initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-8,reltol=1e-8) #
+    sol = solve(problem, Rodas4(autodiff=true), callback = CallbackSet(cb1,cb2,cb21,cb3,cb4,cb5,cb12,cb13,cb14,cb15), tstops=[tfault[1],tfault[2]], dtmax = dt_max(),force_dtmin=false,maxiters=1e6, initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-9,reltol=1e-9) #
     # good values abstol=1e-8,reltol=1e-8 and Rodas5(autodiff=true) for droop
     #success = deepcopy(sol.retcode)
     if sol.retcode != :Success
