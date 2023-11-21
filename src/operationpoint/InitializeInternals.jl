@@ -1024,3 +1024,13 @@ function InitNode(L::WeccPeLoad,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::
    end
    return [v_d_temp, v_q_temp,p, q], L
 end
+
+function InitNode(L::nPFC,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)
+   v_d_temp = ic_lf[ind_offset]
+   v_q_temp = ic_lf[ind_offset+1]
+
+   U = abs(v_d_temp+1im*v_q_temp)
+   VoffT2, tsum, ton, toff, p1, q1 = CalcnPFCPower(U*sqrt(2),L.Pdc,L.Cd,init=true)
+
+   return [v_d_temp, v_q_temp,VoffT2, tsum, ton, toff, p1, q1], L
+end

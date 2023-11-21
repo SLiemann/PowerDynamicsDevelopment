@@ -41,6 +41,7 @@ include("nodes/gentpjAVROEL.jl")
 include("nodes/ThreePhaseFault.jl")
 include("nodes/ThreePhaseFaultContinouos.jl")
 include("nodes/WeccPeLoad.jl")
+include("nodes/nPFC.jl")
 
 #Operation Point
 include("operationpoint/PowerFlow.jl")

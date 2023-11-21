@@ -96,6 +96,7 @@ NodeType(L::VSM) = 1
 NodeType(L::Union{gentpj,gentpjAVROEL}) = 1
 NodeType(L::Union{GeneralVoltageDependentLoad,GeneralVoltageDependentLoadParam}) = 2
 NodeType(L::WeccPeLoad) = 2
+NodeType(L::nPFC) = 2
 NodeType(L::Union{ThreePhaseFault,ThreePhaseFaultContinouos}) = 2
 
 #note: only loads are treated with voltage depency and are called every iteration
@@ -150,6 +151,15 @@ function NodePower(L::WeccPeLoad,U)
         return 0.0
     end
 end
+
+function NodePower(L::nPFC,U)
+    p,q = CalcnPFCPower(abs(U)*sqrt(2),L.Pdc,L.Cd)
+    display(p)
+    display(q)
+    display("--------")
+    return complex(p,q)
+end
+
 
 NodePower(S::SlackAlgebraic,U) = 0.
 NodePower(S::SlackAlgebraicParam,U) = 0.
