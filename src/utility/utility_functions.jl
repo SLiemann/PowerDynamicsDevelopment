@@ -423,8 +423,8 @@ function plotv(pgsol,bus::String)
     ui = ExtractResult(pgsol,Symbol("u_i_"*string(ind)))
     t = pgsol.dqsol.t
     y =  sqrt.(ur.^2 + ui.^2)
-    sc = scatter(x=t,y=y,name=bus)
-    display(plot(sc))
+    sc = PlotlyJS.scatter(x=t,y=y,name=bus)
+    display(PlotlyJS.plot(sc))
     return sc
 end
 
