@@ -297,3 +297,44 @@ for (ind,val) in enumerate(evr[:,1])
 end
 ind_sol[end,2] = length(pgsol0.dqsol.t);
 ind_sol
+
+
+
+
+
+Pload = -7580e6 /Sbase
+QLoad = -2243.7e6/Sbase
+share_pel_load = 0.2
+Srated = 5300e6 #5150e6 for LTVS, 5125e6
+pref = 4440e6/Sbase
+vbase = 230.0
+sbase = 1000.0
+zbase = vbase^2/sbase
+C = 700e-6;
+ω0 = 100*pi
+#xcpu = (1/(ω0*C))/zbase
+xcpu = 0.036 
+Cpu = 1/(xcpu*ω0)
+
+p_static, q_static = CalcnPFCPower(0.99034*sqrt(2),-Pload*share_pel_load,Cpu) #0.9904
+pf = p_static/hypot(p_static,q_static)
+
+p_static, q_static = CalcnPFCPower(0.99034*sqrt(2),-Pload*share_pel_load,Cpu) #0.9904
+
+p = []
+q = []
+pf = []
+ran = 0.02:1e-3:0.05 
+for i = ran
+  p_static, q_static = CalcnPFCPower(1*sqrt(2),0.1,i*0.1) #0.9904
+  PF = p_static/hypot(p_static,q_static)
+  push!(pf,PF)
+  push!(p,p_static)
+  push!(q,q_static)
+end
+p2 = PlotlyJS.plot(ran,pf)
+
+PlotlyJS.plot([p1 p2])
+
+Cpu = 1/(xcpu*ω0)
+CalcnPFCPower(1*sqrt(2),1.0,1/(0.036*100*pi))

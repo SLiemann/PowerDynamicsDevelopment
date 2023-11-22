@@ -14,11 +14,11 @@ tfault_on() = 0.1
 tfault_off() =  tfault_on() + 0.10
 dt_max() = 1e-3
 
-function LTVS_Test_System_N32_PEL_TS()
+function LTVS_Test_System_N32_PEL_TS(;share_pe = 0.2)
     Q_Shunt_EHV = 600e6/Sbase
     Q_Shunt_HV = 850e6/Sbase
     Pload = -7580e6 /Sbase
-    QLoad = -2243.7e6/Sbase 
+    QLoad = -2243.7e6/Sbase
     position_fault = 0.9 #0 at slack, 1.0 at bus 2
 
     Srated = 5300e6 #5150e6 for LTVS, 5125e6
@@ -30,15 +30,19 @@ function LTVS_Test_System_N32_PEL_TS()
     C = 700e-6;
     ω0 = 100*pi
     #xcpu = (1/(ω0*C))/zbase
-    xcpu = 0.036
-    Cpu = 1/(xcpu*ω0)
- 
+    xcpu = 0.036 
+    Cpu = 1/(xcpu*ω0) * share_pe
+
+    p_static, q_static = CalcnPFCPower(0.99034*sqrt(2),-Pload*share_pe,Cpu) #0.9904
+    qoff = QLoad - q_static
+    poff = Pload - p_static
+
     buses=OrderedDict(
         "bus0" => SlackAlgebraic(U=1.054275078250000), # 1.0532 for 100% I , 1.0495 for 100% Z 1.054080675
         "bus1" => VoltageDependentLoad(P=0.0, Q=0.0, U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),
         "bus_ehv" => VoltageDependentLoad(P=0.0, Q=Q_Shunt_EHV, U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),
         "bus_hv" => VoltageDependentLoad(P=0.0, Q=Q_Shunt_HV,  U=1.0, A=1.0, B=0.0,Y_n = complex(0.0)),
-        "bus_load" => nPFC(Cd=Cpu, Pdc = -Pload, p_ind=collect(6:7)),
+        "bus_load" => nPFC(Cd=Cpu, Pdc = -p_static, p_offset = poff, q_offset=qoff, p_ind=collect(6:7)),
         "busv" => ThreePhaseFault(rfault=8e3,xfault=8e3,p_ind=collect(1:2)),
         "bus_sm" => gentpjAVROEL(Sbase=Sbase,Srated=Srated, H=6.0, P=pref, D=0.0, Ω=50, R_a=0, T_d0s=7.0, T_q0s=1.5, T_d0ss=0.05,
         T_q0ss=0.05, X_d=2.2, X_q=2.0, X_ds=0.3, X_qs=0.4, X_dss=0.2, X_qss=0.2, X_l=0.15, S_10=0.1, S_12=0.3,K_is=0.0,
@@ -58,11 +62,11 @@ function LTVS_Test_System_N32_PEL_TS()
         "Line_1-v"=> PiModelLineParam(from= "bus1", to = "busv",y=1.0/(Z_4032_4044*position_fault), y_shunt_km=B_half_4032_4044, y_shunt_mk=0.0,p_ind=3),
         "Line_v-2"=> PiModelLineParam(from= "bus_ehv", to = "busv",y=1.0/(Z_4032_4044*(1.0-position_fault)), y_shunt_km=B_half_4032_4044, y_shunt_mk=0,p_ind=4),
         "Trafo_Netz"=> StaticPowerTransformer(from="bus_ehv",to="bus_hv",Sbase=Sbase,Srated=8000e6,uk=0.12,XR_ratio=Inf,
-                                           i0=0.0,Pv0=0.0,tap_side = "HV",tap_pos = 5*0-2,tap_inc = 1.0),
+                                           i0=0.0,Pv0=0.0,tap_side = "HV",tap_pos = 5,tap_inc = 1.0),
         "OLTC"=> StaticPowerTransformerTapParam(from="bus_hv",to="bus_load",Sbase=Sbase,Srated=8000e6,uk=0.11,XR_ratio=Inf,
-                                           i0=0.0,Pv0=0.0,tap_side = "LV",tap_pos = 6*0-5,tap_inc = 1.0,tap_max=20,tap_min=-20,p_ind=5),
+                                           i0=0.0,Pv0=0.0,tap_side = "LV",tap_pos = 6,tap_inc = 1.0,tap_max=20,tap_min=-20,p_ind=5),
         "Trafo_SM"=> StaticPowerTransformer(from="bus_hv",to="bus_sm",Sbase=Sbase,Srated=5300e6,uk=0.15,XR_ratio=Inf,
-                                          i0=0.0,Pv0=0.0,tap_side = "HV",tap_pos = 5*0,tap_inc = 1.0))
+                                          i0=0.0,Pv0=0.0,tap_side = "HV",tap_pos = 5,tap_inc = 1.0))
         return PowerGrid(buses, branches)
 end
 
@@ -101,11 +105,11 @@ function GetPostFaultLTVSPG_TS(pg::PowerGrid)
     return PowerGrid(nodes_postfault,branches_postfault)
 end
 
-function Initialize_N32_PEL_TS()
-    pg = LTVS_Test_System_N32_PEL_TS()
+function Initialize_N32_PEL_TS(;share_pe=0.2)
+    pg = LTVS_Test_System_N32_PEL_TS(share_pe=share_pe)
     Qmax   = [Inf,Inf, Inf, Inf,Inf,5300/8000*sqrt(1-0.8377^2),Inf]
     Qmin   = -Qmax
-    U1,δ1,ic0,cu = PowerFlowClassic(pg,iwamoto = true,max_tol = 1e-5,iter_max = 100,Qmax = Qmax, Qmin = Qmin,Qlimit_iter_check=80)
+    U1,δ1,ic0,cu = PowerFlowClassic(pg,iwamoto = false,max_tol = 1e-5,iter_max = 100,Qmax = Qmax, Qmin = Qmin,Qlimit_iter_check=80)
     pg, ic = InitializeInternalDynamics(pg,ic0)
     display(U1.=>δ1)
     return pg,ic
@@ -208,16 +212,18 @@ function simulate_LTVS_N32_simulation_PEL_TS(pg::PowerGrid,ic::Vector{Float64},t
     end
 
     function new_half_wave(u,t,integrator)
-        mod(integrator.t/0.01,1.0)
+        #mod(integrator.t,1.0)
+        integrator[index_tsum_load] >= 0.01
     end
 
     function affect_new_half_wave(integrator)
-        display("NEW HALF WAVE")
+        #display("NEW HALF WAVE")
         Vabs = hypot(integrator.u[index_U_load],integrator.u[index_U_load+1])*sqrt(2)
         Cd = deepcopy(integrator.p[p_pel_ind[1]])
-        Pdc = deepcopy(integrator.p[p_pel_ind[1]])
+        Pdc = deepcopy(integrator.p[p_pel_ind[2]])
         T = 0.02
-        ton = deepcopy(integrator.u[index_ton_l])
+        ton = deepcopy(integrator.u[index_ton_load])
+        toff = deepcopy(integrator.u[index_toff_load])
 
         if ton < 0.0 # Location A
             integrator.u[index_tsum_load]  = 0.0
@@ -226,10 +232,12 @@ function simulate_LTVS_N32_simulation_PEL_TS(pg::PowerGrid,ic::Vector{Float64},t
             integrator.u[index_vofft2_load]  = voffT2_new
         else # Location A
             integrator.u[index_tsum_load]  = 0.0
-            voff = Vabs*sin(ω0*toff)
+            voff = Vabs*sin(100*pi*toff)
             voffT2_new = CalfnPFCVoffT2(voff,Pdc,Cd,(T/2-toff))
             integrator.u[index_vofft2_load]  = voffT2_new
         end
+        #initialize_dae!(integrator,BrownFullBasicInit())
+        #auto_dt_reset!(integrator)  
     end
 
     function ton_pos(u,t,integrator)
@@ -242,6 +250,7 @@ function simulate_LTVS_N32_simulation_PEL_TS(pg::PowerGrid,ic::Vector{Float64},t
 
     function affect_ton_neg(integrator)
         Vabs = hypot(integrator.u[index_U_load],integrator.u[index_U_load+1])*sqrt(2)
+        Vabs_prev = hypot(integrator.uprev[index_U_load],integrator.uprev[index_U_load+1])*sqrt(2)
         Cd = deepcopy(integrator.p[p_pel_ind[1]])
         Pdc = deepcopy(integrator.p[p_pel_ind[2]])
         T = 0.02
@@ -249,30 +258,33 @@ function simulate_LTVS_N32_simulation_PEL_TS(pg::PowerGrid,ic::Vector{Float64},t
         vofft2 = deepcopy(integrator.u[index_vofft2_load])
         t = deepcopy(integrator.t)
 
-        if iszero(mod(t/0.02,1.0)) #Location A
-            #display("A ton neg")
-            #nothing
-        elseif  tsum < toff && tsum < ton #Location B
-           # display("Location B neg")
-            toff_new = CalcnPFCtoff(Vabs,Pdc,Cd)
-            ton_new = CalfnPFCton(Vabs,Pdc,Cd,vofft2)  
+        if abs(Vabs - Vabs_prev) > 1e-6 
+            if iszero(mod(t/0.02,1.0)) #Location A
+                #display("A ton neg")
+                #nothing
+            elseif  tsum < toff && tsum < ton #Location B
+             #display("Location B neg")
+                toff_new = CalcnPFCtoff(Vabs,Pdc,Cd)
+                ton_new = CalfnPFCton(Vabs,Pdc,Cd,vofft2)  
 
-            integrator.u[index_toff_load]  = toff_new
-            integrator.u[index_ton_load]  = ton_new
-        elseif  tsum < toff && tsum >= ton
-            #display("Location C neg")
-            toff_new = CalcnPFCtoff(Vabs,Pdc,Cd)
-            integrator.u[index_toff_load]  = toff_new
-        elseif  tsum >= toff && tsum < ton
-            #display("Location D  neg")
-            #nothing
-        else
-            error("state tsum is not within length of half-cycle: $(tsum)")
-        end 
-        integrator.u[index_p_load]  = 0.0
-        integrator.u[index_q_load]  = 0.0
-        initialize_dae!(integrator,BrownFullBasicInit())
-        auto_dt_reset!(integrator)       
+                integrator.u[index_toff_load]  = toff_new
+                integrator.u[index_ton_load]  = ton_new
+
+            elseif  tsum < toff && tsum >= ton
+                #display("Location C neg")
+                toff_new = CalcnPFCtoff(Vabs,Pdc,Cd)
+                integrator.u[index_toff_load]  = toff_new
+            elseif  tsum >= toff && tsum >= ton
+                #display("Location D  neg")
+                #nothing
+            else
+                #display("state tsum is not within length of half-cycle: $(tsum) at $(t)")
+            end 
+            integrator.u[index_p_load]  = 0.0
+            integrator.u[index_q_load]  = 0.0
+            initialize_dae!(integrator,BrownFullBasicInit())
+            #auto_dt_reset!(integrator)       
+        end
     end
 
     function affect_ton_pos(integrator)
@@ -287,46 +299,44 @@ function simulate_LTVS_N32_simulation_PEL_TS(pg::PowerGrid,ic::Vector{Float64},t
         ton = deepcopy(integrator.u[index_ton_load])
         toff = deepcopy(integrator.u[index_toff_load]) 
         t = deepcopy(integrator.t)
-
-        #display(integrator.u[index_vofft2_load:index_q_load])
-
-        if abs(Vabs - Vabs_prev) > 1e-3 
+        if abs(Vabs - Vabs_prev) > 1e-6 
             if iszero(mod(t/0.02,1.0)) #Location A
                 #display("A ton pos")
             elseif  tsum < toff && tsum < ton #Location B
                 #display("B ton pos")
-                p1_new, q1_new = CalcnPFCP1Q1(Vabs,Pdc,Cd,ton,toff)
                 toff_new = CalcnPFCtoff(Vabs,Pdc,Cd)
-                ton_new = CalfnPFCton(Vabs,Pdc,Cd,vofft2)  
-                
+                ton_new = CalfnPFCton(Vabs,Pdc,Cd,vofft2) 
+                p1_new, q1_new = CalcnPFCP1Q1(Vabs,Pdc,Cd,ton_new,toff_new)               
 
                 integrator.u[index_toff_load]  = toff_new
                 integrator.u[index_ton_load]  = ton_new
                 integrator.u[index_p_load]  = p1_new
                 integrator.u[index_q_load]  = q1_new
 
-                display(integrator.u[index_vofft2_load:index_q_load])
-
+                #display(integrator.tprev)
+                #display(t)
+                #display(Vabs)
+                #display(integrator.u[index_vofft2_load:index_q_load] )
             elseif  tsum < toff && tsum >= ton
                 #display("C ton pos")
-                p1_new, q1_new = CalcnPFCP1Q1(Vabs,Pdc,Cd,ton,toff)
                 toff_new = CalcnPFCtoff(Vabs,Pdc,Cd)
+                p1_new, q1_new = CalcnPFCP1Q1(Vabs,Pdc,Cd,ton,toff_new)
                 
                 integrator.u[index_toff_load]  = toff_new
                 integrator.u[index_p_load]  = p1_new
                 integrator.u[index_q_load]  = q1_new
-            elseif  tsum >= toff && tsum < ton
+            elseif  tsum >= toff && tsum >= ton
                 #display("D ton pos")
                 p1_new, q1_new = CalcnPFCP1Q1(Vabs,Pdc,Cd,ton,toff)
 
                 integrator.u[index_p_load]  = p1_new
                 integrator.u[index_q_load]  = q1_new
             else
-                error("state tsum is not within length of half-cycle: $(tsum)")
+                #display("state tsum is not within length of half-cycle: $(tsum) at $(t)")
             end
+            initialize_dae!(integrator,BrownFullBasicInit())
+            #auto_dt_reset!(integrator)       
         end
-        initialize_dae!(integrator,BrownFullBasicInit())
-        auto_dt_reset!(integrator)       
     end
 
     ### PEL Callbacks END ###
@@ -494,14 +504,11 @@ function simulate_LTVS_N32_simulation_PEL_TS(pg::PowerGrid,ic::Vector{Float64},t
     #cb9 = DiscreteCallback(check_GFM_voltage_LVRT, stop_integration_LVRT)
     #cb10 = DiscreteCallback(check_GFM_voltage_HVRT13, stop_integration_HVRT)
     #cb11 = DiscreteCallback(check_GFM_voltage_HVRT12, stop_integration_HVRT)
-    #cb12 = DiscreteCallback(imax_on, affect_imax_on, save_positions=(false,true))
 
-    cb_nhw =ContinuousCallback(new_half_wave, affect_new_half_wave, save_positions=(true,true))
-    cb_tpos =DiscreteCallback(ton_pos, affect_ton_pos, save_positions=(true,true))
-    cb_tneg =DiscreteCallback(ton_neg, affect_ton_neg, save_positions=(true,true))
-    cb_tsum =DiscreteCallback(f_tsum, affect_tsum, save_positions=(true,true))
-
-
+    cb_nhw  = DiscreteCallback(new_half_wave, affect_new_half_wave, save_positions=(false,true))
+    cb_tpos = DiscreteCallback(ton_pos, affect_ton_pos, save_positions=(false,true))
+    cb_tneg = DiscreteCallback(ton_neg, affect_ton_neg, save_positions=(false,true))
+    cb_tsum = DiscreteCallback(f_tsum, affect_tsum, save_positions=(false,true))
 
     stiff  = repeat([:stiff],length(ic)) #, callback = CallbackSet(cb1,cb2,cb21,cb3,cb4,cb5)
     #cb7,cb8,cb9,cb10,cb11,

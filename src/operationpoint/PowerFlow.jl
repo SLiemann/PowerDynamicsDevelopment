@@ -154,10 +154,9 @@ end
 
 function NodePower(L::nPFC,U)
     p,q = CalcnPFCPower(abs(U)*sqrt(2),L.Pdc,L.Cd)
-    display(p)
-    display(q)
-    display("--------")
-    return complex(p,q)
+    q_off = L.q_offset * abs(U)^2 
+    poff =  L.p_offset * abs(U)
+    return complex(p+poff,q+q_off)
 end
 
 

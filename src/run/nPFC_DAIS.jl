@@ -11,10 +11,10 @@ begin
     nothing
 end
 
-pg0,ic0 = Initialize_N32_PEL_TS();
+pg0,ic0 = Initialize_N32_PEL_TS(share_pe= 0.20);
 rhs(pg0).syms .=> ic0
 
-@time pgsol0, evr_sol = simulate_LTVS_N32_simulation_PEL_TS(pg0,ic0,(0.0,0.3),(80.0+1im*0)/Zbase);
+@time pgsol0, evr_sol = simulate_LTVS_N32_simulation_PEL_TS(pg0,ic0,(0.0,0.3),(40.0+1im*20)/Zbase);
 plotallvoltages(pgsol0);
 myplot(pgsol0,"bus_load",:q1);
 myplot(pgsol0,"bus_load",:p1);
@@ -22,6 +22,8 @@ myplot(pgsol0,"bus_load",:tsum);
 myplot(pgsol0,"bus_load",:ton);
 myplot(pgsol0,"bus_load",:toff);
 myplot(pgsol0,"bus_load",:vofft2);
+
+myplot(pgsol0,"bus_load",[:tsum,:ton,:toff]);
 
 pgsol0.dqsol.t[end]
 length(pgsol0.dqsol)

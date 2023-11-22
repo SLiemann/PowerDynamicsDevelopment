@@ -1,4 +1,4 @@
-@DynamicNode nPFC(Cd, Pdc,p_ind)  begin
+@DynamicNode nPFC(Cd, Pdc,p_offset,q_offset,p_ind)  begin
     MassMatrix(m_int = [true, true, true, true,true, true])
 end  begin
     @assert Cd > 0.0 "Cd should be >0"
@@ -11,6 +11,8 @@ end [[vofft2, dvofft2],[tsum,dtsum],[ton,dton],[toff,dtoff],[p1,dp1],[q1,dq1]] b
     #Vlow = p[p_ind[3]]
 
     s = u*conj(i)
+    q_off = q_offset*(abs(u)^2)
+    p_off = p_offset*(abs(u))
     
     dvofft2 = 0.0
     dtsum = 0.0
@@ -19,7 +21,7 @@ end [[vofft2, dvofft2],[tsum,dtsum],[ton,dton],[toff,dtoff],[p1,dp1],[q1,dq1]] b
     dp1 = 0.0
     dq1 = 0.0
 
-    du = p1 + im*q1 - s
+    du = (p1+p_off) + im*(q1+q_off) - s
 end
 
 export nPFC

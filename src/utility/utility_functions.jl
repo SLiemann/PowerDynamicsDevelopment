@@ -564,7 +564,7 @@ function CardanosFormular(A::Float64,B::Float64,C::Float64,D::Float64)
     q = (2*B^3 -9*A*B*C + 27*D*A^2)./(27*A^3)
     delta = (q/2)^2 +  (p/3)^3
 
-    roots = Float64
+    roots = -1.0
     if delta >0
         u = Complex(-q/2+sqrt(delta))^(1/3)
         v = Complex(-q/2-sqrt(delta))^(1/3)
