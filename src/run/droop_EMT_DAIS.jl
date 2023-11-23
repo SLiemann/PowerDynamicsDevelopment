@@ -125,30 +125,33 @@ u0 = states(odesys) .=> collect(values(tmp))[ind_states]
 ind_params = setdiff(indexin(parameters(odesys),collect(keys(tmp))),[nothing])
 params = parameters(odesys) .=> collect(values(tmp))[ind_params] 
 prob  = ODEProblem(odesys, u0,(0.0,10.0),params)
-sol = solve(prob,Rodas4(),dtmax=1e-3,; tstops = [1.0,2.0,3.0], initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-8,reltol=1e-8);
+sol = solve(prob,Rodas4(),dtmax=1e-2,; tstops = [1.0,2.0,3.0], initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-8,reltol=1e-8);
 Plots.plot(sol,idxs=[vcd])
 t_events_off
 t_events_on
-plot(sol,idxs=[pref])
-plot(sol,idxs=[id])
+plot(sol,idxs=[p_ref])
+
+id0 = plot(sol,idxs=[id]).series_list[1][:y]
+iq0 = plot(sol,idxs=[iq]).series_list[1][:y]
+plot(hypot.(id0,iq0))
 
 using NonlinearSolve
 u0f = Float64.(collect(values(tmp))[ind_states])
 pf = Float64.(collect(values(tmp))[ind_params])
 nprob = SteadyStateProblem(prob.f, u0f,pf)
-nsol = solve(nprob,DynamicSS(Rodas4()))
+nsol= solve(nprob,DynamicSS(Rodas4()))
 
-pf[4] = 0.9
-u0f[19] = 0.0
+pf[24] = 0.9 #rload
+u0f[25] = 0.0 #qicmax
 nprob = SteadyStateProblem(prob.f, u0f,pf)
 nsol = solve(nprob,DynamicSS(Rodas4()))
-states(odesys) .=> u0f .- nsol.u
+states(odesys) .=> nsol.u .- u0f
 
-pf[4] = 0.9
-u0f[19] = 1.0
+pf[24] = 0.9
+u0f[25] = 1.0
 nprob = SteadyStateProblem(prob.f, u0f,pf)
 nsol = solve(nprob,DynamicSS(Rodas4()),reltol=1e-10,abstol=1e-10)
-states(odesys) .=> nsol.u
+states(odesys) .=> nsol.u .- u0f
 
 u0_steady = states(odesys) .=> nsol.u
 params_steady = parameters(odesys) .=> pf
@@ -164,7 +167,7 @@ substitute((1.0 - q_icmax)*i_cqref - q_icmax*i_cqref*icmax/i_absref,df)
 substitute((1.0 - q_idcrefτ)*i_dcrefτ - q_idcrefτ*(sign(i_dcrefτ)*idcmax),df)
 
 #######Eigenvalue calculatoin####################
-ew_noimax = CalcEigenValues(odesys,output = false,plot=true)
+ew_noimax = CalcEigenValues(odesys,output = true,plot=true);
 
 ic_imax = states(odesys) .=> sol[end]
 @named new_odesys = ODESystem(eqs_gfm,t,ordered_states,tmp_params; defaults = ic_imax)
@@ -179,6 +182,7 @@ using OrderedCollections: OrderedDict
 using Distributed
 import DiffEqBase: initialize_dae!
 @everywhere using IfElse
+include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/sensitivity_analyses/Local_Sensitivity.jl")
 include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/include_custom_nodes_lines_utilities.jl")
 
 Ubase_gfm = 1e3
