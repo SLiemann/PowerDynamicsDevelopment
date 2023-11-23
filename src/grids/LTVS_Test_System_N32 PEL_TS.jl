@@ -11,8 +11,8 @@ Zbase = Ubase^2/Sbase
 
 zfault() = (20+1im*20)/Zbase
 tfault_on() = 0.1
-tfault_off() =  tfault_on() + 0.06
-dt_max() = 1e-3
+tfault_off() =  tfault_on() + 0.1
+dt_max() = 1e-4
 dbv() = 1e-12
 
 function LTVS_Test_System_N32_PEL_TS(;share_pe = 0.2)
@@ -152,6 +152,7 @@ function simulate_LTVS_N32_simulation_PEL_TS(pg::PowerGrid,ic::Vector{Float64},t
     index_toff_load = PowerDynamics.variable_index(pg.nodes,"bus_load",:toff)
     index_p_load = PowerDynamics.variable_index(pg.nodes,"bus_load",:p1)
     index_q_load = PowerDynamics.variable_index(pg.nodes,"bus_load",:q1)
+    index_time_load = PowerDynamics.variable_index(pg.nodes,"bus_load",:time)
     p_pel_ind = pg.nodes["bus_load"].p_ind
 
     function TapState(integrator)
@@ -204,38 +205,104 @@ function simulate_LTVS_N32_simulation_PEL_TS(pg::PowerGrid,ic::Vector{Float64},t
     end
 
     ### PEL Callbacks START ###
+    # function f_tsum(u,t,integrator)
+    #     true
+    # end
+    
+    # function affect_tsum(integrator)
+    #     integrator.u[index_tsum_load]  = integrator.u[index_tsum_load] + integrator.t - integrator.tprev  
+    # end
+
     function f_tsum(u,t,integrator)
         true
     end
     
     function affect_tsum(integrator)
-        integrator.u[index_tsum_load]  = integrator.u[index_tsum_load] + integrator.t - integrator.tprev  
+        Vabs = hypot(integrator.u[index_U_load],integrator.u[index_U_load+1])*sqrt(2)
+        Cd = deepcopy(integrator.p[p_pel_ind[1]])
+        Pdc = deepcopy(integrator.p[p_pel_ind[2]])
+        T = 0.02
+
+        voffT2 = deepcopy(integrator.u[index_vofft2_load])
+        tsum = deepcopy(integrator.u[index_tsum_load])  
+        ton = deepcopy(integrator.u[index_ton_load])
+        toff = deepcopy(integrator.u[index_toff_load]) 
+        tsum = deepcopy(integrator.u[index_tsum_load])
+        timer = deepcopy(integrator.u[index_time_load])
+
+        if tsum >= 0.01 
+            #if  round(integrator.t, digits = 2) != tfault[1]
+            #display("round(tsum) = $(round(tsum, digits = 2))")
+            
+            integrator.u[index_tsum_load]  = 0.0
+            integrator.u[index_time_load]  = -0.01
+
+            ton_tmp = CalfnPFCton(Vabs,Pdc,Cd,voffT2) 
+            display("A ton new = $(ton_tmp) at  t  = $(integrator.t)")
+            if ton >= 0.0
+                voff = Vabs*sin(100*pi*toff)
+                voffT2 = CalfnPFCVoffT2(voff,Pdc,Cd,(T/2-toff))
+            else
+                voff = deepcopy(integrator.u[index_vofft2_load])
+                voffT2 = CalfnPFCVoffT2(voff,Pdc,Cd,(T/2-0.0))
+            end
+            toff = CalcnPFCtoff(Vabs,Pdc,Cd)
+            ton = CalfnPFCton(Vabs,Pdc,Cd,voffT2) 
+            display("A ton new = $(ton) at  t  = $(integrator.t)")
+            integrator.u[index_vofft2_load]  = voffT2
+            #auto_dt_reset!(integrator) 
+        elseif  tsum < toff && tsum < ton #Location B
+            #display("B ton pos")
+            toff = CalcnPFCtoff(Vabs,Pdc,Cd)
+            ton = CalfnPFCton(Vabs,Pdc,Cd,voffT2)
+        elseif  tsum < toff && tsum >= ton
+            # display("C ton pos")
+            toff = CalcnPFCtoff(Vabs,Pdc,Cd)
+        #else
+        #    display("state tsum is not within length of half-cycle: $(tsum) at $(t)")
+        end
+        p1_new = 0.0
+        q1_new = 0.0
+        if ton >= 0.0
+            p1_new, q1_new = CalcnPFCP1Q1(Vabs,Pdc,Cd,ton,toff)               
+        end 
+        integrator.u[index_p_load]  = p1_new
+        integrator.u[index_q_load]  = q1_new
+        
+        integrator.u[index_toff_load]  = toff
+        integrator.u[index_ton_load]  = ton
+        integrator.u[index_tsum_load]  = integrator.u[index_tsum_load] + integrator.t - integrator.tprev 
+        initialize_dae!(integrator,BrownFullBasicInit())
+
     end
 
     function new_half_wave(u,t,integrator)
-        #mod(integrator.t,1.0)
-        integrator[index_tsum_load] >= 0.01
+        u[index_time_load]
     end
 
     function affect_new_half_wave(integrator)
-        #display("NEW HALF WAVE")
+        
         Vabs = hypot(integrator.u[index_U_load],integrator.u[index_U_load+1])*sqrt(2)
         Cd = deepcopy(integrator.p[p_pel_ind[1]])
         Pdc = deepcopy(integrator.p[p_pel_ind[2]])
         T = 0.02
         ton = deepcopy(integrator.u[index_ton_load])
         toff = deepcopy(integrator.u[index_toff_load])
-
-        if ton < 0.0 # Location A
-            integrator.u[index_tsum_load]  = 0.0
-            vofft2 = deepcopy(integrator.u[index_vofft2_load])
-            voffT2_new = CalfnPFCVoffT2(vofft2,Pdc,Cd,(T/2-0.0))
-            integrator.u[index_vofft2_load]  = voffT2_new
-        else # Location A
-            integrator.u[index_tsum_load]  = 0.0
-            voff = Vabs*sin(100*pi*toff)
-            voffT2_new = CalfnPFCVoffT2(voff,Pdc,Cd,(T/2-toff))
-            integrator.u[index_vofft2_load]  = voffT2_new
+        integrator.u[index_time_load] = -0.01
+        display("NEW HALF WAVE at t= $(integrator.t)")
+        if round(integrator.t,digits = 2) != tfault[1] || round(integrator.t,digits = 2) != tfault[1]
+            #display("NEW HALF WAVE at t= $(integrator.t)")
+            if ton < 0.0 # Location A
+                integrator.u[index_tsum_load]  = 0.0
+                vofft2 = deepcopy(integrator.u[index_vofft2_load])
+                voffT2_new = CalfnPFCVoffT2(vofft2,Pdc,Cd,(T/2-0.0))
+                integrator.u[index_vofft2_load]  = voffT2_new
+            else # Location A
+                integrator.u[index_tsum_load]  = 0.0
+                voff = Vabs*sin(100*pi*toff)
+                voffT2_new = CalfnPFCVoffT2(voff,Pdc,Cd,(T/2-toff))
+                integrator.u[index_vofft2_load]  = voffT2_new
+            end
         end
         #initialize_dae!(integrator,BrownFullBasicInit())
         #auto_dt_reset!(integrator)  
@@ -275,9 +342,9 @@ function simulate_LTVS_N32_simulation_PEL_TS(pg::PowerGrid,ic::Vector{Float64},t
                 if ton_new >=0
                     p1_new, q1_new = CalcnPFCP1Q1(Vabs,Pdc,Cd,ton_new,toff_new)  
 
-                    voff = Vabs*sin(100*pi*toff)
-                    voffT2_new = CalfnPFCVoffT2(voff,Pdc,Cd,(T/2-toff))
-                    integrator.u[index_vofft2_load] = voffT2_new
+                    #voff = Vabs*sin(100*pi*toff)
+                    #voffT2_new = CalfnPFCVoffT2(voff,Pdc,Cd,(T/2-toff))
+                    #integrator.u[index_vofft2_load] = voffT2_new
                     integrator.u[index_toff_load]  = toff_new
                     integrator.u[index_ton_load]  = ton_new
                     integrator.u[index_p_load]  = p1_new
@@ -295,7 +362,7 @@ function simulate_LTVS_N32_simulation_PEL_TS(pg::PowerGrid,ic::Vector{Float64},t
                 #display("state tsum is not within length of half-cycle: $(tsum) at $(t)")
             end 
             initialize_dae!(integrator,BrownFullBasicInit())
-            auto_dt_reset!(integrator)       
+            #auto_dt_reset!(integrator)       
         end
     end
 
@@ -326,7 +393,7 @@ function simulate_LTVS_N32_simulation_PEL_TS(pg::PowerGrid,ic::Vector{Float64},t
                 integrator.u[index_p_load]  = p1_new
                 integrator.u[index_q_load]  = q1_new
             elseif  tsum < toff && tsum >= ton
-                #display("C ton pos")
+               # display("C ton pos")
                 toff_new = CalcnPFCtoff(Vabs,Pdc,Cd)
                 p1_new, q1_new = CalcnPFCP1Q1(Vabs,Pdc,Cd,ton,toff_new)
                 
@@ -377,32 +444,39 @@ function simulate_LTVS_N32_simulation_PEL_TS(pg::PowerGrid,ic::Vector{Float64},t
         for i in ind_as
             ic_init[i] = ic_end[i]
         end
-        integrator.u = deepcopy(ic_init)
+        #integrator.u = deepcopy(ic_init)
 
         ## Init PEL Model
         Vabs = hypot(ic_init[index_U_load],ic_init[index_U_load+1])*sqrt(2)
+        Vabs_pre = hypot(integrator[index_U_load],integrator[index_U_load+1])*sqrt(2)
         Cd = deepcopy(integrator.p[p_pel_ind[1]])
         Pdc = deepcopy(integrator.p[p_pel_ind[2]])
+        toff = integrator[index_toff_load]
         T = 0.02
         ω0 = 100*pi
 
         VoffT2 = deepcopy(integrator.u[index_vofft2_load])
 
+        
+        voff_new = Vabs_pre*sin(ω0*toff)
+        VoffT2_new = CalfnPFCVoffT2(voff_new,Pdc,Cd,(T/2-toff))
         toff_new = CalcnPFCtoff(Vabs,Pdc,Cd)
-        voff_new = Vabs*sin(ω0*toff_new)
-        #VoffT2_new = CalfnPFCVoffT2(voff_new,Pdc,Cd,(T/2-toff_new))
-        ton_new = CalfnPFCton(Vabs,Pdc,Cd,VoffT2)  
-        p1_new,q1_new = CalcnPFCP1Q1(Vabs,Pdc,Cd,ton_new,toff_new)
+        ton_new = CalfnPFCton(Vabs,Pdc,Cd,VoffT2_new)  
 
-        display(Vabs/sqrt(2))
+        p1_new = 0.0
+        q1_new = 0.0
+        if ton_new >= 0.0
+            p1_new, q1_new = CalcnPFCP1Q1(Vabs,Pdc,Cd,ton_new,toff_new)               
+        end 
+
         display("error state")
-        display("p1_new:  $(p1_new), t= $(integrator.t) ")
-        #integrator.u[index_vofft2_load]  = VoffT2_new
+        display("ton_new:  $(ton_new), t= $(integrator.t) ")
+        integrator.u[index_vofft2_load]  = VoffT2_new
         integrator.u[index_toff_load]  = toff_new
         integrator.u[index_ton_load]  = ton_new
         integrator.u[index_p_load]  = p1_new
         integrator.u[index_q_load]  = q1_new
-
+        integrator.u[index_tsum_load]  = 0.0
         initialize_dae!(integrator,BrownFullBasicInit())
         auto_dt_reset!(integrator)
 
@@ -447,7 +521,7 @@ function simulate_LTVS_N32_simulation_PEL_TS(pg::PowerGrid,ic::Vector{Float64},t
         # plot(myplot(pgsol_tmp,"bus_gfm",:q_imax))
 
         tmp_retcode = deepcopy(x2.retcode)
-        display(x2.retcode)
+        #display(x2.retcode)
 
         ode   = rhs(pg_postfault)
         integrator.f = ode
@@ -466,28 +540,39 @@ function simulate_LTVS_N32_simulation_PEL_TS(pg::PowerGrid,ic::Vector{Float64},t
         
         ## Init PEL Model
         Vabs = hypot(ic_init[index_U_load],ic_init[index_U_load+1])*sqrt(2)
-        display(Vabs/sqrt(2))
+        #Vabs_pre = hypot(integrator[index_U_load],integrator[index_U_load+1])*sqrt(2)
         Cd = deepcopy(integrator.p[p_pel_ind[1]])
         Pdc = deepcopy(integrator.p[p_pel_ind[2]])
+        toff = integrator[index_toff_load]
         T = 0.02
         ω0 = 100*pi
 
         VoffT2 = deepcopy(integrator.u[index_vofft2_load])
 
+        
+        voff_new = Vabs*sin(ω0*toff)
+        VoffT2_new = CalfnPFCVoffT2(voff_new,Pdc,Cd,(T/2-toff))
         toff_new = CalcnPFCtoff(Vabs,Pdc,Cd)
-        ton_new = CalfnPFCton(Vabs,Pdc,Cd,VoffT2)  
-        p1_new,q1_new = CalcnPFCP1Q1(Vabs,Pdc,Cd,ton_new,toff_new)
-        display(p1_new)
-        display(q1_new)
+        ton_new = CalfnPFCton(Vabs,Pdc,Cd,VoffT2_new)  
 
-        #integrator.u[index_vofft2_load]  = VoffT2_new
+        p1_new = 0.0
+        q1_new = 0.0
+        if ton_new >= 0.0
+            p1_new, q1_new = CalcnPFCP1Q1(Vabs,Pdc,Cd,ton_new,toff_new)               
+        end 
+
+        display("error state")
+        display("ton_new:  $(ton_new), t= $(integrator.t) ")
+        integrator.u[index_vofft2_load]  = VoffT2_new
         integrator.u[index_toff_load]  = toff_new
         integrator.u[index_ton_load]  = ton_new
         integrator.u[index_p_load]  = p1_new
         integrator.u[index_q_load]  = q1_new
+        integrator.u[index_tsum_load]  = 0.0
+        initialize_dae!(integrator,BrownFullBasicInit())
 
         initialize_dae!(integrator,BrownFullBasicInit())
-        #auto_dt_reset!(integrator)
+        auto_dt_reset!(integrator)
 
         # if tmp_retcode == ReturnCode.Success
         #     ic_end = x2.u[end]
@@ -576,17 +661,17 @@ function simulate_LTVS_N32_simulation_PEL_TS(pg::PowerGrid,ic::Vector{Float64},t
     #cb10 = DiscreteCallback(check_GFM_voltage_HVRT13, stop_integration_HVRT)
     #cb11 = DiscreteCallback(check_GFM_voltage_HVRT12, stop_integration_HVRT)
 
-    cb_nhw  = DiscreteCallback(new_half_wave, affect_new_half_wave, save_positions=(false,true))
+    cb_nhw  = ContinuousCallback(new_half_wave, affect_new_half_wave, save_positions=(true,true))
     cb_tpos = DiscreteCallback(ton_pos, affect_ton_pos, save_positions=(false,true))
     cb_tneg = DiscreteCallback(ton_neg, affect_ton_neg, save_positions=(false,true))
     cb_tsum = DiscreteCallback(f_tsum, affect_tsum, save_positions=(false,true))
 
     stiff  = repeat([:stiff],length(ic)) #, callback = CallbackSet(cb1,cb2,cb21,cb3,cb4,cb5)
     #cb7,cb8,cb9,cb10,cb11,
-    tstops_sim =[tfault[1];tfault[2];collect(tspan[1]:0.02:tspan[2])]
+    tstops_sim =[tfault[1];tfault[2];collect(tspan[1]:0.01:tspan[2])]
     sort!(tstops_sim)
-
-    sol = solve(problem, Rodas4(autodiff=true),callback = CallbackSet(cb4,cb5,cb_nhw,cb_tpos,cb_tneg,cb_tsum), tstops=tstops_sim, dtmax = dt_max(),force_dtmin=false,maxiters=1e6, initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-8,reltol=1e-8) #
+    #,cb_nhw,cb_tpos,cb_tneg
+    sol = solve(problem, Rodas4(autodiff=true),callback = CallbackSet(cb4,cb5,cb_tsum), tstops=tstops_sim, dtmax = dt_max(),force_dtmin=false,maxiters=1e6, initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-8,reltol=1e-8) #
     # good values abstol=1e-8,reltol=1e-8 and Rodas5(autodiff=true) for droop
     #success = deepcopy(sol.retcode)
     if sol.retcode != :Success
