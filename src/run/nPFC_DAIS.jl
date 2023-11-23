@@ -11,11 +11,13 @@ begin
     nothing
 end
 
-pg0,ic0 = Initialize_N32_PEL_TS(share_pe= 0.20);
+pg0,ic0 = Initialize_N32_PEL_TS(share_pe= 0.10);
 rhs(pg0).syms .=> ic0
 
-@time pgsol0, evr_sol = simulate_LTVS_N32_simulation_PEL_TS(pg0,ic0,(0.0,0.3),(40.0+1im*20)/Zbase);
-plotallvoltages(pgsol0);
+@time pgsol0, evr_sol = simulate_LTVS_N32_simulation_PEL_TS(pg0,ic0,(0.0,0.201),(20.0+1im*20)/Zbase);
+ppel2 = plotallvoltages(pgsol0);
+PlotlyJS.plot([ppel;ppel2])
+
 myplot(pgsol0,"bus_load",:q1);
 myplot(pgsol0,"bus_load",:p1);
 myplot(pgsol0,"bus_load",:tsum);
@@ -25,9 +27,17 @@ myplot(pgsol0,"bus_load",:vofft2);
 
 myplot(pgsol0,"bus_load",[:tsum,:ton,:toff]);
 
+p1 = myplot(pgsol0,"bus_load",:ton,y_norm=1/50);
+p2 = myplot(pgsol0,"bus_load",:toff,y_norm=1/500,y_bias=-2.32);
+p3 = myplot(pgsol0,"bus_load",:p1,y_norm=-1);
+p4= myplot(pgsol0,"bus_load",:vofft2,y_norm=10);
+p5 = plotv(pgsol0,"bus_load",y_norm=5)
+PlotlyJS.plot([p1,p2,p3,p4,p5])
+
+
 pgsol0.dqsol.t[end]
 length(pgsol0.dqsol)
-plotv(pgsol0,"bus_load")
+p5 = plotv(pgsol0,"bus_load")
 
 
 

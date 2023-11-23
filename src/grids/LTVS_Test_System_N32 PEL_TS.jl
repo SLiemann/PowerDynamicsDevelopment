@@ -11,8 +11,9 @@ Zbase = Ubase^2/Sbase
 
 zfault() = (20+1im*20)/Zbase
 tfault_on() = 0.1
-tfault_off() =  tfault_on() + 0.10
+tfault_off() =  tfault_on() + 0.06
 dt_max() = 1e-3
+dbv() = 1e-12
 
 function LTVS_Test_System_N32_PEL_TS(;share_pe = 0.2)
     Q_Shunt_EHV = 600e6/Sbase
@@ -241,11 +242,11 @@ function simulate_LTVS_N32_simulation_PEL_TS(pg::PowerGrid,ic::Vector{Float64},t
     end
 
     function ton_pos(u,t,integrator)
-        integrator[index_ton_load] >= 0.0
+        integrator[index_ton_load] >= 0.0 && t != tfault[1] && t != tfault[2] 
     end
 
     function ton_neg(u,t,integrator)
-        integrator[index_ton_load] < 0.0
+        integrator[index_ton_load] < 0.0 && t != tfault[1] && t != tfault[2] 
     end
 
     function affect_ton_neg(integrator)
@@ -254,36 +255,47 @@ function simulate_LTVS_N32_simulation_PEL_TS(pg::PowerGrid,ic::Vector{Float64},t
         Cd = deepcopy(integrator.p[p_pel_ind[1]])
         Pdc = deepcopy(integrator.p[p_pel_ind[2]])
         T = 0.02
-
+        tsum = deepcopy(integrator.u[index_tsum_load])  
+        ton = deepcopy(integrator.u[index_ton_load])  
+        toff = deepcopy(integrator.u[index_toff_load])  
         vofft2 = deepcopy(integrator.u[index_vofft2_load])
         t = deepcopy(integrator.t)
 
-        if abs(Vabs - Vabs_prev) > 1e-6 
+        if abs(Vabs - Vabs_prev) > dbv()
+            integrator.u[index_p_load]  = 0.0
+            integrator.u[index_q_load]  = 0.0 
             if iszero(mod(t/0.02,1.0)) #Location A
                 #display("A ton neg")
                 #nothing
-            elseif  tsum < toff && tsum < ton #Location B
-             #display("Location B neg")
+            elseif  tsum < toff  #Location B && tsum < ton
+                #display("Location B/C neg")
                 toff_new = CalcnPFCtoff(Vabs,Pdc,Cd)
                 ton_new = CalfnPFCton(Vabs,Pdc,Cd,vofft2)  
 
-                integrator.u[index_toff_load]  = toff_new
-                integrator.u[index_ton_load]  = ton_new
+                if ton_new >=0
+                    p1_new, q1_new = CalcnPFCP1Q1(Vabs,Pdc,Cd,ton_new,toff_new)  
 
-            elseif  tsum < toff && tsum >= ton
-                #display("Location C neg")
-                toff_new = CalcnPFCtoff(Vabs,Pdc,Cd)
-                integrator.u[index_toff_load]  = toff_new
+                    voff = Vabs*sin(100*pi*toff)
+                    voffT2_new = CalfnPFCVoffT2(voff,Pdc,Cd,(T/2-toff))
+                    integrator.u[index_vofft2_load] = voffT2_new
+                    integrator.u[index_toff_load]  = toff_new
+                    integrator.u[index_ton_load]  = ton_new
+                    integrator.u[index_p_load]  = p1_new
+                    integrator.u[index_q_load]  = q1_new
+                    #display("p1_new:  $(p1_new), t= $(t) ")
+                end
+            # elseif  tsum < toff && tsum >= ton
+            #     display("Location C neg")
+            #     toff_new = CalcnPFCtoff(Vabs,Pdc,Cd)
+            #     integrator.u[index_toff_load]  = toff_new
             elseif  tsum >= toff && tsum >= ton
                 #display("Location D  neg")
                 #nothing
             else
                 #display("state tsum is not within length of half-cycle: $(tsum) at $(t)")
             end 
-            integrator.u[index_p_load]  = 0.0
-            integrator.u[index_q_load]  = 0.0
             initialize_dae!(integrator,BrownFullBasicInit())
-            #auto_dt_reset!(integrator)       
+            auto_dt_reset!(integrator)       
         end
     end
 
@@ -299,7 +311,7 @@ function simulate_LTVS_N32_simulation_PEL_TS(pg::PowerGrid,ic::Vector{Float64},t
         ton = deepcopy(integrator.u[index_ton_load])
         toff = deepcopy(integrator.u[index_toff_load]) 
         t = deepcopy(integrator.t)
-        if abs(Vabs - Vabs_prev) > 1e-6 
+        if abs(Vabs - Vabs_prev) > dbv()  
             if iszero(mod(t/0.02,1.0)) #Location A
                 #display("A ton pos")
             elseif  tsum < toff && tsum < ton #Location B
@@ -308,20 +320,17 @@ function simulate_LTVS_N32_simulation_PEL_TS(pg::PowerGrid,ic::Vector{Float64},t
                 ton_new = CalfnPFCton(Vabs,Pdc,Cd,vofft2) 
                 p1_new, q1_new = CalcnPFCP1Q1(Vabs,Pdc,Cd,ton_new,toff_new)               
 
+                #display("p1_new:  $(p1_new), t= $(t) ")
                 integrator.u[index_toff_load]  = toff_new
                 integrator.u[index_ton_load]  = ton_new
                 integrator.u[index_p_load]  = p1_new
                 integrator.u[index_q_load]  = q1_new
-
-                #display(integrator.tprev)
-                #display(t)
-                #display(Vabs)
-                #display(integrator.u[index_vofft2_load:index_q_load] )
             elseif  tsum < toff && tsum >= ton
                 #display("C ton pos")
                 toff_new = CalcnPFCtoff(Vabs,Pdc,Cd)
                 p1_new, q1_new = CalcnPFCP1Q1(Vabs,Pdc,Cd,ton,toff_new)
                 
+                #display("p1_new:  $(p1_new), t= $(t) ")
                 integrator.u[index_toff_load]  = toff_new
                 integrator.u[index_p_load]  = p1_new
                 integrator.u[index_q_load]  = q1_new
@@ -329,6 +338,7 @@ function simulate_LTVS_N32_simulation_PEL_TS(pg::PowerGrid,ic::Vector{Float64},t
                 #display("D ton pos")
                 p1_new, q1_new = CalcnPFCP1Q1(Vabs,Pdc,Cd,ton,toff)
 
+                #display("p1_new:  $(p1_new), t= $(t) ")
                 integrator.u[index_p_load]  = p1_new
                 integrator.u[index_q_load]  = q1_new
             else
@@ -357,7 +367,7 @@ function simulate_LTVS_N32_simulation_PEL_TS(pg::PowerGrid,ic::Vector{Float64},t
         # create problem and simulate for 10ms
         op_prob = ODEProblem(rhs(pg_cfault), ic_tmp, (0.0, 0.010), integrator.p)
         x2 = solve(op_prob,Rodas4(),dtmax=1e-4,initializealg = BrownFullBasicInit(),alg_hints=:stiff,verbose=false,abstol=1e-8,reltol=1e-8)
-
+        display(x2.retcode)
         ic_end = x2.u[end]
         # delete states of continouos fault
         ic_end = vcat(ic_end[1:end-len-2],ic_end[end-len+1:end])
@@ -367,23 +377,51 @@ function simulate_LTVS_N32_simulation_PEL_TS(pg::PowerGrid,ic::Vector{Float64},t
         for i in ind_as
             ic_init[i] = ic_end[i]
         end
-        
-        if x2.retcode == :Success
-            integrator.u = deepcopy(ic_init)
-            initialize_dae!(integrator,BrownFullBasicInit())
-            auto_dt_reset!(integrator)
-        elseif x2.retcode == :Unstable
-            println("Terminated at $(integrator.t) due to detected instability at fault initialisation.")
-            terminate!(integrator)
-        else
-            ind = getVoltageSymbolPositions(pg)
-            ic_tmp = deepcopy(integrator.sol[end])
-            for i in ind
-                ic_tmp[i] = ic_tmp[i]/4.0
-            end
-            initialize_dae!(integrator,BrownFullBasicInit())
-            auto_dt_reset!(integrator)
-        end
+        integrator.u = deepcopy(ic_init)
+
+        ## Init PEL Model
+        Vabs = hypot(ic_init[index_U_load],ic_init[index_U_load+1])*sqrt(2)
+        Cd = deepcopy(integrator.p[p_pel_ind[1]])
+        Pdc = deepcopy(integrator.p[p_pel_ind[2]])
+        T = 0.02
+        ω0 = 100*pi
+
+        VoffT2 = deepcopy(integrator.u[index_vofft2_load])
+
+        toff_new = CalcnPFCtoff(Vabs,Pdc,Cd)
+        voff_new = Vabs*sin(ω0*toff_new)
+        #VoffT2_new = CalfnPFCVoffT2(voff_new,Pdc,Cd,(T/2-toff_new))
+        ton_new = CalfnPFCton(Vabs,Pdc,Cd,VoffT2)  
+        p1_new,q1_new = CalcnPFCP1Q1(Vabs,Pdc,Cd,ton_new,toff_new)
+
+        display(Vabs/sqrt(2))
+        display("error state")
+        display("p1_new:  $(p1_new), t= $(integrator.t) ")
+        #integrator.u[index_vofft2_load]  = VoffT2_new
+        integrator.u[index_toff_load]  = toff_new
+        integrator.u[index_ton_load]  = ton_new
+        integrator.u[index_p_load]  = p1_new
+        integrator.u[index_q_load]  = q1_new
+
+        initialize_dae!(integrator,BrownFullBasicInit())
+        auto_dt_reset!(integrator)
+
+        # if x2.retcode == :Success
+        #     integrator.u = deepcopy(ic_init)
+        #     initialize_dae!(integrator,BrownFullBasicInit())
+        #     auto_dt_reset!(integrator)
+        # elseif x2.retcode == :Unstable
+        #     println("Terminated at $(integrator.t) due to detected instability at fault initialisation.")
+        #     terminate!(integrator)
+        # else
+        #     ind = getVoltageSymbolPositions(pg)
+        #     ic_tmp = deepcopy(integrator.sol[end])
+        #     for i in ind
+        #         ic_tmp[i] = ic_tmp[i]/4.0
+        #     end
+        #     initialize_dae!(integrator,BrownFullBasicInit())
+        #     auto_dt_reset!(integrator)
+        # end
     end
 
     function regularState(integrator)
@@ -409,42 +447,75 @@ function simulate_LTVS_N32_simulation_PEL_TS(pg::PowerGrid,ic::Vector{Float64},t
         # plot(myplot(pgsol_tmp,"bus_gfm",:q_imax))
 
         tmp_retcode = deepcopy(x2.retcode)
+        display(x2.retcode)
 
         ode   = rhs(pg_postfault)
         integrator.f = ode
         integrator.cache.tf.f = integrator.f
-        
-        # integrator.u = deepcopy(ic_init)
-        # initialize_dae!(integrator,BrownFullBasicInit())
-        # auto_dt_reset!(integrator)
 
-        if tmp_retcode == ReturnCode.Success
-            ic_end = x2.u[end]
-            # delete states of continouos fault
-            ic_end = vcat(ic_end[1:end-len-2],ic_end[end-len+1:end])
-            # change only algebraic states of original problem
-            ind_as = findall(x-> iszero(x),diag(integrator.f.mass_matrix))
-            for i in ind_as
-                ic_init[i] = ic_end[i]
-            end
-
-            #ic_init[32] = 0.0
-            #ic_init[33] = 0.0
-            #evr = vcat(evr, [integrator.t ind_odesys 2 2 integrator.p'])
-
-            integrator.u = deepcopy(ic_init)
-            initialize_dae!(integrator,BrownFullBasicInit())
-            auto_dt_reset!(integrator)
-        elseif tmp_retcode == ReturnCode.Unstable
-            println("Terminated at $(integrator.t) due to detected instability at post-fault initialisation.")
-            terminate!(integrator)
-        else
-            ic_tmp = deepcopy(integrator.sol.u[indexin(tfault[1],integrator.sol.t)[1]])
-            #integrator.u  = getPreFaultVoltages(pg,ic_tmp,deepcopy(sol[end]))
-            integrator.u = getPreFaultAlgebraicStates(pg,ic_tmp,deepcopy(integrator.sol[end]))
-            initialize_dae!(integrator,BrownFullBasicInit())
-            auto_dt_reset!(integrator)
+        ic_end = x2.u[end]
+        # delete states of continouos fault
+        ic_end = vcat(ic_end[1:end-len-2],ic_end[end-len+1:end])
+        # change only algebraic states of original problem
+        ind_as = findall(x-> iszero(x),diag(integrator.f.mass_matrix))
+        for i in ind_as
+            ic_init[i] = ic_end[i]
         end
+
+        integrator.u = deepcopy(ic_init)
+        
+        ## Init PEL Model
+        Vabs = hypot(ic_init[index_U_load],ic_init[index_U_load+1])*sqrt(2)
+        display(Vabs/sqrt(2))
+        Cd = deepcopy(integrator.p[p_pel_ind[1]])
+        Pdc = deepcopy(integrator.p[p_pel_ind[2]])
+        T = 0.02
+        ω0 = 100*pi
+
+        VoffT2 = deepcopy(integrator.u[index_vofft2_load])
+
+        toff_new = CalcnPFCtoff(Vabs,Pdc,Cd)
+        ton_new = CalfnPFCton(Vabs,Pdc,Cd,VoffT2)  
+        p1_new,q1_new = CalcnPFCP1Q1(Vabs,Pdc,Cd,ton_new,toff_new)
+        display(p1_new)
+        display(q1_new)
+
+        #integrator.u[index_vofft2_load]  = VoffT2_new
+        integrator.u[index_toff_load]  = toff_new
+        integrator.u[index_ton_load]  = ton_new
+        integrator.u[index_p_load]  = p1_new
+        integrator.u[index_q_load]  = q1_new
+
+        initialize_dae!(integrator,BrownFullBasicInit())
+        #auto_dt_reset!(integrator)
+
+        # if tmp_retcode == ReturnCode.Success
+        #     ic_end = x2.u[end]
+        #     # delete states of continouos fault
+        #     ic_end = vcat(ic_end[1:end-len-2],ic_end[end-len+1:end])
+        #     # change only algebraic states of original problem
+        #     ind_as = findall(x-> iszero(x),diag(integrator.f.mass_matrix))
+        #     for i in ind_as
+        #         ic_init[i] = ic_end[i]
+        #     end
+
+        #     #ic_init[32] = 0.0
+        #     #ic_init[33] = 0.0
+        #     #evr = vcat(evr, [integrator.t ind_odesys 2 2 integrator.p'])
+
+        #     integrator.u = deepcopy(ic_init)
+        #     initialize_dae!(integrator,BrownFullBasicInit())
+        #     auto_dt_reset!(integrator)
+        # elseif tmp_retcode == ReturnCode.Unstable
+        #     println("Terminated at $(integrator.t) due to detected instability at post-fault initialisation.")
+        #     terminate!(integrator)
+        # else
+        #     ic_tmp = deepcopy(integrator.sol.u[indexin(tfault[1],integrator.sol.t)[1]])
+        #     #integrator.u  = getPreFaultVoltages(pg,ic_tmp,deepcopy(sol[end]))
+        #     integrator.u = getPreFaultAlgebraicStates(pg,ic_tmp,deepcopy(integrator.sol[end]))
+        #     initialize_dae!(integrator,BrownFullBasicInit())
+        #     auto_dt_reset!(integrator)
+        # end
     end
 
     function check_OLTC_voltage(u,t,integrator)
@@ -497,8 +568,8 @@ function simulate_LTVS_N32_simulation_PEL_TS(pg::PowerGrid,ic::Vector{Float64},t
     cb2 = DiscreteCallback(voltage_outside_low, timer_on_low)
     cb21 = DiscreteCallback(voltage_outside_high, timer_on_high)
     cb3 = DiscreteCallback(timer_hit, TapState)
-    cb4 = PresetTimeCallback(tfault[1], errorState)
-    cb5 = PresetTimeCallback(tfault[2], regularState)
+    cb4 = PresetTimeCallback(tfault[1], errorState, save_positions=(false,true))
+    cb5 = PresetTimeCallback(tfault[2], regularState, save_positions=(false,true))
     #cb7 = PresetTimeCallback(tfault[1]+0.15, start_LVRT)
     #cb8 = PresetTimeCallback(tfault[1]+3.0,end_LVRT)
     #cb9 = DiscreteCallback(check_GFM_voltage_LVRT, stop_integration_LVRT)

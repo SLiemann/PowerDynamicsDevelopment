@@ -417,12 +417,12 @@ function myplot(pgsol::Vector{PowerGridSolution},bus::String,sym::Symbol;y_norm=
     return p
 end
 
-function plotv(pgsol,bus::String)
+function plotv(pgsol,bus::String;y_norm=1.0,y_bias = 0.0)
     ind = findfirst(x->x==bus,collect(keys(pgsol.powergrid.nodes)))
     ur = ExtractResult(pgsol,Symbol("u_r_"*string(ind)))
     ui = ExtractResult(pgsol,Symbol("u_i_"*string(ind)))
     t = pgsol.dqsol.t
-    y =  sqrt.(ur.^2 + ui.^2)
+    y =  sqrt.(ur.^2 + ui.^2)./y_norm .+ y_bias
     sc = PlotlyJS.scatter(x=t,y=y,name=bus)
     display(PlotlyJS.plot(sc))
     return sc
