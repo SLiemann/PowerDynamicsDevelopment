@@ -22,8 +22,8 @@ end [[vofft2, dvofft2],[tsum,dtsum],[ton,dton],[toff,dtoff],[p1,dp1],[q1,dq1],[V
     dtsum = 0.0
     dton = 0.0
     dtoff = 0.0
-    dp1 = p1 - (-4/T*(V0*(1/4)*Cd*(cos(2*ω0*ton)-cos(2*ω0*toff))+Pdc/V0*(toff-ton))*V0/2)
-    dq1 = q1 - (4/T*(V0*(1/2)*ω0*Cd*(toff-ton+1/(2*ω0)*(sin(2*ω0*toff)-sin(2*ω0*ton)))+Pdc/(V0*ω0)*(log(abs(sin(ω0*toff)))-log(abs(sin(ω0*ton))))))*V0/2
+    dp1 = p1 - q_on*(-4/T*(V0*(1/4)*Cd*(cos(2*ω0*ton)-cos(2*ω0*toff))+Pdc/V0*(toff-ton))*V0/2)
+    dq1 = q1 - q_on*(4/T*(V0*(1/2)*ω0*Cd*(toff-ton+1/(2*ω0)*(sin(2*ω0*toff)-sin(2*ω0*ton)))+Pdc/(V0*ω0)*(log(abs(sin(ω0*toff)))-log(abs(sin(ω0*ton))))))*V0/2
     dVabstoff = 0.0
     dq_on = 0.0
 

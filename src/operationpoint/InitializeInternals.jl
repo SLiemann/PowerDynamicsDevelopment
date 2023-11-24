@@ -1039,7 +1039,7 @@ function InitNode(L::nPFC,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Array{
    VoffT2, tsum, ton, toff, p1, q1 = CalcnPFCPower(U*sqrt(2),L.Pdc,L.Cd,init=true)
    qoff = (q-q1)/(U^2)
    poff = (p-p1)/(U)
-
+   vabstoff = abs(U0)*sqrt(2)*sin(100*pi*toff)
    node_temp = nPFC(Cd=L.Cd,Pdc=L.Pdc,p_offset=poff,q_offset=qoff,p_ind=L.p_ind)
-   return [v_d_temp, v_q_temp,VoffT2, tsum, ton, toff, p1, q1, abs(U0)*sqrt(2),1.0], node_temp
+   return [v_d_temp, v_q_temp,VoffT2, tsum, ton, toff, p1, q1,vabstoff ,1.0], node_temp
 end

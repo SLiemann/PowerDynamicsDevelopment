@@ -10,13 +10,14 @@ begin
     include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/grids/LTVS_Test_System_N32 PEL_TS.jl")
     nothing
 end
-
-pg0,ic0 = Initialize_N32_PEL_TS(share_pe= 0.3333333333333);
+# unstable case: share_pe = 0.3; Rf = 10, Xf = 0
+pg0,ic0 = Initialize_N32_PEL_TS(share_pe= 0.30);
 rhs(pg0).syms .=> ic0
 
-@time pgsol0, evr_sol = simulate_LTVS_N32_simulation_PEL_TS(pg0,ic0,(0.0,0.3),(20.0+1im*20)/Zbase);
+@time pgsol0, evr_sol = simulate_LTVS_N32_simulation_PEL_TS(pg0,ic0,(0.0,0.6),(20.0+1im*20)/Zbase);
+myplot(pgsol0,"bus_load",:q_on);
 ppel2 = plotallvoltages(pgsol0);
-PlotlyJS.plot([ppel;ppel2])
+PlotlyJS.plot([ppel2;ppel])
 
 myplot(pgsol0,"bus_load",:q1)
 myplot(pgsol0,"bus_load",:p1);

@@ -220,7 +220,6 @@ function simulate_LTVS_N32_simulation_PEL_TS(pg::PowerGrid,ic::Vector{Float64},t
         tsum = deepcopy(integrator.u[index_tsum_load])
         Vabstoff = deepcopy(integrator.u[index_Vabstoff_load])
 
-
         if tsum >= 0.01         
             integrator.u[index_tsum_load]  = 0.0
             if ton >= 0.0
@@ -301,7 +300,7 @@ function simulate_LTVS_N32_simulation_PEL_TS(pg::PowerGrid,ic::Vector{Float64},t
         voff_new = Vabstoff*sin(ω0*toff)
         VoffT2_new = CalfnPFCVoffT2(voff_new,Pdc,Cd,(T/2-toff))
         toff_new = CalcnPFCtoff(Vabs,Pdc,Cd)
-        Vabstoff_new = Vabs*sin(100*pi*toff_new)
+        Vabstoff_new = Vabstoff*sin(100*pi*toff_new)
         ton_new = CalfnPFCton(Vabs,Pdc,Cd,VoffT2_new)  
 
         if ton_new >= 0.0
