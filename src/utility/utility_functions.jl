@@ -588,7 +588,8 @@ function CardanosFormular(A::Float64,B::Float64,C::Float64,D::Float64)
     roots
 end
 
-function CalcnPFCtoff(V0::Float64,Pdc::Float64,Cd::Float64;ω0=100*pi,t=0.0)
+
+function CalcnPFCtoff(V0::Float64,Pdc::Float64,Cd::Float64;ω0=100*pi,t=-1.0)
     if 2*Pdc/(ω0*Cd*V0^2) >= 1
         display(Pdc)
         display(Cd)

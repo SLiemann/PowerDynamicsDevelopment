@@ -11,11 +11,11 @@ begin
     nothing
 end
 
-pg0,ic0 = Initialize_N32_PEL_TS(share_pe= 0.15);
+pg0,ic0 = Initialize_N32_PEL_TS(share_pe= 0.3333333333333);
 rhs(pg0).syms .=> ic0
 
 @time pgsol0, evr_sol = simulate_LTVS_N32_simulation_PEL_TS(pg0,ic0,(0.0,0.3),(20.0+1im*20)/Zbase);
-ppel = plotallvoltages(pgsol0);
+ppel2 = plotallvoltages(pgsol0);
 PlotlyJS.plot([ppel;ppel2])
 
 myplot(pgsol0,"bus_load",:q1)
@@ -25,6 +25,8 @@ myplot(pgsol0,"bus_load",:ton);
 myplot(pgsol0,"bus_load",:toff);
 myplot(pgsol0,"bus_load",:vofft2);
 myplot(pgsol0,"bus_load",:Vabstoff);
+myplot(pgsol0,"bus_load",:q_on);
+
 
 myplot(pgsol0,"bus_load",[:tsum,:ton,:toff]);
 
