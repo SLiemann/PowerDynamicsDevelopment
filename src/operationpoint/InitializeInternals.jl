@@ -1041,5 +1041,5 @@ function InitNode(L::nPFC,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Array{
    poff = (p-p1)/(U)
 
    node_temp = nPFC(Cd=L.Cd,Pdc=L.Pdc,p_offset=poff,q_offset=qoff,p_ind=L.p_ind)
-   return [v_d_temp, v_q_temp,VoffT2, tsum, ton, toff, p1, q1, -0.01], node_temp
+   return [v_d_temp, v_q_temp,VoffT2, tsum, ton, toff, p1, q1, abs(U0)*sqrt(2)], node_temp
 end

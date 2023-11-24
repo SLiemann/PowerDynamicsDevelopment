@@ -571,7 +571,7 @@ function CardanosFormular(A::Float64,B::Float64,C::Float64,D::Float64)
         x1 = u+v- B/(3*A) 
         x2 = -(u+v)/2 - B/(3*A) + 1im*(u-v)/2*sqrt(3)
         x3 = -(u+v)/2 - B/(3*A) - 1im*(u-v)/2*sqrt(3)
-        roots = minimum(real([x1 x2 x3]))
+        roots = real(x1) #auch nur das wird in PowerFactory genommen
     elseif delta == 0 && p == 0
         x2 = - B/(3*A)
         roots = real(x2)
@@ -588,7 +588,14 @@ function CardanosFormular(A::Float64,B::Float64,C::Float64,D::Float64)
     roots
 end
 
-function CalcnPFCtoff(V0::Float64,Pdc::Float64,Cd::Float64;ω0=100*pi)
+function CalcnPFCtoff(V0::Float64,Pdc::Float64,Cd::Float64;ω0=100*pi,t=0.0)
+    if 2*Pdc/(ω0*Cd*V0^2) >= 1
+        display(Pdc)
+        display(Cd)
+        display(V0/sqrt(2))
+        display(ω0)
+        display(t)
+    end
     toff = π/(2*ω0) + asin(2*Pdc/(ω0*Cd*V0^2))/(2*ω0)
 end
 

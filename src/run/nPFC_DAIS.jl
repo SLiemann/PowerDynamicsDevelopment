@@ -11,20 +11,20 @@ begin
     nothing
 end
 
-pg0,ic0 = Initialize_N32_PEL_TS(share_pe= 0.05);
+pg0,ic0 = Initialize_N32_PEL_TS(share_pe= 0.15);
 rhs(pg0).syms .=> ic0
 
 @time pgsol0, evr_sol = simulate_LTVS_N32_simulation_PEL_TS(pg0,ic0,(0.0,0.3),(20.0+1im*20)/Zbase);
-ppel2 = plotallvoltages(pgsol0);
+ppel = plotallvoltages(pgsol0);
 PlotlyJS.plot([ppel;ppel2])
 
-myplot(pgsol0,"bus_load",:q1);
+myplot(pgsol0,"bus_load",:q1)
 myplot(pgsol0,"bus_load",:p1);
 myplot(pgsol0,"bus_load",:tsum);
 myplot(pgsol0,"bus_load",:ton);
 myplot(pgsol0,"bus_load",:toff);
 myplot(pgsol0,"bus_load",:vofft2);
-myplot(pgsol0,"bus_load",:time);
+myplot(pgsol0,"bus_load",:Vabstoff);
 
 myplot(pgsol0,"bus_load",[:tsum,:ton,:toff]);
 
@@ -35,11 +35,17 @@ p4= myplot(pgsol0,"bus_load",:vofft2,y_norm=10);
 p5 = plotv(pgsol0,"bus_load",y_norm=5)
 PlotlyJS.plot([p1,p2,p3,p4,p5])
 
+rhs()
 
 pgsol0.dqsol.t[end]
-pgsol0.dqsol.t[6040:6070]
 length(pgsol0.dqsol)
 p5 = plotv(pgsol0,"bus_load")
 
+Pdc = 1.0
+ω0 = 100*pi
+Cd = 0.036*Pdc
+V0 = 1.0:1e-2:0.2
 
+
+sqrt(2*Pdc/(ω0*Cd))
 
