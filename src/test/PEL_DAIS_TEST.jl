@@ -18,7 +18,7 @@ begin
 
     # HIER EXTREM KURZE LEITUNG UM DIE LAST DIREKT AM CONVERTER ZU SIMULIEREN
     branches=OrderedDict(
-        "line"=> PiModelLine(from= "bus_grid", to = "bus_load",y=1.0/(Rl+1im*Xl), y_shunt_km=0.0, y_shunt_mk=0.0))
+        "line"=> PiModelLine(from= "bus_grid", to = "bus_load",y=1.0/(Rl+1im*Xl*0), y_shunt_km=0.0, y_shunt_mk=0.0))
     pg=  PowerGrid(buses, branches)
 
     U1,δ1,ic0,cu = PowerFlowClassic(pg,iwamoto = true,max_tol = 1e-7,ind_sl=1)
@@ -89,7 +89,7 @@ begin
     end
 
     cb_tsum = DiscreteCallback(f_tsum, affect_tsum, save_positions=(false,false))
-    cb1 = PresetTimeCallback([0.1], error, save_positions=(false,false))
+    cb1 = PresetTimeCallback([0.1], error_call, save_positions=(false,false))
     cb2 = PresetTimeCallback([0.2], regular, save_positions=(false,false))
 
     tspan = (0.0,0.3)
@@ -116,7 +116,7 @@ myplot(pgsol0,"bus_load",:q_on);
 
 
 ### PEL Callbacks END ###
-function error(integrator) 
+function error_call(integrator) 
     integrator.p[1] = 0.5
     initialize_dae!(integrator,BrownFullBasicInit())
     ## Init PEL Model
