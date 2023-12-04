@@ -645,7 +645,7 @@ function CalcnPFCPower(V0::Float64,Pdc::Float64,Cd::Float64;ω0=100*pi,T=0.02,in
     p1,q1 = CalcnPFCP1Q1(V0,Pdc,Cd,ton,toff)
 
     if init
-        [VoffT2, 0.0, ton, toff, p1, q1]
+        [VoffT2, ton, toff, p1, q1]
     else
         return [p1, q1]
     end

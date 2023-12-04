@@ -16,18 +16,17 @@ rhs(pg0).syms .=> ic0
 
 @time pgsol0, evr_sol = simulate_LTVS_N32_simulation_PEL_TS(pg0,ic0,(0.0,0.6),(20.0+1im*20)/Zbase);
 myplot(pgsol0,"bus_load",:q_on);
-ppel2 = plotallvoltages(pgsol0);
-PlotlyJS.plot([ppel2;ppel])
+ppel3 = plotallvoltages(pgsol0);
+PlotlyJS.plot([ppel2;ppel3])
 
-myplot(pgsol0,"bus_load",:q1)
-myplot(pgsol0,"bus_load",:p1);
-myplot(pgsol0,"bus_load",:tsum);
+pp2 = myplot(pgsol0,"bus_load",:q1)
+pq2 = myplot(pgsol0,"bus_load",:p1);
+p1 = myplot(pgsol0,"bus_load",:tsum);
 myplot(pgsol0,"bus_load",:ton);
 myplot(pgsol0,"bus_load",:toff);
 myplot(pgsol0,"bus_load",:vofft2);
 myplot(pgsol0,"bus_load",:Vabstoff);
 myplot(pgsol0,"bus_load",:q_on);
-
 
 myplot(pgsol0,"bus_load",[:tsum,:ton,:toff]);
 
@@ -37,18 +36,3 @@ p3 = myplot(pgsol0,"bus_load",:p1,y_norm=-1);
 p4= myplot(pgsol0,"bus_load",:vofft2,y_norm=10);
 p5 = plotv(pgsol0,"bus_load",y_norm=5)
 PlotlyJS.plot([p1,p2,p3,p4,p5])
-
-rhs()
-
-pgsol0.dqsol.t[end]
-length(pgsol0.dqsol)
-p5 = plotv(pgsol0,"bus_load")
-
-Pdc = 1.0
-ω0 = 100*pi
-Cd = 0.036*Pdc
-V0 = 1.0:1e-2:0.2
-
-
-sqrt(2*Pdc/(ω0*Cd))
-
