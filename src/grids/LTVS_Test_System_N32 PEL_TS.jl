@@ -10,9 +10,9 @@ Ibase = Sbase/Ubase/sqrt(3)
 Zbase = Ubase^2/Sbase
 
 zfault() = (20+1im*20)/Zbase
-tfault_on() = 0.1
+tfault_on() = 5.1
 tfault_off() =  tfault_on() + 0.1
-dt_max() = 1e-4
+dt_max() = 1e-3
 
 function LTVS_Test_System_N32_PEL_TS(;share_pe = 0.2)
     Q_Shunt_EHV = 600e6/Sbase
@@ -219,7 +219,8 @@ function simulate_LTVS_N32_simulation_PEL_TS(pg::PowerGrid,ic::Vector{Float64},t
         Vabstoff = deepcopy(integrator.u[index_Vabstoff_load])
         tsum = mod(Float32(integrator.t/0.01),1.0)/100
 
-        if iszero(tsum) && integrator.t ∉ tfault
+        if iszero(tsum) &&  !(tfault[1]<= integrator.t < tfault[1]+0.01) && !(tfault[2]<= integrator.t < tfault[2]+0.01)
+            #display("pel: $(integrator.t)")
             if ton >= 0.0
                 voff = Vabstoff*sin(100*pi*toff)
                 voffT2 = CalfnPFCVoffT2(voff,Pdc,Cd,(T/2-toff))
@@ -262,7 +263,7 @@ function simulate_LTVS_N32_simulation_PEL_TS(pg::PowerGrid,ic::Vector{Float64},t
         integrator.p[1] = rfault
         integrator.p[2] = xfault
         ind_odesys = 1;
-        
+
         # Den evr würde man nur benötigen, wenn qimax und error NICHT  zusammenfallsen 
         evr = vcat(evr, [integrator.t ind_odesys 0 0 integrator.p'])
         
@@ -320,7 +321,7 @@ function simulate_LTVS_N32_simulation_PEL_TS(pg::PowerGrid,ic::Vector{Float64},t
         integrator.p[1] = 8e3 #fault is zero again
         integrator.p[2] = 8e3 #fault is zero again
         ind_odesys = 2;
-
+        
         #First create continouos fault and then post-fault grid
         pg_pcfault = GetContFaultPG(pg);
         ic_init= deepcopy(integrator.sol[end])
