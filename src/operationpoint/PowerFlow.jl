@@ -79,7 +79,6 @@ NodeType(L::CSIMinimal)  = 2
 NodeType(L::SimpleRecoveryLoad)  = 2
 NodeType(L::SimpleRecoveryLoadParam)  = 2
 NodeType(L::GridSideConverter) = 1
-NodeType(L::oPFC) = 2
 NodeType(
     L::Union{
         GridFormingConverter,
@@ -110,7 +109,6 @@ NodePower(L::ExponentialRecoveryLoad,U)  = (L.P0*((abs(U)/L.V0)^L.Nps) + 1im*L.Q
 NodePower(L::CSIMinimal,U)  = -U*conj(L.I_r)
 NodePower(L::SimpleRecoveryLoad,U)  = L.P0 + 1im*(L.Q0)
 NodePower(L::SimpleRecoveryLoadParam,U)  = L.P0 + 1im*(L.Q0)
-NodePower(L::oPFC,U) = L.Pdc +1im*L.Qn/(U^0.9)
 function NodePower(L::GridSideConverter,U)
     if L.mode == 1
         return complex(0, -L.q_ref)

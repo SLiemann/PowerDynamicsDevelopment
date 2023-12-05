@@ -401,26 +401,6 @@ function InitNode(GFC::Union{GridFormingConverter,GridFormingConverterParam,Grid
    end
 end
 
-function InitNode(PE::oPFC,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)
-   v_d_temp = ic_lf[ind_offset]
-   v_q_temp = ic_lf[ind_offset+1]
-   U = v_d_temp+1im*v_q_temp
-   s = U * conj(I_c[ind]) #/ (GFC.Srated/GFC.Sbase)
-   q = imag(s)
-
-   oPFC_new = oPFC(
-      Cd = PE.Cd,
-      Pdc = PE.Pdc,
-      Ulow = PE.Ulow,
-      Qn = q*(abs(U)^0.9), #new
-      t0 = PE.t0,
-      ϵ = PE.ϵ,
-      p_ind = PE.p_ind,
-   )
-
-   return [v_d_temp, v_q_temp,abs(U),1.0,PE.Pdc,q,0.0,0.0], oPFC_new
-end
-
 function InitNode(MC::Union{MatchingControl,MatchingControlRed},ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Array{Float64,1},ind_offset::Int64)
    v_d_temp = ic_lf[ind_offset]
    v_q_temp = ic_lf[ind_offset+1]
@@ -1036,10 +1016,10 @@ function InitNode(L::nPFC,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Array{
    q = imag(s)
 
    U = abs(v_d_temp+1im*v_q_temp)
-   VoffT2, tsum, ton, toff, p1, q1 = CalcnPFCPower(U*sqrt(2),L.Pdc,L.Cd,init=true)
+   VoffT2, ton, toff, p1, q1 = CalcnPFCPower(U*sqrt(2),L.Pdc,L.Cd,init=true)
    qoff = (q-q1)/(U^2)
    poff = (p-p1)/(U)
-
+   vabstoff = abs(U0)*sqrt(2)*sin(100*pi*toff)
    node_temp = nPFC(Cd=L.Cd,Pdc=L.Pdc,p_offset=poff,q_offset=qoff,p_ind=L.p_ind)
-   return [v_d_temp, v_q_temp,VoffT2, tsum, ton, toff, p1, q1, abs(U0)*sqrt(2)], node_temp
+   return [v_d_temp, v_q_temp,VoffT2, ton, toff, p1, q1,vabstoff ,1.0, p1, q1], node_temp
 end

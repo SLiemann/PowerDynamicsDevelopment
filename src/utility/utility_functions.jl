@@ -5,6 +5,7 @@ using FFTW
 using LinearAlgebra
 using PlotlyJS
 using DataFrames
+using Polynomials
 
 function getStateIndex(pg::PowerGrid,node_str::String,sym::Symbol)
     ind = 0
@@ -564,31 +565,35 @@ function CardanosFormular(A::Float64,B::Float64,C::Float64,D::Float64)
     q = (2*B^3 -9*A*B*C + 27*D*A^2)./(27*A^3)
     delta = (q/2)^2 +  (p/3)^3
 
-    roots = -1.0
+    roots_ = -1.0
     if delta >0
-        u = Complex(-q/2+sqrt(delta))^(1/3)
-        v = Complex(-q/2-sqrt(delta))^(1/3)
+        u = Complex((-q/2+sqrt(delta)+0im)^(1/3))
+        v = Complex((-q/2-sqrt(delta)+0im)^(1/3))
         x1 = u+v- B/(3*A) 
         x2 = -(u+v)/2 - B/(3*A) + 1im*(u-v)/2*sqrt(3)
         x3 = -(u+v)/2 - B/(3*A) - 1im*(u-v)/2*sqrt(3)
-        roots = real(x1) #auch nur das wird in PowerFactory genommen
+        roots_ = real(x1) #auch nur das wird in PowerFactory genommen
+        if roots_ > 0.005
+            roots_= -1.0
+        end
     elseif delta == 0 && p == 0
         x2 = - B/(3*A)
-        roots = real(x2)
+        roots_ = real(x2)
     elseif delta == 0 && p != 0
         x1 = 3*q/p- B/(3*A)
         x23 = -3*q/(2*p)- B/(3*A)
-        roots = real(x23)
+        roots_ = real(x23)
     elseif delta < 0
         x1 = -sqrt(-4/3*p).*cos(1/3.0*acos(-q/2.0*sqrt(-27.0/(p.^3)))+pi/3)-B/(3*A)
         x2 =  sqrt(-4/3*p).*cos(1/3.0*acos(-q/2.0*sqrt(-27.0/(p.^3))))     -B./(3*A)
         x3 = -sqrt(-4/3*p).*cos(1/3.0*acos(-q/2.0*sqrt(-27.0/(p.^3)))-pi/3)-B./(3*A)
-        roots =  real(x1)
+        roots_ =  real(x1)
     end
-    roots
+    roots_
 end
 
-function CalcnPFCtoff(V0::Float64,Pdc::Float64,Cd::Float64;ω0=100*pi,t=0.0)
+
+function CalcnPFCtoff(V0::Float64,Pdc::Float64,Cd::Float64;ω0=100*pi,t=-1.0)
     if 2*Pdc/(ω0*Cd*V0^2) >= 1
         display(Pdc)
         display(Cd)
@@ -640,7 +645,7 @@ function CalcnPFCPower(V0::Float64,Pdc::Float64,Cd::Float64;ω0=100*pi,T=0.02,in
     p1,q1 = CalcnPFCP1Q1(V0,Pdc,Cd,ton,toff)
 
     if init
-        [VoffT2, 0.0, ton, toff, p1, q1]
+        [VoffT2, ton, toff, p1, q1]
     else
         return [p1, q1]
     end
