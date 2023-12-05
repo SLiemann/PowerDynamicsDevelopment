@@ -12,10 +12,10 @@ using LinearAlgebra
 #   1.5 die Anzahl der Systemzuständen bleibt jedoch immer gleich (zur Not null/NaN )
 # 2. Parameter ändern sich NICHT zur Laufzeit
 # 3. Aufbau des Event-Recorders (evr)
-#   3.1 [t_i mtk_i s_i h_i]
+#   3.1 [t_i mtk_i s_i h_i parameters]
 #   3.1.1 t_i = Zeit, mtk_i = 'aktives Netz' bei Änd. der alg. Gl., s_i = switch cond., h_i = reset function
 #   3.2 Initialisierung: evr = Array{Float64}(undef,0,4)
-#   3.3 Eintrag machen (Bsp.) evr = vcat(evr, [integrator.t 1 1 1])
+#   3.3 Eintrag machen (Bsp.) evr = vcat(evr, [integrator.t 1 1 1 integrator.t])
 #   3.2 der erste Eintrag ist immer evr[1] = [t_0 1 0 0]
 #   3.2.1 also bei t0 gehts los
 # 4. die Simulation endet nicht mit einem relevanten Event
@@ -587,13 +587,7 @@ function CalcHybridTrajectorySensitivity(
         
             yk  = A_states .=> sol[A_indices,ind_sol[i,2]]   #hier τ-
             yk1 = A_states .=> sol[A_indices,ind_sol[i,2]+1] #hier τ+
-
-            #p_post = evr[i,3:end-2]
-            hx_tmp = hx[Int(evr[i,4])]
-            hy_tmp = hy[Int(evr[i,4])]
-            sx_tmp = sx[Int(evr[i,3])]
-            sy_tmp = sy[Int(evr[i,3])]
-
+            
             Fx_post = Fx_all[Int(evr[i,2])]
             Fy_post = Fy_all[Int(evr[i,2])]
             Gx_post = Gx_all[Int(evr[i,2])]
@@ -603,19 +597,32 @@ function CalcHybridTrajectorySensitivity(
             f_post = f_all[Int(evr[i,2])]
             g_post = g_all[Int(evr[i,2])]
 
-            xx0_k1_float, yx0_k1_float, tmp_τx0 = CalcSensitivityAfterJump(
-                                    [xk; yk;  t => sol.t[ind_sol[i,2]]],
-                                    [xk1;yk1; t => sol.t[ind_sol[i,2]+1]],
-                                    xx0_k_float,
-                                    f_pre,
-                                    f_post,
-                                    J_pre,
-                                    J_post,
-                                    hx_tmp,
-                                    hy_tmp,
-                                    sx_tmp,
-                                    sy_tmp,
-                                )
+            if !(iszero(evr[i,4])) && !(iszero(evr[i,3])) #should only be calculated by a real event (not a fake one, e.g. post-fault system)
+              hx_tmp = hx[Int(evr[i,4])]
+              hy_tmp = hy[Int(evr[i,4])]
+              sx_tmp = sx[Int(evr[i,3])]
+              sy_tmp = sy[Int(evr[i,3])]
+
+              xx0_k1_float, yx0_k1_float, tmp_τx0 = CalcSensitivityAfterJump(
+                                      [xk; yk;  t => sol.t[ind_sol[i,2]]],
+                                      [xk1;yk1; t => sol.t[ind_sol[i,2]+1]],
+                                      xx0_k_float,
+                                      f_pre,
+                                      f_post,
+                                      J_pre,
+                                      J_post,
+                                      hx_tmp,
+                                      hy_tmp,
+                                      sx_tmp,
+                                      sy_tmp,
+                                  )
+            else
+              # if not a real event occurs
+              xx0_k1_float = xx0_k_float
+              yx0_k1_float = [i[2] for i in yx0_k]
+              tmp_τx0 = zeros(1,len_sens) #no jump, no shitft
+            end
+
             # speichern der Sensis nach dem Sprung
             for k in 1:size(xx0_k1_float)[2]
               sensis[k][:,ind_sol[i,2]+1] = vcat(xx0_k1_float[:,k],yx0_k1_float[:,k])
