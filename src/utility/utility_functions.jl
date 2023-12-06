@@ -592,15 +592,44 @@ function CardanosFormular(A::Float64,B::Float64,C::Float64,D::Float64)
     roots_
 end
 
+function CardanosFormular(A,B,C,D)
+    p = (9*A*C-3*B^2)./(9*A^2);
+    q = (2*B^3 -9*A*B*C + 27*D*A^2)./(27*A^3)
+    delta = (q/2)^2 +  (p/3)^3
+
+    roots_ = -1.0
+    if delta >0
+        u = Complex((-q/2+sqrt(delta)+0im)^(1/3))
+        v = Complex((-q/2-sqrt(delta)+0im)^(1/3))
+        x1 = u+v- B/(3*A) 
+        x2 = -(u+v)/2 - B/(3*A) + 1im*(u-v)/2*sqrt(3)
+        x3 = -(u+v)/2 - B/(3*A) - 1im*(u-v)/2*sqrt(3)
+        roots_ = real(x1) #auch nur das wird in PowerFactory genommen
+        if roots_ > 0.005
+            roots_= -1.0
+        end
+    elseif delta == 0 && p == 0
+        x2 = - B/(3*A)
+        roots_ = real(x2)
+    elseif delta == 0 && p != 0
+        x1 = 3*q/p- B/(3*A)
+        x23 = -3*q/(2*p)- B/(3*A)
+        roots_ = real(x23)
+    elseif delta < 0
+        x1 = -sqrt(-4/3*p).*cos(1/3.0*acos(-q/2.0*sqrt(-27.0/(p.^3)))+pi/3)-B/(3*A)
+        x2 =  sqrt(-4/3*p).*cos(1/3.0*acos(-q/2.0*sqrt(-27.0/(p.^3))))     -B./(3*A)
+        x3 = -sqrt(-4/3*p).*cos(1/3.0*acos(-q/2.0*sqrt(-27.0/(p.^3)))-pi/3)-B./(3*A)
+        roots_ =  real(x1)
+    end
+    roots_
+end
+
 
 function CalcnPFCtoff(V0::Float64,Pdc::Float64,Cd::Float64;ω0=100*pi,t=-1.0)
-    if 2*Pdc/(ω0*Cd*V0^2) >= 1
-        display(Pdc)
-        display(Cd)
-        display(V0/sqrt(2))
-        display(ω0)
-        display(t)
-    end
+    toff = π/(2*ω0) + asin(2*Pdc/(ω0*Cd*V0^2))/(2*ω0)
+end
+
+function CalcnPFCtoff(V0,Pdc,Cd;ω0=100*pi)
     toff = π/(2*ω0) + asin(2*Pdc/(ω0*Cd*V0^2))/(2*ω0)
 end
 
@@ -608,7 +637,25 @@ function CalfnPFCVoffT2(Voff::Float64,Pdc::Float64,Cd::Float64,dt::Float64)
     VoffT2 = maximum(real(sqrt(Complex(Voff^2 - 2*Pdc*(dt)/Cd))))
 end
 
+function CalfnPFCVoffT2(Voff,Pdc,Cd,dt)
+    VoffT2 = maximum(real(sqrt(Complex(Voff^2 - 2*Pdc*(dt)/Cd))))
+end
+
 function CalfnPFCton(V0::Float64,Pdc::Float64,Cd::Float64,VoffT2::Float64;ω0=100*pi)    
+    x1 = 0.004517042542168
+    x2 = -0.084973441092720
+    x3 =  1.367157627046003
+    x4 = -0.580239811988436
+
+    A = V0^2*ω0^3*x4
+    B = V0^2*ω0^2*x3
+    C = V0^2*ω0*x2 + 2*Pdc/Cd
+    D = V0^2*x1 - VoffT2^2  
+
+    ton = CardanosFormular(A,B,C,D)
+end
+
+function CalfnPFCton(V0,Pdc,Cd,VoffT2;ω0=100*pi)    
     x1 = 0.004517042542168
     x2 = -0.084973441092720
     x3 =  1.367157627046003

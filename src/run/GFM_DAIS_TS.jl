@@ -12,12 +12,14 @@ begin
 end
 
 pg0,ic0 = Initialize_N32_GFM_TS();
-@time pgsol0, evr_sol = simulate_LTVS_N32_simulation_TS(pg0,ic0,(0.0,0.6),(20.0+1im*20)/Zbase);
-plotallvoltages(pgsol0);
+@time pgsol0_per, evr_sol = simulate_LTVS_N32_simulation_TS(pg0,ic0,(0.0,0.6),(20.0+1im*20)/Zbase);
+plotallvoltages(pgsol0_per);
 plot(myplot(pgsol0,"bus_gfm",:q_imax))
 plot(myplot(pgsol0,"bus_gfm",:q_idcmax))
 plot(myplot(pgsol0,"bus_gfm",:idc0))
-plot(myplot(pgsol0,"bus_gfm",:udc))
+plot([myplot(pgsol0,"bus_gfm",:θ),myplot(pgsol0_per,"bus_gfm",:θ)])
+
+plot([myplot(pgsol0,"bus_gfm",:P0),myplot(pgsol0_per,"bus_gfm",:P0)])
 
 
 ###### Trajectory Sensitivity Analysis ######
@@ -104,3 +106,33 @@ odesol = pgsol0.dqsol[:,:];
 path = "C:\\Users\\liemann\\github\\PowerDynamicsDevelopment\\src\\results\\"
 
 write_matfile(path*"sensis_GFM_SECM_BC.mat"; odesol = odesol,sensis = hybrid_sen, delta_tau = Δτ, sensi_labels=sensi_labels,state_labels =state_labels,evr=evr_sol) 
+
+#####  Approximated Solution
+using MAT
+sensi_Data = matread("\\\\fs0\\home\\liemann\\Diss\\Results\\621_Short_Term_GFM\\sensis_GFM_SECM_BC.mat")
+sensis = sensi_Data["sensis"]
+sol = sensi_Data["odesol"];
+Δkp = 0.5*pi
+sol_appr = ApproximatedTrajectory(sensi_Data["odesol"],sensis[3],Δkp)
+ode_apprx = deepcopy(pgsol0.dqsol);
+ode_apprx[:,:] = sol_appr;
+pgsol_apprx = PowerGridSolution(ode_apprx,pg0);
+
+####### Solution from Automatic Differentiation
+x, dp = extract_local_sensitivities(pgsol0_ad);
+da = dp[8]
+sol_appr_ad = ApproximatedTrajectory(x[:,:],da,Δkp);
+
+x5r = x[15,:] .+ da[15,:]*Δkp
+x5i = x[16,:] .+ da[16,:]*Δkp
+x5 = hypot.(x5r,x5i)
+px5 = PlotlyJS.scatter(x=pgsol0_ad.t,y=x5);
+PlotlyJS.plot([plotv(pgsol0,"bus_gfm"),px5,plotv(pgsol_apprx,"bus_gfm"),plotv(pgsol0_per,"bus_gfm")])
+
+zx = 17
+zs = :P0
+xz = x[zx,:] .+ da[zx,:]*Δkp
+px5 = PlotlyJS.scatter(x=pgsol0_ad.t,y=xz);
+PlotlyJS.plot([myplot(pgsol0,"bus_gfm",zs),px5,myplot(pgsol_apprx,"bus_gfm",zs),myplot(pgsol0_per,"bus_gfm",zs)])
+
+PlotlyJS.plot(PlotlyJS.scatter(x=pgsol0_ad.t,y=da[zx,:]))

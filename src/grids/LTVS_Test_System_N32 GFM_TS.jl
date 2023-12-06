@@ -2,6 +2,8 @@ using PowerDynamics
 using OrderedCollections: OrderedDict
 using Distributed
 import DiffEqBase: initialize_dae!
+using SciMLSensitivity
+using ForwardDiff
 @everywhere using IfElse
 
 Sbase = 8000e6
@@ -161,7 +163,10 @@ end
 function simulate_LTVS_N32_simulation_TS(pg::PowerGrid,ic::Vector{Float64},tspan::Tuple{Float64,Float64},zfault::Union{Float64,Complex{Float64},Complex{Int64}})
     pg_postfault = GetPostFaultLTVSPG_TS(pg)
     params = GetParamsGFM_TS(pg)
+    params[8] += 0.5*params[8] 
     problem= ODEProblem{true}(rhs(pg),ic,tspan,params)
+    display(params[8])
+    sens_prob = ODEForwardSensitivityProblem(rhs(pg), ic, tspan, params,ForwardDiffSensitivity();)
     tfault = [tfault_on(), tfault_off()]
     timer_start = -1.0
     FRT = 1.0 # -1 for LVRT, 0 for HVRT, 1.0 for stable
@@ -455,4 +460,5 @@ function simulate_LTVS_N32_simulation_TS(pg::PowerGrid,ic::Vector{Float64},tspan
         sol = DiffEqBase.solution_new_retcode(sol, :Success)
     end
     return PowerGridSolution(sol, pg), evr
+    #return sol, evr
 end

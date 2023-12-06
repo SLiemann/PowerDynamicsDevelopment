@@ -12,8 +12,8 @@ begin
 end
 # unstable case: share_pe = 0.3; Rf = 10, Xf = 0
 pg0,ic0 = Initialize_N32_PEL_TS(share_pe= 0.30);
-@time pgsol0, evr_sol = simulate_LTVS_N32_simulation_PEL_TS(pg0,ic0,(0.0,1.0),(20.0+1im*20)/Zbase);
-plotallvoltages(pgsol0);
+@time pgsol0_ad, evr_sol = simulate_LTVS_N32_simulation_PEL_TS(pg0,ic0,(0.0,1.0),(20.0+1im*20)/Zbase);
+plotallvoltages(pgsol0_per);
 
 myplot(pgsol0,"bus_load",:q1)
 myplot(pgsol0,"bus_load",[:p1,:ps]);
@@ -70,6 +70,48 @@ labels_p = [
 sensi_labels = [pg_labels[u_sensis];labels_p[p_sensis]];
 state_labels = pg_labels;
 odesol = pgsol0.dqsol[:,:];
-path = "C:\\Users\\liemann\\github\\PowerDynamicsDevelopment\\src\\results\\"
+datapath = "C:\\Users\\liemann\\github\\PowerDynamicsDevelopment\\src\\results\\"
 
-write_matfile(path*"sensis_PEL_nPFC_BC.mat"; odesol = odesol,sensis = hybrid_sen, delta_tau = Δτ, sensi_labels=sensi_labels,state_labels =state_labels,evr=evr_sol) 
+write_matfile(datapath*"sensis_PEL_nPFC_BC.mat"; odesol = odesol,sensis = hybrid_sen, delta_tau = Δτ, sensi_labels=sensi_labels,state_labels =state_labels,evr=evr_sol) 
+
+using MAT
+sensi_Data = matread(datapath*"sensis_PEL_nPFC_BC.mat")
+
+sensis = sensi_Data["sensis"]
+sol = sensi_Data["odesol"];
+ω0 = 100*pi;
+share_pe = 0.3;
+xcpu = 0.036; 
+Cpu = 1/(xcpu*ω0) * share_pe
+ΔCd = 0.1*Cpu
+sol_appr = ApproximatedTrajectory(sensi_Data["odesol"],sensis[3],ΔCd)
+ode_apprx[:,:] = sol_appr;
+pgsol_apprx = PowerGridSolution(ode_apprx,pg0);
+
+PlotlyJS.plot([plotv(pgsol0,"bus_load"),plotv(pgsol_apprx,"bus_load"),plotv(pgsol0_per,"bus_load")])
+PlotlyJS.plot([myplot(pgsol0,"bus_load",:p1),myplot(pgsol_apprx,"bus_load",:p1),myplot(pgsol0_per,"bus_load",:p1)])
+PlotlyJS.plot([myplot(pgsol0,"bus_load",:ps),myplot(pgsol_apprx,"bus_load",:ps),myplot(pgsol0_per,"bus_load",:ps)])
+PlotlyJS.plot([myplot(pgsol0,"bus_load",:qs),myplot(pgsol_apprx,"bus_load",:qs),myplot(pgsol0_per,"bus_load",:qs)])
+
+
+####### Solution from Automatic Differentiation
+x, dp = extract_local_sensitivities(pgsol0_ad)
+da = dp[6]
+sol_appr_ad = ApproximatedTrajectory(x[:,:],da,ΔCd)
+
+u5 = hypot.(sol_appr[9,:],sol_appr[10,:]);
+p5 = PlotlyJS.scatter(x=pgsol0_ad.ty=u5);
+
+PlotlyJS.plot([plotv(pgsol0,"bus_load"),plotv(pgsol_apprx,"bus_load"),plotv(pgsol0_per,"bus_load"),p5])
+
+x5r = x[9,:] .+ da[9,:]*ΔCd
+x5i = x[10,:] .+ da[10,:]*ΔCd
+x5 = hypot.(x5r,x5i)
+px5 = PlotlyJS.scatter(x=pgsol0_ad.t,y=x5);
+PlotlyJS.plot([plotv(pgsol0,"bus_load"),px5,plotv(pgsol_apprx,"bus_load"),plotv(pgsol0_per,"bus_load"),p5])
+
+zx = 19
+zs = :qs
+xz = x[zx,:] .+ da[zx,:]*ΔCd
+px5 = PlotlyJS.scatter(x=pgsol0_ad.t,y=xz);
+PlotlyJS.plot([px5,myplot(pgsol_apprx,"bus_load",zs),myplot(pgsol0_per,"bus_load",zs)])
