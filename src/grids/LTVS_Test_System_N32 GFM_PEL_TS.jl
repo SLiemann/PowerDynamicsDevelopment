@@ -13,10 +13,10 @@ Zbase = Ubase^2/Sbase
 
 zfault() = (20+1im*20)/Zbase
 tfault_on() = 0.1
-tfault_off() =  tfault_on() + 0.1
-dt_max() = 1e-4
+tfault_off() =  tfault_on() + 0.06
+dt_max() = 1e-3
 
-function LTVS_Test_System_N32_GFM_PEL_TS(;gfm=1,awu=1.0,share_pe = 0.3) #1 = droop, 2 = matching, 3 = dVOC, 4 = VSM
+function LTVS_Test_System_N32_GFM_PEL_TS(;gfm=1,awu=1.0,share_pe = 0.05) #1 = droop, 2 = matching, 3 = dVOC, 4 = VSM
     Q_Shunt_EHV = 600e6/Sbase
     Q_Shunt_HV = 850e6/Sbase
     Pload = -7580e6 /Sbase
@@ -195,14 +195,17 @@ function simulate_LTVS_N32_simulation_N32_GFM_PEL_TS(pg::PowerGrid,ic::Vector{Fl
     index_U_oltc = PowerDynamics.variable_index(pg.nodes,pg.lines[branch_oltc].to,:u_r)
     index_U_gfm = PowerDynamics.variable_index(pg.nodes,"bus_gfm",:u_r)
     index_LVRT_gfm = PowerDynamics.variable_index(pg.nodes,"bus_gfm",:LVRT)
+    index_iset_abs_gfm = PowerDynamics.variable_index(pg.nodes,"bus_gfm",:iset_abs)
+    index_qimax_gfm = PowerDynamics.variable_index(pg.nodes,"bus_gfm",:q_imax)
+    index_qidcmax_gfm = PowerDynamics.variable_index(pg.nodes,"bus_gfm",:q_idcmax)
     index_U_load = PowerDynamics.variable_index(pg.nodes,"bus_load",:u_r)
     index_vofft2_load = PowerDynamics.variable_index(pg.nodes,"bus_load",:vofft2)
     index_ton_load = PowerDynamics.variable_index(pg.nodes,"bus_load",:ton)
     index_toff_load = PowerDynamics.variable_index(pg.nodes,"bus_load",:toff)
     index_Vabstoff_load = PowerDynamics.variable_index(pg.nodes,"bus_load",:Vabstoff)
-    index_qon_load = PowerDynamics.variable_index(pg.nodes,"bus_load",:q_on)
+    index_qon_load = PowerDynamics.variable_index(pg.nodes,"bus_load",:q_on) 
     p_pel_ind = pg.nodes["bus_load"].p_ind
-
+    
     function TapState(integrator)
         timer_start = integrator.t
         sol1 = integrator.sol
@@ -267,10 +270,11 @@ function simulate_LTVS_N32_simulation_N32_GFM_PEL_TS(pg::PowerGrid,ic::Vector{Fl
         ton = deepcopy(integrator.u[index_ton_load])
         toff = deepcopy(integrator.u[index_toff_load]) 
         Vabstoff = deepcopy(integrator.u[index_Vabstoff_load])
-        tsum = mod(Float32(integrator.t/0.01),1.0)/100
+        tsum = mod(Float32(integrator.t/0.01),1.0)/100.0
 
         if iszero(tsum) &&  !(tfault[1]<= integrator.t < tfault[1]+0.01) && !(tfault[2]<= integrator.t < tfault[2]+0.01)
             #display("pel: $(integrator.t)")
+            #display("pel: $(ton)")
             if ton >= 0.0
                 voff = Vabstoff*sin(100*pi*toff)
                 voffT2 = CalfnPFCVoffT2(voff,Pdc,Cd,(T/2-toff))
@@ -278,23 +282,28 @@ function simulate_LTVS_N32_simulation_N32_GFM_PEL_TS(pg::PowerGrid,ic::Vector{Fl
                 voff = deepcopy(integrator.u[index_vofft2_load])
                 voffT2 = CalfnPFCVoffT2(voff,Pdc,Cd,(T/2-0.0))
             end
-            display(integrator.t)
-            toff = CalcnPFCtoff(Vabs,Pdc,Cd)
-            Vabstoff = Vabs*sin(100*pi*toff)
-            ton = CalfnPFCton(Vabs,Pdc,Cd,voffT2) 
+            #display(integrator.t)
+            ton = CalfnPFCton(Vabs,Pdc,Cd,voffT2)
+            if ton >= 0
+                toff = CalcnPFCtoff(Vabs,Pdc,Cd)
+                Vabstoff = Vabs*sin(100*pi*toff)
+            end 
+            #display(Vabstoff)
+            #display("pel: $(ton)")
             integrator.u[index_vofft2_load]  = voffT2
-        #elseif  tsum < toff && tsum < ton #Location B
         elseif tsum < toff && tsum < ton
             #display("B ton pos")
-            toff = CalcnPFCtoff(Vabs,Pdc,Cd)
-            Vabstoff = Vabs*sin(100*pi*toff)
             ton = CalfnPFCton(Vabs,Pdc,Cd,voffT2)
-        #elseif  tsum < toff && tsum >= ton
-    elseif  tsum < toff && tsum >= ton
-            # display("C ton pos")
-            display(integrator.t)
-            toff = CalcnPFCtoff(Vabs,Pdc,Cd)
-            Vabstoff = Vabs*sin(100*pi*toff)
+            if ton >= 0
+                toff = CalcnPFCtoff(Vabs,Pdc,Cd)
+                Vabstoff = Vabs*sin(100*pi*toff)
+            end 
+        elseif  tsum < toff && tsum >= ton
+            #display("C ton pos")
+            if ton >= 0
+                toff = CalcnPFCtoff(Vabs,Pdc,Cd)
+                Vabstoff = Vabs*sin(100*pi*toff)
+            end 
         end
 
         if ton >= 0.0
@@ -320,12 +329,16 @@ function simulate_LTVS_N32_simulation_N32_GFM_PEL_TS(pg::PowerGrid,ic::Vector{Fl
         #evr = vcat(evr, [integrator.t ind_odesys 0 0 integrator.p'])
         
         pg_cfault = GetContFaultPG(pg);
+        integrator.u[index_qon_load] = 0.0
+        initialize_dae!(integrator,BrownFullBasicInit())  
         ic_init= deepcopy(integrator.sol[end])
         len = length(symbolsof(pg.nodes["bus_gfm"]))
         # insert two extra states for continouos fault
         ic_tmp = vcat(ic_init[1:end-len],[pg_cfault.nodes["busv"].rfault,pg_cfault.nodes["busv"].xfault],ic_init[end-len+1:end])
         # create problem and simulate for 10ms
-        op_prob = ODEProblem(rhs(pg_cfault), ic_tmp, (0.0, 0.010), integrator.p)
+        #ic_tmp[41] = 1.0
+        #ic_tmp[42] = 0.0
+        op_prob = ODEProblem(rhs(pg_cfault), ic_tmp, (0.0, 0.1), integrator.p)
         x2 = solve(op_prob,Rodas4(),dtmax=1e-4,initializealg = BrownFullBasicInit(),alg_hints=:stiff,verbose=false,abstol=1e-8,reltol=1e-8)
 
         ic_end = x2.u[end]
@@ -338,8 +351,18 @@ function simulate_LTVS_N32_simulation_N32_GFM_PEL_TS(pg::PowerGrid,ic::Vector{Fl
             ic_init[i] = ic_end[i]
         end
 
+        if ic_end[index_iset_abs_gfm] > 1.0
+            display(ic_end[index_iset_abs_gfm+2])
+            integrator.u = ic_end
+            integrator.u[index_qimax_gfm] = 1.0
+            initialize_dae!(integrator,BrownFullBasicInit())
+        else
+            integrator.u = ic_init
+        end
+
          ## Init PEL Model
          Vabs = hypot(ic_init[index_U_load],ic_init[index_U_load+1])*sqrt(2)
+         display(Vabs)
          Vabstoff = integrator[index_Vabstoff_load]
          Cd = deepcopy(integrator.p[p_pel_ind[1]])
          Pdc = deepcopy(integrator.p[p_pel_ind[2]])
@@ -348,22 +371,21 @@ function simulate_LTVS_N32_simulation_N32_GFM_PEL_TS(pg::PowerGrid,ic::Vector{Fl
          ω0 = 100*pi
  
          VoffT2 = deepcopy(integrator.u[index_vofft2_load])
- 
-         voff_new = Vabstoff*sin(ω0*toff)
-         VoffT2_new = CalfnPFCVoffT2(voff_new,Pdc,Cd,(T/2-toff))
-         toff_new = CalcnPFCtoff(Vabs,Pdc,Cd)
-         Vabstoff_new = Vabstoff*sin(100*pi*toff_new)
-         ton_new = CalfnPFCton(Vabs,Pdc,Cd,VoffT2_new)  
+         #voff_new = Vabstoff*sin(ω0*toff)
+         #VoffT2_new = CalfnPFCVoffT2(voff_new,Pdc,Cd,(T/2-toff))
+         #toff_new = CalcnPFCtoff(Vabs,Pdc,Cd)
+         #Vabstoff_new = Vabstoff*sin(100*pi*toff_new)
+         ton_new = CalfnPFCton(Vabs,Pdc,Cd,VoffT2)  
  
          if ton_new >= 0.0
              integrator.u[index_qon_load] = 1.0
          else
              integrator.u[index_qon_load] = 0.0           
          end 
- 
-         integrator.u[index_vofft2_load]  = VoffT2_new
-         integrator.u[index_Vabstoff_load]  = Vabstoff_new
-         integrator.u[index_toff_load]  = toff_new
+         #display(ton_new)
+         #integrator.u[index_vofft2_load]  = VoffT2_new
+         #integrator.u[index_Vabstoff_load]  = Vabstoff_new
+         #integrator.u[index_toff_load]  = toff_new
          integrator.u[index_ton_load]  = ton_new
          initialize_dae!(integrator,BrownFullBasicInit())
          display("error ende")
@@ -398,15 +420,29 @@ function simulate_LTVS_N32_simulation_N32_GFM_PEL_TS(pg::PowerGrid,ic::Vector{Fl
         # insert two extra states for continouos fault
         ic_tmp = vcat(ic_init[1:end-len],[rfault,xfault],ic_init[end-len+1:end])
         # create problem and simulate for 2 ms
-        ic_tmp[34] = 0.0
-        ic_tmp[35] = 0.0
+        ic_tmp[index_qimax_gfm] = 0.0
+        ic_tmp[index_qidcmax_gfm] = 0.0
         op_prob = ODEProblem(rhs(pg_pcfault), ic_tmp, (0.0, 0.02), integrator.p)
         x2 = solve(op_prob,Rodas4(),dtmax=1e-4,initializealg = BrownFullBasicInit(),alg_hints=:stiff,verbose=false,abstol=1e-8,reltol=1e-8)
-        # pgsol_tmp = PowerGridSolution(x2,pg_pcfault)
-        # plotallvoltages(pgsol_tmp);
-        # plot(myplot(pgsol_tmp,"bus_gfm",:q_imax))
 
-        tmp_retcode = deepcopy(x2.retcode)
+        ic_end = x2.u[end]
+        # delete states of continouos fault
+        ic_end = vcat(ic_end[1:end-len-2],ic_end[end-len+1:end])
+        # change only algebraic states of original problem
+        ind_as = findall(x-> iszero(x),diag(integrator.f.mass_matrix))
+        #ind_as = getVoltageSymbolPositions(pg)
+        for i in ind_as
+            ic_init[i] = ic_end[i]
+        end
+
+        if ic_end[index_iset_abs_gfm] > 1.0
+            display(ic_end[index_iset_abs_gfm+2])
+            integrator.u = ic_end
+            integrator.u[index_qimax_gfm] = 1.0
+            initialize_dae!(integrator,BrownFullBasicInit())
+        else
+            integrator.u = ic_init
+        end
 
         ode   = rhs(pg_postfault)
         integrator.f = ode
@@ -421,8 +457,8 @@ function simulate_LTVS_N32_simulation_N32_GFM_PEL_TS(pg::PowerGrid,ic::Vector{Fl
         for i in ind_as
             ic_init[i] = ic_end[i]
         end
-        ic_init[32] = 0.0
-        ic_init[33] = 0.0
+        
+
 
         Vabs = hypot(ic_init[index_U_load],ic_init[index_U_load+1])*sqrt(2)
         Vabstoff = integrator[index_Vabstoff_load]
@@ -435,11 +471,15 @@ function simulate_LTVS_N32_simulation_N32_GFM_PEL_TS(pg::PowerGrid,ic::Vector{Fl
         VoffT2 = deepcopy(integrator.u[index_vofft2_load])
 
         voff_new = Vabstoff*sin(ω0*toff)
+        #display(voff_new)
         VoffT2_new = CalfnPFCVoffT2(voff_new,Pdc,Cd,(T/2-toff))
+        #display(VoffT2_new)
         toff_new = CalcnPFCtoff(Vabs,Pdc,Cd)
+        #display(toff_new)
         Vabstoff_new = Vabs*sin(100*pi*toff_new)
+        #display(Vabstoff_new)
         ton_new = CalfnPFCton(Vabs,Pdc,Cd,VoffT2_new)  
-
+        #display(ton_new)
         if ton_new >= 0.0
             integrator.u[index_qon_load] = 1.0
         else
@@ -450,9 +490,11 @@ function simulate_LTVS_N32_simulation_N32_GFM_PEL_TS(pg::PowerGrid,ic::Vector{Fl
         integrator.u[index_Vabstoff_load]  = Vabstoff_new
         integrator.u[index_toff_load]  = toff_new
         integrator.u[index_ton_load]  = ton_new
-
+        ictmp = deepcopy(integrator.u)
         initialize_dae!(integrator,BrownFullBasicInit())
-
+        #for (ind,val) in enumerate(ictmp)
+        #    display([rhs(pg).syms[ind]  ictmp[ind] integrator.u[ind]])
+        #end
         # if tmp_retcode == ReturnCode.Success
         #     ic_end = x2.u[end]
         #     # delete states of continouos fault

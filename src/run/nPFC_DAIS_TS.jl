@@ -12,12 +12,11 @@ begin
 end
 # unstable case: share_pe = 0.3; Rf = 10, Xf = 0
 pg0,ic0 = Initialize_N32_PEL_TS(share_pe= 0.30);
-@time pgsol0_ad, evr_sol = simulate_LTVS_N32_simulation_PEL_TS(pg0,ic0,(0.0,1.0),(20.0+1im*20)/Zbase);
-plotallvoltages(pgsol0_per);
+@time pgsol0, evr_sol = simulate_LTVS_N32_simulation_PEL_TS(pg0,ic0,(0.0,1.0),(1.0+1im*1)/Zbase);
+plotallvoltages(pgsol0);
 
 myplot(pgsol0,"bus_load",:q1)
 myplot(pgsol0,"bus_load",[:p1,:ps]);
-myplot(pgsol0,"bus_load",:tsum);
 myplot(pgsol0,"bus_load",:ton);
 myplot(pgsol0,"bus_load",:toff);
 myplot(pgsol0,"bus_load",:vofft2);
@@ -95,6 +94,15 @@ PlotlyJS.plot([myplot(pgsol0,"bus_load",:qs),myplot(pgsol_apprx,"bus_load",:qs),
 
 
 ####### Solution from Automatic Differentiation
+x, dp = extract_local_sensitivities(pgsol0_ad);
+da = dp[6]
+pad = PlotlyJS.scatter(x=pgsol0_ad.t,y=da[15,:]);
+xts, dpts = extract_local_sensitivities(pgsol0_adts);
+dats = dpts[6]
+padts = PlotlyJS.scatter(x=pgsol0_adts.t,y=dats[15,:]);
+PlotlyJS.plot([pad,padts])
+
+
 x, dp = extract_local_sensitivities(pgsol0_ad)
 da = dp[6]
 sol_appr_ad = ApproximatedTrajectory(x[:,:],da,ΔCd)

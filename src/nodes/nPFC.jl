@@ -8,7 +8,7 @@ end  begin
 end [[vofft2, dvofft2],[ton,dton],[toff,dtoff],[p1,dp1],[q1,dq1],[Vabstoff,dVabstoff],[q_on,dq_on],[ps,dps],[qs,dqs]] begin
     Cd = p[p_ind[1]]
     Pdc = p[p_ind[2]]
-    #Vlow = p[p_ind[3]]
+    #Voff = p[p_ind[3]]
 
     s = u*conj(i)
     q_off = q_offset*(abs(u)^2)

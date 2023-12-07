@@ -12,7 +12,7 @@ begin
 end
 
 pg0,ic0 = Initialize_N32_GFM_TS();
-@time pgsol0_per, evr_sol = simulate_LTVS_N32_simulation_TS(pg0,ic0,(0.0,0.6),(20.0+1im*20)/Zbase);
+@time pgsol0_ad, evr_sol = simulate_LTVS_N32_simulation_TS(pg0,ic0,(0.0,0.6),(20.0+1im*20)/Zbase);
 plotallvoltages(pgsol0_per);
 plot(myplot(pgsol0,"bus_gfm",:q_imax))
 plot(myplot(pgsol0,"bus_gfm",:q_idcmax))
@@ -119,8 +119,9 @@ ode_apprx[:,:] = sol_appr;
 pgsol_apprx = PowerGridSolution(ode_apprx,pg0);
 
 ####### Solution from Automatic Differentiation
-x, dp = extract_local_sensitivities(pgsol0_ad);
+x, dp = extract_local_sensitivities(pgsol0);
 da = dp[8]
+
 sol_appr_ad = ApproximatedTrajectory(x[:,:],da,Δkp);
 
 x5r = x[15,:] .+ da[15,:]*Δkp
