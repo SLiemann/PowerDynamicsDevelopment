@@ -12,7 +12,7 @@ begin
 end
 
 pg0,ic0 = Initialize_N32_GFM_TS();
-@time pgsol0_ad, evr_sol = simulate_LTVS_N32_simulation_TS(pg0,ic0,(0.0,0.6),(20.0+1im*20)/Zbase);
+@time sensi_ad, evr_sol = simulate_LTVS_N32_simulation_TS(pg0,ic0,(0.0,1.0),(20.0+1im*20)/Zbase);
 plotallvoltages(pgsol0_per);
 plot(myplot(pgsol0,"bus_gfm",:q_imax))
 plot(myplot(pgsol0,"bus_gfm",:q_idcmax))
@@ -102,10 +102,11 @@ labels_p = [
 
 sensi_labels = [pg_labels[u_sensis];labels_p[p_sensis]];
 state_labels = pg_labels;
+
 odesol = pgsol0.dqsol[:,:];
 path = "C:\\Users\\liemann\\github\\PowerDynamicsDevelopment\\src\\results\\"
 
-write_matfile(path*"sensis_GFM_SECM_BC.mat"; odesol = odesol,sensis = hybrid_sen, delta_tau = Δτ, sensi_labels=sensi_labels,state_labels =state_labels,evr=evr_sol) 
+write_matfile(path*"AD_sensis_GFM_SECM_BC.mat"; odesol = x[:,:],sensis = dp, sensi_labels=labels_p,state_labels =pg_labels,evr=evr_sol) 
 
 #####  Approximated Solution
 using MAT
@@ -119,8 +120,10 @@ ode_apprx[:,:] = sol_appr;
 pgsol_apprx = PowerGridSolution(ode_apprx,pg0);
 
 ####### Solution from Automatic Differentiation
-x, dp = extract_local_sensitivities(pgsol0);
+x, dp = extract_local_sensitivities(sensi_ad)
 da = dp[8]
+
+PlotlyJS.plot(sensi_ad.t,dp[22]')
 
 sol_appr_ad = ApproximatedTrajectory(x[:,:],da,Δkp);
 
@@ -137,3 +140,7 @@ px5 = PlotlyJS.scatter(x=pgsol0_ad.t,y=xz);
 PlotlyJS.plot([myplot(pgsol0,"bus_gfm",zs),px5,myplot(pgsol_apprx,"bus_gfm",zs),myplot(pgsol0_per,"bus_gfm",zs)])
 
 PlotlyJS.plot(PlotlyJS.scatter(x=pgsol0_ad.t,y=da[zx,:]))
+
+
+x, dp = extract_local_sensitivities(pgsol0);
+da = dp[8]

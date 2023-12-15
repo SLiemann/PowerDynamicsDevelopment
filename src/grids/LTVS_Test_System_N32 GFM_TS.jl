@@ -163,7 +163,7 @@ end
 function simulate_LTVS_N32_simulation_TS(pg::PowerGrid,ic::Vector{Float64},tspan::Tuple{Float64,Float64},zfault::Union{Float64,Complex{Float64},Complex{Int64}})
     pg_postfault = GetPostFaultLTVSPG_TS(pg)
     params = GetParamsGFM_TS(pg)
-    params[8] += 0.5*params[8] 
+    #params[8] += 0.5*params[8] 
     problem= ODEProblem{true}(rhs(pg),ic,tspan,params)
     sens_prob = ODEForwardSensitivityProblem(rhs(pg), ic, tspan, params,ForwardDiffSensitivity(convert_tspan=true);)
     tfault = [tfault_on(), tfault_off()]
