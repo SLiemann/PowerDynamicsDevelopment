@@ -12,7 +12,7 @@ Ibase = Sbase/Ubase/sqrt(3)
 Zbase = Ubase^2/Sbase
 
 zfault() = (20+1im*20)/Zbase
-tfault_on() = 5.1
+tfault_on() = 0.1
 tfault_off() =  tfault_on() + 0.1
 dt_max() = 1e-3
 
@@ -202,7 +202,7 @@ function simulate_LTVS_N32_simulation_N32_GFM_PEL_TS(pg::PowerGrid,ic::Vector{Fl
     index_vofft2_load = PowerDynamics.variable_index(pg.nodes,"bus_load",:vofft2)
     index_ton_load = PowerDynamics.variable_index(pg.nodes,"bus_load",:ton)
     index_toff_load = PowerDynamics.variable_index(pg.nodes,"bus_load",:toff)
-    index_Vabstoff_load = PowerDynamics.variable_index(pg.nodes,"bus_load",:Vabstoff)
+    index_voff_load = PowerDynamics.variable_index(pg.nodes,"bus_load",:voff)
     index_qon_load = PowerDynamics.variable_index(pg.nodes,"bus_load",:q_on) 
     p_pel_ind = pg.nodes["bus_load"].p_ind
     
@@ -269,14 +269,14 @@ function simulate_LTVS_N32_simulation_N32_GFM_PEL_TS(pg::PowerGrid,ic::Vector{Fl
         voffT2 = deepcopy(integrator.u[index_vofft2_load])
         ton = deepcopy(integrator.u[index_ton_load])
         toff = deepcopy(integrator.u[index_toff_load]) 
-        Vabstoff = deepcopy(integrator.u[index_Vabstoff_load])
+        voff = deepcopy(integrator.u[index_voff_load])
         tsum = mod(Float32(integrator.t/0.01),1.0)/100.0
 
         if iszero(tsum) &&  !(tfault[1]<= integrator.t < tfault[1]+0.01) && !(tfault[2]<= integrator.t < tfault[2]+0.01)
             #display("pel: $(integrator.t)")
             #display("pel: $(ton)")
             if ton >= 0.0
-                voff = Vabstoff*sin(100*pi*toff)
+                #voff = Vabs*sin(100*pi*toff)
                 voffT2 = CalfnPFCVoffT2(voff,Pdc,Cd,(T/2-toff))
             else
                 voff = deepcopy(integrator.u[index_vofft2_load])
@@ -286,9 +286,9 @@ function simulate_LTVS_N32_simulation_N32_GFM_PEL_TS(pg::PowerGrid,ic::Vector{Fl
             ton = CalfnPFCton(Vabs,Pdc,Cd,voffT2)
             if ton >= 0
                 toff = CalcnPFCtoff(Vabs,Pdc,Cd)
-                Vabstoff = Vabs*sin(100*pi*toff)
+                voff = Vabs*sin(100*pi*toff)
             end 
-            #display(Vabstoff)
+            #display(voff)
             #display("pel: $(ton)")
             integrator.u[index_vofft2_load]  = voffT2
         elseif tsum < toff && tsum < ton
@@ -296,13 +296,13 @@ function simulate_LTVS_N32_simulation_N32_GFM_PEL_TS(pg::PowerGrid,ic::Vector{Fl
             ton = CalfnPFCton(Vabs,Pdc,Cd,voffT2)
             if ton >= 0
                 toff = CalcnPFCtoff(Vabs,Pdc,Cd)
-                Vabstoff = Vabs*sin(100*pi*toff)
+                voff = Vabs*sin(100*pi*toff)
             end 
         elseif  tsum < toff && tsum >= ton
             #display("C ton pos")
             if ton >= 0
                 toff = CalcnPFCtoff(Vabs,Pdc,Cd)
-                Vabstoff = Vabs*sin(100*pi*toff)
+                voff = Vabs*sin(100*pi*toff)
             end 
         end
 
@@ -312,7 +312,7 @@ function simulate_LTVS_N32_simulation_N32_GFM_PEL_TS(pg::PowerGrid,ic::Vector{Fl
             integrator.u[index_qon_load] = 0.0           
         end 
 
-        integrator.u[index_Vabstoff_load]  = Vabstoff
+        integrator.u[index_voff_load]  = voff
         integrator.u[index_toff_load]  = toff
         integrator.u[index_ton_load]  = ton
         initialize_dae!(integrator,BrownFullBasicInit())
@@ -363,7 +363,7 @@ function simulate_LTVS_N32_simulation_N32_GFM_PEL_TS(pg::PowerGrid,ic::Vector{Fl
          ## Init PEL Model
          Vabs = hypot(ic_init[index_U_load],ic_init[index_U_load+1])*sqrt(2)
          display(Vabs)
-         Vabstoff = integrator[index_Vabstoff_load]
+         voff = integrator[index_voff_load]
          Cd = deepcopy(integrator.p[p_pel_ind[1]])
          Pdc = deepcopy(integrator.p[p_pel_ind[2]])
          toff = integrator[index_toff_load]
@@ -371,10 +371,10 @@ function simulate_LTVS_N32_simulation_N32_GFM_PEL_TS(pg::PowerGrid,ic::Vector{Fl
          ω0 = 100*pi
  
          VoffT2 = deepcopy(integrator.u[index_vofft2_load])
-         #voff_new = Vabstoff*sin(ω0*toff)
+         #voff_new = Vabs*sin(ω0*toff)
          #VoffT2_new = CalfnPFCVoffT2(voff_new,Pdc,Cd,(T/2-toff))
          #toff_new = CalcnPFCtoff(Vabs,Pdc,Cd)
-         #Vabstoff_new = Vabstoff*sin(100*pi*toff_new)
+         #voff_new = voff*sin(100*pi*toff_new)
          ton_new = CalfnPFCton(Vabs,Pdc,Cd,VoffT2)  
  
          if ton_new >= 0.0
@@ -384,7 +384,7 @@ function simulate_LTVS_N32_simulation_N32_GFM_PEL_TS(pg::PowerGrid,ic::Vector{Fl
          end 
          #display(ton_new)
          #integrator.u[index_vofft2_load]  = VoffT2_new
-         #integrator.u[index_Vabstoff_load]  = Vabstoff_new
+         #integrator.u[index_voff_load]  = voff_new
          #integrator.u[index_toff_load]  = toff_new
          integrator.u[index_ton_load]  = ton_new
          initialize_dae!(integrator,BrownFullBasicInit())
@@ -461,7 +461,7 @@ function simulate_LTVS_N32_simulation_N32_GFM_PEL_TS(pg::PowerGrid,ic::Vector{Fl
 
 
         Vabs = hypot(ic_init[index_U_load],ic_init[index_U_load+1])*sqrt(2)
-        Vabstoff = integrator[index_Vabstoff_load]
+        voff = integrator[index_voff_load]
         Cd = deepcopy(integrator.p[p_pel_ind[1]])
         Pdc = deepcopy(integrator.p[p_pel_ind[2]])
         toff = integrator[index_toff_load]
@@ -470,14 +470,14 @@ function simulate_LTVS_N32_simulation_N32_GFM_PEL_TS(pg::PowerGrid,ic::Vector{Fl
 
         VoffT2 = deepcopy(integrator.u[index_vofft2_load])
 
-        voff_new = Vabstoff*sin(ω0*toff)
+        voff_new = Vabs*sin(ω0*toff)
         #display(voff_new)
         VoffT2_new = CalfnPFCVoffT2(voff_new,Pdc,Cd,(T/2-toff))
         #display(VoffT2_new)
         toff_new = CalcnPFCtoff(Vabs,Pdc,Cd)
         #display(toff_new)
-        Vabstoff_new = Vabs*sin(100*pi*toff_new)
-        #display(Vabstoff_new)
+        voff_new = Vabs*sin(100*pi*toff_new)
+        #display(voff_new)
         ton_new = CalfnPFCton(Vabs,Pdc,Cd,VoffT2_new)  
         #display(ton_new)
         if ton_new >= 0.0
@@ -487,7 +487,7 @@ function simulate_LTVS_N32_simulation_N32_GFM_PEL_TS(pg::PowerGrid,ic::Vector{Fl
         end 
 
         integrator.u[index_vofft2_load]  = VoffT2_new
-        integrator.u[index_Vabstoff_load]  = Vabstoff_new
+        integrator.u[index_voff_load]  = voff_new
         integrator.u[index_toff_load]  = toff_new
         integrator.u[index_ton_load]  = ton_new
         ictmp = deepcopy(integrator.u)

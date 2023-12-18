@@ -12,15 +12,16 @@ begin
 end
 
 pg0,ic0 = Initialize_N32_GFM_PEL_TS();
-@time pgsol0, evr_sol = simulate_LTVS_N32_simulation_N32_GFM_PEL_TS(pg0,ic0,(0.0,10.0),(20.0+1im*20)/Zbase);
+@time pgsol0, evr_sol = simulate_LTVS_N32_simulation_N32_GFM_PEL_TS(pg0,ic0,(0.0,1.0),(20.0+1im*20)/Zbase);
 jp = plotallvoltages(pgsol0);
-plot(myplot(pgsol0,"bus_load",:toff))
-plot(myplot(pgsol0,"bus_load",:ton))
+toff = plot(myplot(pgsol0,"bus_load",:toff))
+toff = plot(myplot(pgsol0,"bus_load",:ton))
 plot(myplot(pgsol0,"bus_load",:q_on))
 plot(myplot(pgsol0,"bus_load",:vofft2))
-plot(myplot(pgsol0,"bus_load",:Vabstoff))
-plot(myplot(pgsol0,"bus_load",:p1))
-plot(myplot(pgsol0,"bus_load",:q1))
+plot(myplot(pgsol0,"bus_load",:voff))
+p1= plot(myplot(pgsol0,"bus_load",:p1))
+q1 = plot(myplot(pgsol0,"bus_load",:q1))
+
 
 collect((rhs(pg0).syms))[33]
 
