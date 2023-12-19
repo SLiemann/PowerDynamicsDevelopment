@@ -176,8 +176,8 @@ function simulate_LTVS_N32_simulation_N32_GFM_PEL_TS(pg::PowerGrid,ic::Vector{Fl
     pg_postfault = GetPostFaultLTVSPG_TS(pg)
     params = GetParamsGFM_GFM_PEL_TS(pg)
     #params[8] += 0.5*params[8] 
-    problem= ODEProblem{true}(rhs(pg),ic,tspan,params)
-    #sens_prob = ODEForwardSensitivityProblem(rhs(pg), ic, tspan, params,ForwardDiffSensitivity();)
+    #problem= ODEProblem{true}(rhs(pg),ic,tspan,params)
+    sens_prob = ODEForwardSensitivityProblem(rhs(pg), ic, tspan, params,ForwardDiffSensitivity(convert_tspan=true);)
     tfault = [tfault_on(), tfault_off()]
     timer_start = -1.0
     FRT = 1.0 # -1 for LVRT, 0 for HVRT, 1.0 for stable
@@ -324,7 +324,6 @@ function simulate_LTVS_N32_simulation_N32_GFM_PEL_TS(pg::PowerGrid,ic::Vector{Fl
         integrator.p[1] = rfault
         integrator.p[2] = xfault
         ind_odesys = 1;
-        display("error")
         # Den evr würde man nur benötigen, wenn qimax und error NICHT  zusammenfallsen 
         #evr = vcat(evr, [integrator.t ind_odesys 0 0 integrator.p'])
         
@@ -362,7 +361,6 @@ function simulate_LTVS_N32_simulation_N32_GFM_PEL_TS(pg::PowerGrid,ic::Vector{Fl
 
          ## Init PEL Model
          Vabs = hypot(ic_init[index_U_load],ic_init[index_U_load+1])*sqrt(2)
-         display(Vabs)
          voff = integrator[index_voff_load]
          Cd = deepcopy(integrator.p[p_pel_ind[1]])
          Pdc = deepcopy(integrator.p[p_pel_ind[2]])
@@ -388,7 +386,6 @@ function simulate_LTVS_N32_simulation_N32_GFM_PEL_TS(pg::PowerGrid,ic::Vector{Fl
          #integrator.u[index_toff_load]  = toff_new
          integrator.u[index_ton_load]  = ton_new
          initialize_dae!(integrator,BrownFullBasicInit())
-         display("error ende")
         # if x2.retcode == :Success
         #     integrator.u = deepcopy(ic_init)
         #     initialize_dae!(integrator,BrownFullBasicInit())
@@ -457,8 +454,6 @@ function simulate_LTVS_N32_simulation_N32_GFM_PEL_TS(pg::PowerGrid,ic::Vector{Fl
         for i in ind_as
             ic_init[i] = ic_end[i]
         end
-        
-
 
         Vabs = hypot(ic_init[index_U_load],ic_init[index_U_load+1])*sqrt(2)
         voff = integrator[index_voff_load]
@@ -470,25 +465,20 @@ function simulate_LTVS_N32_simulation_N32_GFM_PEL_TS(pg::PowerGrid,ic::Vector{Fl
 
         VoffT2 = deepcopy(integrator.u[index_vofft2_load])
 
-        voff_new = Vabs*sin(ω0*toff)
-        #display(voff_new)
-        VoffT2_new = CalfnPFCVoffT2(voff_new,Pdc,Cd,(T/2-toff))
-        #display(VoffT2_new)
-        toff_new = CalcnPFCtoff(Vabs,Pdc,Cd)
-        #display(toff_new)
-        voff_new = Vabs*sin(100*pi*toff_new)
-        #display(voff_new)
-        ton_new = CalfnPFCton(Vabs,Pdc,Cd,VoffT2_new)  
-        #display(ton_new)
+        #voff_new = Vabs*sin(ω0*toff)
+        #VoffT2_new = CalfnPFCVoffT2(voff_new,Pdc,Cd,(T/2-toff))
+        #toff_new = CalcnPFCtoff(Vabs,Pdc,Cd)
+        #voff_new = Vabs*sin(100*pi*toff_new)
+        ton_new = CalfnPFCton(Vabs,Pdc,Cd,VoffT2)  
         if ton_new >= 0.0
             integrator.u[index_qon_load] = 1.0
         else
             integrator.u[index_qon_load] = 0.0           
         end 
 
-        integrator.u[index_vofft2_load]  = VoffT2_new
-        integrator.u[index_voff_load]  = voff_new
-        integrator.u[index_toff_load]  = toff_new
+        #integrator.u[index_vofft2_load]  = VoffT2_new
+        #integrator.u[index_voff_load]  = voff_new
+        #integrator.u[index_toff_load]  = toff_new
         integrator.u[index_ton_load]  = ton_new
         ictmp = deepcopy(integrator.u)
         initialize_dae!(integrator,BrownFullBasicInit())
@@ -638,12 +628,12 @@ function simulate_LTVS_N32_simulation_N32_GFM_PEL_TS(pg::PowerGrid,ic::Vector{Fl
 
     tstops_sim =collect(tspan[1]:0.01:tspan[2]);
     sort!(tstops_sim)
-    sol = solve(problem, Rodas4(autodiff=true), callback = CallbackSet(cb1,cb2,cb21,cb3,cb4,cb5,cb12,cb13,cb14,cb15,cb_tsum), tstops=tstops_sim, dtmax = dt_max(),force_dtmin=false,maxiters=1e6, initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-8,reltol=1e-8) #
+    sol = solve(sens_prob, Rodas4(autodiff=true), callback = CallbackSet(cb1,cb2,cb21,cb3,cb4,cb5,cb12,cb13,cb14,cb15,cb_tsum), tstops=tstops_sim, dtmax = dt_max(),force_dtmin=false,maxiters=1e6, initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-8,reltol=1e-8) #
     # good values abstol=1e-8,reltol=1e-8 and Rodas5(autodiff=true) for droop
     #success = deepcopy(sol.retcode)
-    if sol.retcode != :Success
-        sol = DiffEqBase.solution_new_retcode(sol, :Success)
-    end
-    return PowerGridSolution(sol, pg), evr
-    #return sol, evr
+    #if sol.retcode != :Success
+    #    sol = DiffEqBase.solution_new_retcode(sol, :Success)
+    #end
+    #return PowerGridSolution(sol, pg), evr
+    return sol, evr
 end
