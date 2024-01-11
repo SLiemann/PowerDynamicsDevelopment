@@ -82,4 +82,4 @@ labels_p = [
     ];
 state_labels = string.(rhs(pg0).syms)
 path = "C:\\Users\\liemann\\github\\PowerDynamicsDevelopment\\src\\results\\"
-write_matfile(path*"AD_sensis_GFM_PEL_share_0.3_BC.mat"; odesol = x[:,:],sensis = dp, sensi_labels=labels_p,state_labels =state_labels,evr=evr_sol) 
+write_matfile(path*"AD_sensis_GFM_PEL_share_0.3_BC_v2.mat"; odesol = x[:,:],sensis = dp, sensi_labels=labels_p,state_labels =state_labels,evr=evr_sol, time = sensi_ad.t) 

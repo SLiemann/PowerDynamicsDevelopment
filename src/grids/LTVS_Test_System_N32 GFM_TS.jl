@@ -23,7 +23,7 @@ function LTVS_Test_System_N32_GFM_TS(;gfm=1,awu=1.0) #1 = droop, 2 = matching, 3
     QLoad = -2243.7e6/Sbase 
     position_fault = 0.9 #0 at slack, 1.0 at bus 2
 
-    Srated = 5300e6 #5150e6 for LTVS 
+    Srated = 5142e6 #5150e6 for LTVS 
     pref = 4440e6/Sbase
     imax_csa = 1.0
     imax_dc = 1.2
@@ -164,7 +164,7 @@ function simulate_LTVS_N32_simulation_TS(pg::PowerGrid,ic::Vector{Float64},tspan
     pg_postfault = GetPostFaultLTVSPG_TS(pg)
     params = GetParamsGFM_TS(pg)
     #params[8] += 0.5*params[8] 
-    problem= ODEProblem{true}(rhs(pg),ic,tspan,params)
+    #problem = ODEProblem{true}(rhs(pg),ic,tspan,params)
     sens_prob = ODEForwardSensitivityProblem(rhs(pg), ic, tspan, params,ForwardDiffSensitivity(convert_tspan=true);)
     tfault = [tfault_on(), tfault_off()]
     timer_start = -1.0
@@ -455,9 +455,9 @@ function simulate_LTVS_N32_simulation_TS(pg::PowerGrid,ic::Vector{Float64},tspan
     sol = solve(sens_prob, Rodas4(autodiff=true), callback = CallbackSet(cb1,cb2,cb21,cb3,cb4,cb5,cb12,cb13,cb14,cb15), tstops=[tfault[1],tfault[2]], dtmax = dt_max(),force_dtmin=false,maxiters=1e6, initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-9,reltol=1e-9) #
     # good values abstol=1e-8,reltol=1e-8 and Rodas5(autodiff=true) for droop
     #success = deepcopy(sol.retcode)
-    if sol.retcode != :Success
-        sol = DiffEqBase.solution_new_retcode(sol, :Success)
-    end
+    #if sol.retcode != :Success
+    #    sol = DiffEqBase.solution_new_retcode(sol, :Success)
+    #end
     #return PowerGridSolution(sol, pg), evr
     return sol, evr
 end

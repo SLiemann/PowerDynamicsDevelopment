@@ -12,10 +12,10 @@ begin
 end
 # unstable case: share_pe = 0.3; Rf = 10, Xf = 0
 pg0,ic0 = Initialize_N32_PEL_TS(share_pe= 0.30);
-@time pgsol0, evr_sol = simulate_LTVS_N32_simulation_PEL_TS(pg0,ic0,(0.0,10.0),(20.0+1im*20)/Zbase);
-myplot(pgsol0,"bus_load",:q_on);
+@time sensi_ad, evr_sol = simulate_LTVS_N32_simulation_PEL_TS(pg0,ic0,(0.0,300.0),(20.0+1im*20)/Zbase);
 ppel3 = plotallvoltages(pgsol0);
 PlotlyJS.plot([ppel2;ppel3])
+myplot(pgsol0,"bus_load",:q_on);
 
 pp2 = myplot(pgsol0,"bus_load",:q1)
 pq2 = myplot(pgsol0,"bus_load",[:p1,:ps]);

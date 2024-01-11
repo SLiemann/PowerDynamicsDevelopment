@@ -12,8 +12,8 @@ begin
 end
 
 pg0,ic0 = Initialize_N32_GFM_TS();
-@time sensi_ad, evr_sol = simulate_LTVS_N32_simulation_TS(pg0,ic0,(0.0,1.0),(20.0+1im*20)/Zbase);
-plotallvoltages(pgsol0_per);
+@time sensi_ad, evr_sol = simulate_LTVS_N32_simulation_TS(pg0,ic0,(0.0,200.0),1e6*(20.0+1im*20)/Zbase);
+plotallvoltages(pgsol0);
 plot(myplot(pgsol0,"bus_gfm",:q_imax))
 plot(myplot(pgsol0,"bus_gfm",:q_idcmax))
 plot(myplot(pgsol0,"bus_gfm",:idc0))
@@ -72,7 +72,6 @@ plot(pgsol0.dqsol.t,hybrid_sen[2][25,:])
 
 ### Saving Sensitivities
 using MATLAB
-
 labels_p = [
     "rfault", #1
     "xfault", #2
@@ -99,14 +98,12 @@ labels_p = [
     "imax_dc", #23
     "LVRT_on", #24
     ];
-
-sensi_labels = [pg_labels[u_sensis];labels_p[p_sensis]];
+x, dp = extract_local_sensitivities(sensi_ad);
+pg_labels = string.(rhs(pg0).syms);
 state_labels = pg_labels;
-
-odesol = pgsol0.dqsol[:,:];
 path = "C:\\Users\\liemann\\github\\PowerDynamicsDevelopment\\src\\results\\"
 
-write_matfile(path*"AD_sensis_GFM_SECM_BC.mat"; odesol = x[:,:],sensis = dp, sensi_labels=labels_p,state_labels =pg_labels,evr=evr_sol) 
+write_matfile(path*"LTVS_AD_sensis_droop_5142_woSECM_BC.mat"; odesol = x[:,:],sensis = dp, sensi_labels=labels_p,state_labels =pg_labels,evr=evr_sol, time=sensi_ad.t) 
 
 #####  Approximated Solution
 using MAT

@@ -10,8 +10,8 @@ begin
     nothing
 end
 
-pg0,ic0 = Initialize_N32_GFM(1,1);
-@time pgsol0, suc0,FRT0 = simulate_LTVS_N32_simulation(pg0,ic0,(0.0,0.4),(20.0+1im*20)/Zbase);
+pg0,ic0 = Initialize_N32_GFM(1,0);
+@time pgsol0, suc0,FRT0 = simulate_LTVS_N32_simulation(pg0,ic0,(0.0,5.0),(20.0+1im*20)/Zbase);
 plot(plotallvoltages(pgsol0))
 plot([myplot(pgsol0,"bus_gfm",:LVRT),plotv(pgsol0,["bus_gfm"])[1]])
 
@@ -146,3 +146,9 @@ p2= scatter(x=XRm[:,1],y=XRm[:,2],name="MATLAB")
 plot([p1,p2,p3,p4])
 
 compareResults(["droop_I070_R_18_1_0_X_08_1_0.jld","droop_I070_R_18_1_0_X_10_1_0_v2.jld","dVOC_I70_R_15_1_0_X_5_1_0.jld","dVOC_I070_R_15_1_0_X_10_1_0_v2.jld","VSM_I70_R_20_1_0_X_15_1_0.jld","VSM_I070_R_20_1_0_X_15_1_0_v2.jld"])
+
+### Saving results
+using MATLAB
+path = "\\\\fs0\\home\\liemann\\Diss\\Results\\621_Short_Term_GFM\\"
+state_labels = string.(rhs(pg0).syms)
+write_matfile(path*"Julia_RMS_GFM_BC_no_SECM.mat"; sol = pgsol0.dqsol[:,:],time = pgsol0.dqsol.t,state_labels =state_labels)
