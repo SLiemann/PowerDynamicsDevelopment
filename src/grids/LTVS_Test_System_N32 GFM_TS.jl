@@ -23,7 +23,7 @@ function LTVS_Test_System_N32_GFM_TS(;gfm=1,awu=1.0) #1 = droop, 2 = matching, 3
     QLoad = -2243.7e6/Sbase 
     position_fault = 0.9 #0 at slack, 1.0 at bus 2
 
-    Srated = 5142e6 #5150e6 for LTVS 
+    Srated = 5142e6 #5142e6 for LTVS 
     pref = 4440e6/Sbase
     imax_csa = 1.0
     imax_dc = 1.2
@@ -55,7 +55,7 @@ function LTVS_Test_System_N32_GFM_TS(;gfm=1,awu=1.0) #1 = droop, 2 = matching, 3
         "busv" => ThreePhaseFault(rfault=8e3,xfault=8e3,p_ind=collect(1:2)))
 
     if gfm == 1
-        buses["bus_gfm"] = droopTS(Sbase = Sbase,Srated = Srated, p0set = pref, u0set = 1.00,Kp_droop = pi,Kp_uset = 0.001, Ki_uset = 0.5,
+        buses["bus_gfm"] = droopTS(Sbase = Sbase,Srated = Srated, p0set = pref, u0set = 1.00,Kp_droop = pi*2,Kp_uset = 0.001, Ki_uset = 0.5,
                                  Kdc = 100.0, gdc = Gdc, cdc = Cdc, xlf = Xlf, rf = R_f, xcf =  Xcf, Tdc = 0.05, Kp_u = 0.52,
                                  Ki_u = 1.161022, Kp_i = 0.738891, Ki_i = 1.19, imax_csa = imax_csa, imax_dc = imax_dc, LVRT_on = 0.0,
                                  p_ind = collect(6:24))
@@ -164,8 +164,8 @@ function simulate_LTVS_N32_simulation_TS(pg::PowerGrid,ic::Vector{Float64},tspan
     pg_postfault = GetPostFaultLTVSPG_TS(pg)
     params = GetParamsGFM_TS(pg)
     #params[8] += 0.5*params[8] 
-    #problem = ODEProblem{true}(rhs(pg),ic,tspan,params)
-    sens_prob = ODEForwardSensitivityProblem(rhs(pg), ic, tspan, params,ForwardDiffSensitivity(convert_tspan=true);)
+    problem = ODEProblem{true}(rhs(pg),ic,tspan,params)
+    #sens_prob = ODEForwardSensitivityProblem(rhs(pg), ic, tspan, params,ForwardDiffSensitivity(convert_tspan=true);)
     tfault = [tfault_on(), tfault_off()]
     timer_start = -1.0
     FRT = 1.0 # -1 for LVRT, 0 for HVRT, 1.0 for stable
@@ -452,12 +452,12 @@ function simulate_LTVS_N32_simulation_TS(pg::PowerGrid,ic::Vector{Float64},tspan
 
     stiff  = repeat([:stiff],length(ic))
     #cb7,cb8,cb9,cb10,cb11,
-    sol = solve(sens_prob, Rodas4(autodiff=true), callback = CallbackSet(cb1,cb2,cb21,cb3,cb4,cb5,cb12,cb13,cb14,cb15), tstops=[tfault[1],tfault[2]], dtmax = dt_max(),force_dtmin=false,maxiters=1e6, initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-9,reltol=1e-9) #
+    sol = solve(problem, Rodas4(autodiff=true), callback = CallbackSet(cb1,cb2,cb21,cb3,cb4,cb5,cb12,cb13,cb14,cb15), tstops=[tfault[1],tfault[2]], dtmax = dt_max(),force_dtmin=false,maxiters=1e6, initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-9,reltol=1e-9) #
     # good values abstol=1e-8,reltol=1e-8 and Rodas5(autodiff=true) for droop
     #success = deepcopy(sol.retcode)
-    #if sol.retcode != :Success
-    #    sol = DiffEqBase.solution_new_retcode(sol, :Success)
-    #end
-    #return PowerGridSolution(sol, pg), evr
-    return sol, evr
+    if sol.retcode != :Success
+        sol = DiffEqBase.solution_new_retcode(sol, :Success)
+    end
+    return PowerGridSolution(sol, pg), evr
+    #return sol, evr
 end

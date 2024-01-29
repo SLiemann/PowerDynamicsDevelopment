@@ -11,12 +11,17 @@ begin
     nothing
 end
 # unstable case: share_pe = 0.3; Rf = 10, Xf = 0
-pg0,ic0 = Initialize_N32_PEL_TS(share_pe= 0.300);
-@time sensi_ad, evr_sol = simulate_LTVS_N32_simulation_PEL_TS(pg0,ic0,(0.0,1.0),(20.0+1im*20)/Zbase);
-plotallvoltages(pgsol0);
+pg0,ic0 = Initialize_N32_PEL_TS(share_pe= 0.3);
+@time sensi_ad, evr_sol = simulate_LTVS_N32_simulation_PEL_TS(pg0,ic0,(0.0,150.0),(20.0+1im*20)/Zbase);
+plotallvoltages(sensi_ad);
 
 myplot(pgsol0,"bus_load",:q1)
+myplot(sensi_ad,"bus_sm",:ifd)
+myplot(sensi_ad,"bus_sm",:timer)
+
 myplot(pgsol0,"bus_load",[:p1,:ps]);
+myplot(pgsol0,"bus_load",[:q1,:qs]);
+
 myplot(pgsol0,"bus_load",:ton);
 myplot(pgsol0,"bus_load",:toff);
 myplot(pgsol0,"bus_load",:vofft2);
@@ -52,6 +57,20 @@ p_sensis = [6,7];
 
 PlotlyJS.plot(pgsol0.dqsol.t,hybrid_sen[3][18,:])
 
+x, dp = extract_local_sensitivities(sensi_ad)
+v3 = sqrt.(x[7,:].^2 + x[8,:].^2);
+
+v3_appr = sqrt.((x[7,:].+dp[7][7,:].*0.2).^2 + (x[8,:].+dp[7][8,:].*0.2).^2);
+
+Plots.plot(sensi_ad.t,v3)
+Plots.plot!(sensi_ad.t,v3_appr)
+
+
+ps = x[19,:]
+ps_appr = ps + dp[7][19,:].*0.1
+Plots.plot(-ps)
+Plots.plot!(-ps_appr)
+
 
 ### Saving Sensitivities
 using MATLAB
@@ -66,8 +85,12 @@ labels_p = [
     "Pdc", #7
     ];
 state_labels = string.(rhs(pg0).syms)
-path = "C:\\Users\\liemann\\github\\PowerDynamicsDevelopment\\src\\results\\"
-write_matfile(path*"AD_sensis_GENTPJ_PEL_share_0.3_BC_v2.mat"; odesol = x[:,:],sensis = dp, sensi_labels=labels_p,state_labels =state_labels,evr=evr_sol,time =sensi_ad.t) 
+path2 = "C:\\Users\\liemann\\github\\PowerDynamicsDevelopment\\src\\results\\"
+write_matfile(path2*"AD_sensis_GENTPJ_PEL_share_0.3_BC_1em4_1s_NOqoffset.mat"; odesol = x[:,:],sensis = dp, sensi_labels=labels_p,state_labels =state_labels,evr=evr_sol,time =sensi_ad.t) 
+
+write_matfile(path2*"LTVS_odesol_GENTPJ_PEL_share_0.4_noBC_withOffset_2em4.mat"; odesol = pgsol0.dqsol[:,:],state_labels =state_labels,time =pgsol0.dqsol.t) 
+
+write_matfile(path2*"LTVS_odesol_GENTPJ_PEL_share_0.3_BC_NoOffset_1em3.mat"; odesol = sensi_ad.dqsol[:,:],state_labels =state_labels,time =sensi_ad.dqsol.t) 
 
 ### 
 using MAT

@@ -12,12 +12,13 @@ begin
 end
 
 pg0,ic0 = Initialize_N32_GFM_TS();
-@time sensi_ad, evr_sol = simulate_LTVS_N32_simulation_TS(pg0,ic0,(0.0,200.0),1e6*(20.0+1im*20)/Zbase);
-plotallvoltages(pgsol0);
+@time pgsol2, evr_sol = simulate_LTVS_N32_simulation_TS(pg0,ic0,(0.0,200.0),1e6*(20.0+1im*20)/Zbase);
+p1 = plotallvoltages(pgsol1);
+myplot(pgsol2,"bus_gfm",:i_abs)
 plot(myplot(pgsol0,"bus_gfm",:q_imax))
 plot(myplot(pgsol0,"bus_gfm",:q_idcmax))
 plot(myplot(pgsol0,"bus_gfm",:idc0))
-plot([myplot(pgsol0,"bus_gfm",:θ),myplot(pgsol0_per,"bus_gfm",:θ)])
+plot([myplot(pgsol0,"bus_gfm",:θ),myplot(pgsol1,"bus_gfm",:θ)])
 
 plot([myplot(pgsol0,"bus_gfm",:P0),myplot(pgsol0_per,"bus_gfm",:P0)])
 
@@ -103,7 +104,9 @@ pg_labels = string.(rhs(pg0).syms);
 state_labels = pg_labels;
 path = "C:\\Users\\liemann\\github\\PowerDynamicsDevelopment\\src\\results\\"
 
-write_matfile(path*"LTVS_AD_sensis_droop_5142_woSECM_BC.mat"; odesol = x[:,:],sensis = dp, sensi_labels=labels_p,state_labels =pg_labels,evr=evr_sol, time=sensi_ad.t) 
+write_matfile(path*"STVS_AD_sensis_droop_5300_SECM_BC.mat"; odesol = x[:,:],sensis = dp, sensi_labels=labels_p,state_labels =pg_labels,evr=evr_sol, time=sensi_ad.t) 
+
+write_matfile(path*"Approximated_Kd_imax_droop_5142_SECM_BC.mat"; odesol_kd = pgsol1.dqsol[:,:], odesol_imax = pgsol2.dqsol[:,:],state_labels =pg_labels, time_kd=pgsol1.dqsol.t,time_imax = pgsol2.dqsol.t) 
 
 #####  Approximated Solution
 using MAT

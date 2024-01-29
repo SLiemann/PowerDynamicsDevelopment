@@ -12,17 +12,17 @@ begin
 end
 
 pg0,ic0 = Initialize_N32_GFM_PEL_TS();
-@time sensi_ad, evr_sol = simulate_LTVS_N32_simulation_N32_GFM_PEL_TS(pg0,ic0,(0.0,1.0),(20.0+1im*20)/Zbase);
+@time sensi_ad, evr_sol = simulate_LTVS_N32_simulation_N32_GFM_PEL_TS(pg0,ic0,(0.0,1.0),1e6*(20.0+1im*20)/Zbase);
 jp = plotallvoltages(pgsol0);
 toff = plot(myplot(pgsol0,"bus_load",:toff))
 toff = plot(myplot(pgsol0,"bus_load",:ton))
 plot(myplot(pgsol0,"bus_load",:q_on))
 plot(myplot(pgsol0,"bus_load",:vofft2))
 plot(myplot(pgsol0,"bus_load",:voff))
-p1= plot(myplot(pgsol0,"bus_load",:p1))
-q1 = plot(myplot(pgsol0,"bus_load",:q1))
+myplot(pgsol0,"bus_load",:p1)
+myplot(pgsol0,"bus_load",:q1)
 
-
+myplot(pgsol0,"bus_gfm",:i_abs)
 plot(myplot(pgsol0,"bus_gfm",:q_imax))
 plot(myplot(pgsol0,"bus_gfm",:q_idcmax))
 plot(myplot(pgsol0,"bus_gfm",:i_abs))
@@ -81,5 +81,8 @@ labels_p = [
     "Pdc", #26
     ];
 state_labels = string.(rhs(pg0).syms)
-path = "C:\\Users\\liemann\\github\\PowerDynamicsDevelopment\\src\\results\\"
-write_matfile(path*"AD_sensis_GFM_PEL_share_0.3_BC_v2.mat"; odesol = x[:,:],sensis = dp, sensi_labels=labels_p,state_labels =state_labels,evr=evr_sol, time = sensi_ad.t) 
+params = GetParamsGFM_GFM_PEL_TS(pg0)
+path2 = "C:\\Users\\liemann\\github\\PowerDynamicsDevelopment\\src\\results\\"
+write_matfile(path*"AD_sensis_GFM_PEL_share_0.3_BC_NOqoffset.mat"; odesol = x[:,:],sensis = dp, sensi_labels=labels_p,state_labels =state_labels,params=params, time = sensi_ad.t) 
+
+write_matfile(path2*"odesol_LTVS_GFM_PEL_share_0.1_noBC_NOqoffset.mat"; odesol = pgsol0.dqsol[:,:],tate_labels =state_labels,params=params, time = pgsol0.dqsol.t) 

@@ -36,8 +36,9 @@ function LTVS_Test_System_N32_PEL_TS(;share_pe = 0.3)
     Cpu = 1/(xcpu*ω0) * share_pe
 
     p_static, q_static = CalcnPFCPower(0.99034*sqrt(2),-Pload*share_pe,Cpu) #0.9904
-    qoff = QLoad - q_static
+    qoff = QLoad - q_static*0
     poff = Pload - p_static
+    #p_static, q_static = CalcnPFCPower(0.99034*sqrt(2),-Pload*0.4,Cpu) #0.9904
 
     buses=OrderedDict(
         "bus0" => SlackAlgebraic(U=1.054275078250000), # 1.0532 for 100% I , 1.0495 for 100% Z 1.054080675
@@ -130,8 +131,8 @@ function simulate_LTVS_N32_simulation_PEL_TS(pg::PowerGrid,ic::Vector{Float64},t
     pg_postfault = GetPostFaultLTVSPG_TS(pg)
     params = GetParams_PEL_TS(pg)
     #params[6]  += 0.1*params[6] #parameter disturbance
-    #problem= ODEProblem{true}(rhs(pg),ic,tspan,params)
-    sens_prob = ODEForwardSensitivityProblem(rhs(pg), ic, tspan, params,ForwardDiffSensitivity(convert_tspan=true);)
+    problem= ODEProblem{true}(rhs(pg),ic,tspan,params)
+    #sens_prob = ODEForwardSensitivityProblem(rhs(pg), ic, tspan, params,ForwardDiffSensitivity(convert_tspan=true);)
     tfault = [tfault_on(), tfault_off()]
     timer_start = -1.0
     FRT = 1.0 # -1 for LVRT, 0 for HVRT, 1.0 for stable
@@ -444,13 +445,13 @@ function simulate_LTVS_N32_simulation_PEL_TS(pg::PowerGrid,ic::Vector{Float64},t
     tstops_sim =collect(tspan[1]:0.01:tspan[2]);
     sort!(tstops_sim)
     #,cb_nhw,cb_tpos,cb_tneg 
-    sol = solve(sens_prob, Rodas4(autodiff=true),callback = CallbackSet(cb1,cb2,cb21,cb3,cb4,cb5,cb_tsum), tstops=tstops_sim, dtmax = dt_max(),force_dtmin=true,maxiters=1e6, initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-8,reltol=1e-8) #
+    sol = solve(problem, Rodas4(autodiff=true),callback = CallbackSet(cb1,cb2,cb21,cb3,cb4,cb5,cb_tsum), tstops=tstops_sim, dtmax = dt_max(),force_dtmin=true,maxiters=1e6, initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-8,reltol=1e-8) #
     #display(sol.retcode)
     # good values abstol=1e-8,reltol=1e-8 and Rodas5(autodiff=true) for droop
     #success = deepcopy(sol.retcode)
-    #if sol.retcode != :Success
-    #    sol = DiffEqBase.solution_new_retcode(sol, :Success)
-    #end
-    #return PowerGridSolution(sol, pg), evr
-    return sol, evr
+    if sol.retcode != :Success
+        sol = DiffEqBase.solution_new_retcode(sol, :Success)
+    end
+    return PowerGridSolution(sol, pg), evr
+    #return sol, evr
 end

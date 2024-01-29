@@ -1020,6 +1020,7 @@ function InitNode(L::nPFC,ind::Int64,I_c::Vector{Complex{Float64}},ic_lf::Array{
    qoff = (q-q1)/(U^2)
    poff = (p-p1)/(U)
    vabstoff = abs(U0)*sqrt(2)*sin(100*pi*toff)
+   #node_temp = nPFC(Cd=L.Cd,Pdc=L.Pdc,p_offset=poff,q_offset=L.q_offset,p_ind=L.p_ind)
    node_temp = nPFC(Cd=L.Cd,Pdc=L.Pdc,p_offset=poff,q_offset=qoff,p_ind=L.p_ind)
    return [v_d_temp, v_q_temp,VoffT2, ton, toff, p1, q1,vabstoff ,1.0, p1, q1], node_temp
 end
