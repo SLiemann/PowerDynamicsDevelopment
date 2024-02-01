@@ -8,20 +8,21 @@ D = Differential(t)
 # Differential states
 diff_states = @variables x_id(t)=0.0002499998300626934 x_iq(t)= 4.424770956641677e-5 x_vd(t)=0.0 x_vq(t)=0.0 x_vdroop(t)=1.0 p_f(t)=0.5 Δθ(t)=0.0 Δv_dc(t)=0.0 Δp_cf(t)=0.00012891554966654173 i_dcrefτ(t)=0.5501289155496666
 # algebraic states
-alg_states = @variables v_d(t)=1.0 v_q(t)=0.0 v_cd(t)=1.00 v_cq(t)=0.0  i_cdlim(t)=0.5 i_cqlim(t)=0.08849555921538757 p_ref(t)=0.5 i_dcref(t)=0.5501289155496666 i_absref0(t) = sqrt(0.08849555921538757^2 + 0.5^2)
+alg_states = @variables v_d(t)=1.0 v_q(t)=0.0 v_cd(t)=1.00 v_cq(t)=0.0  i_cdlim(t)=0.5 i_cqlim(t)=0.08849555921538757 p_ref(t)=0.5 i_dcref(t)=0.5501289155496666 i_absref0(t) = sqrt(0.08849555921538757^2 + 0.5^2) i_cdq(t) = sqrt(0.08849555921538757^2 + 0.5^2) vabs(t) = 1.0
 
 tmp_params = @parameters rf=0.0005 xlf=0.03141592653589793 xcf=5.305164769729845 rload=2.0 xload=10.0 cdc=0.0956 rdc=20.0 Tdc=0.05 kii=1.19 kip=0.738891 kiv=1.161022 kvp=0.52 pref0=0.5 vdcref=1.0 icmax=1.0 kvidroop=0.5 kvpdroop=0.001 ωf=10*pi kd=pi vref=1.0 v_qref = 0.0 idcmax=1.2 kdc=100.0
 # discrete states
 discrete_states = @variables q_icmax(t)=0.0 q_idcrefτ(t)=0.0
 
-
 # Auxillary variables and equations
+#rload_pe = sqrt(v_d^2+v_q^2)/rload
+rload_pe = rload
 v_dθ = v_d*cos(Δθ) + v_q*sin(Δθ)
 v_qθ = v_q*cos(Δθ) - v_d*sin(Δθ)
 v_cdθ = v_cd*cos(Δθ) + v_cq*sin(Δθ)
 v_cqθ = v_cq*cos(Δθ) - v_cd*sin(Δθ)
-i_dθ = v_dθ/rload + v_qθ/xload
-i_qθ = v_qθ/rload - v_dθ/xload
+i_dθ = v_dθ/rload_pe + v_qθ/xload
+i_qθ = v_qθ/rload_pe - v_dθ/xload
 i_cfdθ = -v_qθ/xcf
 i_cfqθ = v_dθ/xcf
 i_cdθ = i_dθ + i_cfdθ
@@ -35,18 +36,18 @@ i_cdref = i_dθ + x_vd + (v_dref - v_dθ)*kvp - v_qθ/xcf
 i_cqref = i_qθ + x_vq + (v_qref - v_qθ)*kvp + v_dθ/xcf
 i_absref = sqrt(i_cdref^2 + i_cqref^2)
 p_measθ = v_dθ*i_dθ + v_qθ*i_qθ
-i_cd = v_d/rload + v_q/xload - v_q/xcf
-i_cq = v_q/rload - v_d/xload + v_d/xcf
+i_cd = v_d/rload_pe + v_q/xload - v_q/xcf
+i_cq = v_q/rload_pe - v_d/xload + v_d/xcf
 i_dcref0 = p_ref/vdcref +  -Δv_dc*kdc + (1.0 + Δv_dc)/rdc + Δp_cf/vdcref
 Δp_c = v_cdθ*i_cdθ + v_cqθ*i_cqθ - p_measθ
 
-#i_d = i_dθ*cos(Δθ) - i_qθ*sin(Δθ)
-#i_q = i_qθ*cos(Δθ) + i_dθ*sin(Δθ)
-#i_abs = hypot(i_d,i_q)
+i_d = i_dθ*cos(Δθ) - i_qθ*sin(Δθ)
+i_q = i_qθ*cos(Δθ) + i_dθ*sin(Δθ)
+i_abs = hypot(i_d,i_q)
 
 eqs_gfm = [ 
-    0.0 ~ v_d - v_cd +  rf*(v_d/rload + v_q/xload - v_q/xcf) - xlf*(v_q/rload - v_d/xload + v_d/xcf)
-    0.0 ~ v_q - v_cq + xlf*(v_d/rload + v_q/xload - v_q/xcf) +  rf*(v_q/rload - v_d/xload + v_d/xcf)
+    0.0 ~ v_d - v_cd +  rf*(v_d/rload_pe + v_q/xload - v_q/xcf) - xlf*(v_q/rload_pe - v_d/xload + v_d/xcf)
+    0.0 ~ v_q - v_cq + xlf*(v_d/rload_pe + v_q/xload - v_q/xcf) +  rf*(v_q/rload_pe - v_d/xload + v_d/xcf)
     0.0 ~ v_cd - vcdm0*(1.0 + Δv_dc)/vdcref
     0.0 ~ v_cq - vcqm0*(1.0 + Δv_dc)/vdcref  
     D(x_id) ~ (i_cdlim - i_cdθ)*kii
@@ -66,6 +67,8 @@ eqs_gfm = [
     D(q_icmax) ~ 0.0
     D(q_idcrefτ) ~ 0.0
     0.0 ~ i_absref0 - i_absref
+    0.0 ~ i_cdq - i_abs
+    0.0 ~ vabs - sqrt(v_d^2 +v_q^2)
 ]
 
 all_states = [diff_states; alg_states;discrete_states]
@@ -74,6 +77,7 @@ t_events_off = [];
 
 function step_load_init(integ,u,p,ctx)
     integ.p[p.rload] = integ.p[p.rload]*5.0/(integ.p[p.rload] + 5.0)
+    #integ.p[p.rload] = integ.p[p.rload] + 0.2
     initialize_dae!(integ,BrownFullBasicInit())
 end
 
@@ -81,10 +85,11 @@ step_load_incr = [1.0,2.0,3.0] => (step_load_init,[],[rload],nothing)
 
 function step_load_decrease(integ,u,p,ctx)
     integ.p[p.rload] = 2.0
+    integ.u[u.q_icmax] = 0.0
     initialize_dae!(integ,BrownFullBasicInit())
 end
 
-step_load_decr =  [5.0] => (step_load_decrease,[],[rload],nothing)
+step_load_decr =  [4.0] => (step_load_decrease,[q_icmax],[rload],nothing)
 
 function affect_imax_on(integ,u,p,ctx)
     append!(t_events_on,integ.t)
@@ -99,8 +104,8 @@ function affect_imax_onoff(integ,u,p,ctx)
 end  
 
 imax_on = (i_absref-icmax-q_icmax>= 0.0) => (affect_imax_on,[q_icmax],[],nothing)
-imax_on_cont =  [i_absref0-icmax-0.01~0.0] => (affect_imax_onoff,[q_icmax],[],nothing)
-imax_off_cont = [i_absref0-icmax+0.01~0.0] => (affect_imax_onoff,[q_icmax],[],nothing)
+imax_on_cont =  [i_absref0-icmax-0.001~0.0] => (affect_imax_onoff,[q_icmax],[],nothing)
+imax_off_cont = [i_absref0-icmax+0.001~0.0] => (affect_imax_onoff,[q_icmax],[],nothing)
 
 
 function affect_imax_off(integ,u,p,ctx)
@@ -124,7 +129,7 @@ end
 idcmax_off = (i_dcrefτ < idcmax) => (affect_idcmax_off,[q_idcrefτ],[],[])
 all_disc_events = [step_load_incr,step_load_decr,imax_on,imax_off,idcmax_on,idcmax_off]
 
-ordered_states = [v_d,v_q,v_cd,v_cq,x_id,x_iq,i_cdlim,i_cqlim,x_vd,x_vq,x_vdroop,p_f,Δθ,p_ref,Δv_dc,i_dcref,i_dcrefτ,Δp_cf,q_icmax,q_idcrefτ,i_absref0]
+ordered_states = [v_d,v_q,v_cd,v_cq,x_id,x_iq,i_cdlim,i_cqlim,x_vd,x_vq,x_vdroop,p_f,Δθ,p_ref,Δv_dc,i_dcref,i_dcrefτ,Δp_cf,q_icmax,q_idcrefτ,i_absref0,i_cdq,vabs]
 loose_states = [diff_states; alg_states;discrete_states]
 
 @named odesys =     ODESystem(eqs_gfm,t,ordered_states,tmp_params; discrete_events = all_disc_events)
@@ -134,12 +139,23 @@ u0 = states(odesys) .=> collect(values(tmp))[ind_states]
 ind_params = setdiff(indexin(parameters(odesys),collect(keys(tmp))),[nothing])
 params = parameters(odesys) .=> collect(values(tmp))[ind_params] 
 prob  = ODEProblem(odesys, u0,(0.0,6.0),params)
-sol = solve(prob,Rodas4(),dtmax=1e-4,; tstops = [1.0,2.0,3.0], initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-8,reltol=1e-8);
-plot(sol,idxs=[q_icmax])
+sol = solve(prob,Rodas4(),dtmax=1e-2,; tstops = [1.0,2.0,3.0], initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-8,reltol=1e-8);
+maximum(sol[end,:])
+plot(sol,idxs=[vabs])
 t_events_off
 t_events_on
 plot(sol,idxs=[p_f])
 plot(sol,idxs=[v_cq])
+plot(sol,idxs=[i_absref0])
+plot(sol,idxs=[i_cdq])
+plot(sol,idxs=[Δθ])
+plot(sol,idxs=[Δv_dc])
+plot(sol,idxs=[x_vd])
+
+udc = sol[15,:].+1.0
+freq = sol[13,:]*.5 .+ 50.0
+using MATLAB
+write_matfile("sol_GFM_DAIS_with_secm.mat",t=sol.t,vgfm = sol[end,:],iabs=sol[end-1,:],p=sol[12,:],theta=sol[13,:],udc=sol[15,:].+1.0,freq=freq)
 
 using NonlinearSolve
 u0f = Float64.(collect(values(tmp))[ind_states])
@@ -174,7 +190,7 @@ ind_params = setdiff(indexin(parameters(odesyscont),collect(keys(tmp))),[nothing
 params = parameters(odesyscont) .=> collect(values(tmp))[ind_params] 
 tmp = ModelingToolkit.get_defaults(odesyscont);
 
-probcont  = ODEProblem(odesyscont, u0,(0.0,4.0),params)
+probcont  = ODEProblem(odesyscont, u0,(0.0,5.0),params)
 solcont = solve(probcont,Rodas4(),dtmax=1e-4; tstops = [1.0,2.0,3.0], initializealg = BrownFullBasicInit(),alg_hints=:stiff);
 plot(solcont,idxs=[q_icmax])
 plot(solcont,idxs=[p_f])
@@ -205,11 +221,13 @@ substitute((1.0 - q_icmax)*i_cqref - q_icmax*i_cqref*icmax/i_absref,df)
 substitute((1.0 - q_idcrefτ)*i_dcrefτ - q_idcrefτ*(sign(i_dcrefτ)*idcmax),df)
 
 #######Eigenvalue calculatoin####################
+include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/include_custom_nodes_lines_utilities.jl")
+include("C:/Users/liemann/github/PowerDynamicsDevelopment/src/sensitivity_analyses/Local_Sensitivity.jl")
 ew_noimax = CalcEigenValues(odesys,output = false,plot=true)
 
 ic_imax = states(odesys) .=> sol[end]
 @named new_odesys = ODESystem(eqs_gfm,t,ordered_states,tmp_params; defaults = ic_imax)
-ew_imax = CalcEigenValues(new_odesys,plot=true)
+ew_imax = CalcEigenValues(new_odesys,plot=true,output = true)
 
 f1 = my_rhs.(eqs_gfm);
 states(odesys) .=> substitute(Num.(f1),new_odesys.defaults)
@@ -321,7 +339,6 @@ myplot(pgsol,"bus_gfm",[:udc])
 plot(pgsol,"bus_gfm",:Pf)
 
 using MATLAB
-
 vr1 =  ExtractResult(pgsol,:u_r_1)
 vi1 =  ExtractResult(pgsol,:u_i_1)
 v = hypot.(vr1,vi1)
