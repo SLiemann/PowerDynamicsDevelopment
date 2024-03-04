@@ -36,7 +36,7 @@ function LTVS_Test_System_N32_PEL_TS(;share_pe = 0.3)
     Cpu = 1/(xcpu*ω0) * share_pe
 
     p_static, q_static = CalcnPFCPower(0.99034*sqrt(2),-Pload*share_pe,Cpu) #0.9904
-    qoff = QLoad - q_static*0
+    qoff = QLoad - q_static
     poff = Pload - p_static
     #p_static, q_static = CalcnPFCPower(0.99034*sqrt(2),-Pload*0.4,Cpu) #0.9904
 
@@ -131,8 +131,8 @@ function simulate_LTVS_N32_simulation_PEL_TS(pg::PowerGrid,ic::Vector{Float64},t
     pg_postfault = GetPostFaultLTVSPG_TS(pg)
     params = GetParams_PEL_TS(pg)
     #params[6]  += 0.1*params[6] #parameter disturbance
-    problem= ODEProblem{true}(rhs(pg),ic,tspan,params)
-    #sens_prob = ODEForwardSensitivityProblem(rhs(pg), ic, tspan, params,ForwardDiffSensitivity(convert_tspan=true);)
+    #problem= ODEProblem{true}(rhs(pg),ic,tspan,params)
+    sens_prob = ODEForwardSensitivityProblem(rhs(pg), ic, tspan, params,ForwardDiffSensitivity(convert_tspan=true);)
     tfault = [tfault_on(), tfault_off()]
     timer_start = -1.0
     FRT = 1.0 # -1 for LVRT, 0 for HVRT, 1.0 for stable
@@ -334,14 +334,14 @@ function simulate_LTVS_N32_simulation_PEL_TS(pg::PowerGrid,ic::Vector{Float64},t
         #ic_tmp[34] = 0.0
         #ic_tmp[35] = 0.0
         
-        op_prob = ODEProblem(rhs(pg_pcfault), ic_tmp, (0.0, 0.02), integrator.p)
+        op_prob = ODEProblem(rhs(pg_pcfault), ic_tmp, (0.0, 1e-5), integrator.p)
         x2 = solve(op_prob,Rodas4(),dtmax=1e-4,initializealg = BrownFullBasicInit(),alg_hints=:stiff,verbose=false,abstol=1e-8,reltol=1e-8)
 
         ode   = rhs(pg_postfault)
         integrator.f = ode
         integrator.cache.tf.f = integrator.f
 
-        ## Init PEL Model
+        # Init PEL Model
         ic_end = x2.u[end]
         # delete states of continouos fault
         ic_end = vcat(ic_end[1:end-len-2],ic_end[end-len+1:end])
@@ -351,33 +351,24 @@ function simulate_LTVS_N32_simulation_PEL_TS(pg::PowerGrid,ic::Vector{Float64},t
             ic_init[i] = ic_end[i]
         end
 
-        Vabs = hypot(ic_init[index_U_load],ic_init[index_U_load+1])*sqrt(2)
-        voff = integrator[index_voff_load]
-        Cd = deepcopy(integrator.p[p_pel_ind[1]])
-        Pdc = deepcopy(integrator.p[p_pel_ind[2]])
-        toff = integrator[index_toff_load]
-        T = 0.02
-        ω0 = 100*pi
+       # Vabs = hypot(ic_init[index_U_load],ic_init[index_U_load+1])*sqrt(2)
+       # voff = integrator[index_voff_load]
+       # Cd = deepcopy(integrator.p[p_pel_ind[1]])
+       # Pdc = deepcopy(integrator.p[p_pel_ind[2]])
+       # toff = integrator[index_toff_load]
+       # T = 0.02
+       # ω0 = 100*pi
+       # VoffT2 = deepcopy(integrator.u[index_vofft2_load])
+       # ton_new = CalfnPFCton(Vabs,Pdc,Cd,VoffT2)  
+       # if ton_new >= 0.0
+       #     integrator.u[index_qon_load] = 1.0
+       # else
+       #     integrator.u[index_qon_load] = 0.0           
+       #end 
+       # integrator.u[index_ton_load]  = ton_new
+       # ictmp = deepcopy(integrator.u)
+       # initialize_dae!(integrator,BrownFullBasicInit())
 
-        VoffT2 = deepcopy(integrator.u[index_vofft2_load])
-
-        #voff_new = Vabs*sin(ω0*toff)
-        #VoffT2_new = CalfnPFCVoffT2(voff_new,Pdc,Cd,(T/2-toff))
-        #toff_new = CalcnPFCtoff(Vabs,Pdc,Cd)
-        #voff_new = Vabs*sin(100*pi*toff_new)
-        ton_new = CalfnPFCton(Vabs,Pdc,Cd,VoffT2)  
-        if ton_new >= 0.0
-            integrator.u[index_qon_load] = 1.0
-        else
-            integrator.u[index_qon_load] = 0.0           
-        end 
-
-        #integrator.u[index_vofft2_load]  = VoffT2_new
-        #integrator.u[index_voff_load]  = voff_new
-        #integrator.u[index_toff_load]  = toff_new
-        integrator.u[index_ton_load]  = ton_new
-        ictmp = deepcopy(integrator.u)
-        initialize_dae!(integrator,BrownFullBasicInit())
         evr = vcat(evr, [integrator.t ind_odesys 0 0 integrator.p'])
     end
 
@@ -439,19 +430,20 @@ function simulate_LTVS_N32_simulation_PEL_TS(pg::PowerGrid,ic::Vector{Float64},t
     #cb10 = DiscreteCallback(check_GFM_voltage_HVRT13, stop_integration_HVRT)
     #cb11 = DiscreteCallback(check_GFM_voltage_HVRT12, stop_integration_HVRT)
     cb_tsum = DiscreteCallback(f_tsum, affect_tsum, save_positions=(false,false))
+    cb_stop = DiscreteCallback(check_OLTC_voltage, stop_integration)
 
     stiff  = repeat([:stiff],length(ic)) #, callback = CallbackSet(cb1,cb2,cb21,cb3,cb4,cb5)
     #cb7,cb8,cb9,cb10,cb11,
     tstops_sim =collect(tspan[1]:0.01:tspan[2]);
     sort!(tstops_sim)
     #,cb_nhw,cb_tpos,cb_tneg 
-    sol = solve(problem, Rodas4(autodiff=true),callback = CallbackSet(cb1,cb2,cb21,cb3,cb4,cb5,cb_tsum), tstops=tstops_sim, dtmax = dt_max(),force_dtmin=true,maxiters=1e6, initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-8,reltol=1e-8) #
+    sol = solve(sens_prob, Rodas4(autodiff=true),callback = CallbackSet(cb1,cb2,cb21,cb3,cb4,cb5,cb_tsum,cb_stop), tstops=tstops_sim, dtmax = dt_max(),force_dtmin=true,maxiters=1e6, initializealg = BrownFullBasicInit(),alg_hints=:stiff,abstol=1e-7,reltol=1e-7) #
     #display(sol.retcode)
     # good values abstol=1e-8,reltol=1e-8 and Rodas5(autodiff=true) for droop
     #success = deepcopy(sol.retcode)
-    if sol.retcode != :Success
-        sol = DiffEqBase.solution_new_retcode(sol, :Success)
-    end
-    return PowerGridSolution(sol, pg), evr
-    #return sol, evr
+    #if sol.retcode != :Success
+    #    sol = DiffEqBase.solution_new_retcode(sol, :Success)
+    #end
+    #return PowerGridSolution(sol, pg), evr
+    return sol, evr
 end

@@ -16,7 +16,7 @@ tfault_on() = 0.1
 tfault_off() =  tfault_on() + 0.1
 dt_max() = 1e-3
 
-function LTVS_Test_System_N32_GFM_PEL_TS(;gfm=1,awu=1.0,share_pe = 0.1) #1 = droop, 2 = matching, 3 = dVOC, 4 = VSM
+function LTVS_Test_System_N32_GFM_PEL_TS(;gfm=1,awu=1.0,share_pe = 0.3) #1 = droop, 2 = matching, 3 = dVOC, 4 = VSM
     Q_Shunt_EHV = 600e6/Sbase
     Q_Shunt_HV = 850e6/Sbase
     Pload = -7580e6 /Sbase
@@ -56,6 +56,7 @@ function LTVS_Test_System_N32_GFM_PEL_TS(;gfm=1,awu=1.0,share_pe = 0.1) #1 = dro
     Cpu = 1/(xcpu*ω0) * share_pe
 
     p_static, q_static = CalcnPFCPower(0.99034*sqrt(2),-Pload*share_pe,Cpu) #0.9904
+    display(q_static)
     qoff = QLoad - q_static
     poff = Pload - p_static
 

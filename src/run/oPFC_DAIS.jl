@@ -43,12 +43,16 @@ begin
         du[5] = 0.0 # t_off
         du[6] = 0.0 # a
         du[7] = 0.0 # b
+        du[8] = (u[6]-u[8])/0.01 # filtered Q
+        du[9] = (u[7]-u[9])/0.01 # filtered P
+        du[10] = (u[6]-u[10])/0.02 # filtered Q
+        du[11] = (u[7]-u[11])/0.02 # filtered P
     end
 
-    u0 = [230*sqrt(2), 302.8363396315289,0.0,0.0034,0.00511210289264389,0.3228826988911387,1.0]
+    u0 = [230*sqrt(2), 302.8363396315289,0.0,0.0034,0.00511210289264389,0.3228826988911387,1.0,0.3228826988911387,1.0,0.3228826988911387,1.0]
     p =  [230*sqrt(2),100*pi,1000.0,700e-6]
 
-    M = Diagonal([0, 1, 1, 1, 1, 1, 1])
+    M = Diagonal([0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1])
 
     function fault_start(integrator)
         integrator.p[1] = 0.5*integrator.p[1]
@@ -144,8 +148,14 @@ begin
 end
 
 plot(sol,idxs=[6,7])
+plot!(sol,idxs=[8,9,10,11])
 plot(sol,idxs=[1])
-
 plot(sol.t.-sol[9,:])
+
+### Saving results
+using MATLAB
+path = "C:\\Users\\liemann\\github\\PowerDynamicsDevelopment\\src\\results\\"
+state_labels = ["a","b","q10","p10","q20","p20"]
+write_matfile(path*"phasor_filtered_power.mat"; sol = sol[6:11,:]',time = sol.t,state_labels =state_labels)
 
 

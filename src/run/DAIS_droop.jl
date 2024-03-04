@@ -54,12 +54,12 @@ eqs_gfm = [
     D(x_iq) ~ (i_cqlim - i_cqθ)*kii
     0.0 ~ i_cdlim  - (1.0 - q_icmax)*i_cdref - q_icmax*i_cdref*icmax/i_absref
     0.0 ~ i_cqlim  - (1.0 - q_icmax)*i_cqref - q_icmax*i_cqref*icmax/i_absref
-    D(x_vd) ~ (v_dref - v_dθ)*kiv*(1.0 - q_icmax)
-    D(x_vq) ~ (v_qref - v_qθ)*kiv*(1.0 - q_icmax)
-    D(x_vdroop) ~ (vref - sqrt(v_dθ^2 + v_qθ^2))*kvidroop*(1.0 - q_icmax)
+    D(x_vd) ~ (v_dref - v_dθ)*kiv*(1.0 - q_icmax*0)
+    D(x_vq) ~ (v_qref - v_qθ)*kiv*(1.0 - q_icmax*0)
+    D(x_vdroop) ~ (vref - sqrt(v_dθ^2 + v_qθ^2))*kvidroop*(1.0 - q_icmax*0)
     D(p_f) ~ (p_measθ - p_f)*ωf
     D(Δθ) ~ (p_ref - p_f)*kd
-    0.0 ~ p_ref - (1.0 - q_icmax)*pref0 - q_icmax*(i_cdlim*v_dθ + i_cqlim*v_qθ)
+    0.0 ~ p_ref - (1.0 - q_icmax*0)*pref0 - 0*q_icmax*(i_cdlim*v_dθ + i_cqlim*v_qθ)
     D(Δv_dc) ~ (i_dcref -(1.0 +Δv_dc)/rdc - (v_cd*i_cd + v_cq*i_cq)/(1.0 +Δv_dc))/cdc
     0.0 ~ i_dcref - (1.0 - q_idcrefτ)*i_dcrefτ - q_idcrefτ*(sign(i_dcrefτ)*idcmax)
     D(i_dcrefτ) ~ (i_dcref0 - i_dcrefτ)/Tdc
@@ -155,7 +155,7 @@ plot(sol,idxs=[x_vd])
 udc = sol[15,:].+1.0
 freq = sol[13,:]*.5 .+ 50.0
 using MATLAB
-write_matfile("sol_GFM_DAIS_with_secm.mat",t=sol.t,vgfm = sol[end,:],iabs=sol[end-1,:],p=sol[12,:],theta=sol[13,:],udc=sol[15,:].+1.0,freq=freq)
+write_matfile("sol_GFM_DAIS_no_secm.mat",t=sol.t,vgfm = sol[end,:],iabs=sol[end-1,:],p=sol[12,:],theta=sol[13,:],udc=sol[15,:].+1.0,freq=freq)
 
 using NonlinearSolve
 u0f = Float64.(collect(values(tmp))[ind_states])

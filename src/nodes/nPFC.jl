@@ -26,10 +26,10 @@ end [[vofft2, dvofft2],[ton,dton],[toff,dtoff],[p1,dp1],[q1,dq1],[voff,dvoff],[q
     dvoff = 0.0
     dq_on = 0.0
 
-    dps = (p1 - ps)/0.02
-    dqs = (q1 - qs)/0.02  
+    dps = (p1 - ps)/0.01
+    dqs = (q1 - qs)/0.01  
     
-    du = (p1+p_off) + im*(q1+q_off) - s
+    du = (ps+p_off) + im*(qs+q_off) - s
 end
 
 export nPFC
